@@ -308,9 +308,14 @@ fn check_rule(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
         "refname-autonumber" => line_scan(rule, text, &REF_AUTONUMBER, "auto ref name", findings),
         "sfn-usage" => line_scan(rule, text, &SFN, "{{sfn}}", findings),
         "named-ref-with-pinpoint" => {
+            // Mask HTML comments first: a `<!-- |pages=13 -->` note inside a
+            // cite is not a live parameter.
+            static COMMENT: LazyLock<Regex> =
+                LazyLock::new(|| Regex::new(r"(?s)<!--.*?-->").expect("valid regex"));
+            let cleaned = COMMENT.replace_all(text, "");
             line_scan(
                 rule,
-                text,
+                &cleaned,
                 &NAMED_REF_PINPOINT,
                 "named ref carries |page=",
                 findings,
@@ -776,6 +781,17 @@ mod tests {
         let findings = super::scan_whole_page(text, &c);
         assert!(
             !findings.iter().any(|f| f.rule == "national-variety-mix"),
+            "{findings:?}"
+        );
+    }
+
+    #[test]
+    fn pinpoint_inside_html_comment_is_not_a_param() {
+        let c = cfg();
+        let text = r#"Text.<ref name="mcphee">{{Cite magazine |title=Templex |magazine=The New Yorker <!-- |pages=13-40 --> |date=1968}}</ref>"#;
+        let findings = super::scan_whole_page(text, &c);
+        assert!(
+            !findings.iter().any(|f| f.rule == "named-ref-with-pinpoint"),
             "{findings:?}"
         );
     }
