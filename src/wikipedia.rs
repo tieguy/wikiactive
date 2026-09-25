@@ -361,10 +361,19 @@ impl Wikipedia {
             }
             return Err(WikipediaError::Api { code, info });
         }
-        let new_revid = resp
-            .pointer("/edit/newrevid")
-            .and_then(Value::as_u64)
-            .ok_or_else(|| WikipediaError::BadShape("edit.newrevid".into()))?;
+        // A successful save of identical content is a null edit: the API
+        // returns result=Success with NO newrevid. Report it as a no-change
+        // outcome (the page already holds this text), not a shape error.
+        let Some(new_revid) = resp.pointer("/edit/newrevid").and_then(Value::as_u64) else {
+            if resp.pointer("/edit/result").and_then(Value::as_str) == Some("Success") {
+                tracing::info!("null edit: page already contains this text (nochange)");
+                return Ok(EditOutcome {
+                    new_revid: req.base_revid,
+                    diff_url: String::new(), // no revision was created
+                });
+            }
+            return Err(WikipediaError::BadShape("edit.newrevid".into()));
+        };
         Ok(EditOutcome {
             new_revid,
             diff_url: format!(

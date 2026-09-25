@@ -353,3 +353,37 @@ async fn create_from_base_zero_posts_without_baserevid() {
     assert_eq!(outcome.new_revid, 42);
     assert_eq!(edit_mock.calls(), 1);
 }
+
+/// A successful save of identical content returns result=Success with no
+/// newrevid: the tool reports a no-change outcome, not a shape error.
+#[tokio::test]
+async fn null_edit_reports_no_change() {
+    let server = MockServer::start_async().await;
+    mock_csrf_token(&server).await;
+    mock_revid(&server, 700, "Article").await;
+    server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .body_includes("action=edit");
+            then.status(200).json_body(serde_json::json!({
+                "edit": {"result": "Success", "nochange": true}
+            }));
+        })
+        .await;
+
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .unwrap();
+    let req = EditRequest {
+        title: "Article",
+        base_revid: 700,
+        wikitext: "identical text",
+        summary: "same again",
+        review_artifact: None,
+        dry_run: false,
+    };
+    let mut approve = Approve;
+    let outcome = wiki.edit(req, &mut approve).await.expect("null edit ok");
+    assert_eq!(outcome.new_revid, 700, "base stands; no revision created");
+    assert!(outcome.diff_url.is_empty());
+}
