@@ -25,6 +25,13 @@ pub const ENWIKI_API: &str = "https://en.wikipedia.org/w/api.php";
 /// Env var carrying the `OAuth2` owner-only token.
 pub const OAUTH2_TOKEN_ENV: &str = "WIKIACTIVE_OAUTH2_TOKEN";
 
+/// Env var for the BotPasswords smoke-test fallback:
+/// `WIKIACTIVE_BOTPASSWORD="SomeUser@botname:password"`. Plan policy:
+/// BotPasswords is for the userspace smoke test ONLY, never mainspace —
+/// mainspace requires the OAuth owner-only consumer (descriptive tool tag,
+/// revocable grant).
+pub const BOTPASSWORD_ENV: &str = "WIKIACTIVE_BOTPASSWORD";
+
 /// Confirmation source for the publish gate: the model can never
 /// self-publish — an interactive read through this trait is required.
 pub trait ConfirmSource {
@@ -136,15 +143,39 @@ pub struct Wikipedia {
 }
 
 impl Wikipedia {
-    /// Connect to en.wikipedia with etiquette defaults and the `OAuth2`
-    /// owner-only token from [`OAUTH2_TOKEN_ENV`] (unauthenticated read-only
-    /// if unset).
+    /// Connect to en.wikipedia with etiquette defaults and credentials from
+    /// the environment: `OAuth2` owner-only token from [`OAUTH2_TOKEN_ENV`]
+    /// if set, else the BotPasswords fallback from [`BOTPASSWORD_ENV`]
+    /// (smoke-test only), else unauthenticated read-only.
     ///
     /// # Errors
     /// Client construction failure.
     pub async fn connect() -> Result<Self, WikipediaError> {
-        let token = std::env::var(OAUTH2_TOKEN_ENV).ok();
-        Self::connect_with_api_url(ENWIKI_API, token.as_deref()).await
+        let oauth2_token = std::env::var(OAUTH2_TOKEN_ENV).ok();
+        let botpassword = std::env::var(BOTPASSWORD_ENV).ok();
+        let mut builder = Self::base_builder(ENWIKI_API);
+        if let Some(token) = oauth2_token.as_deref() {
+            builder = builder.set_oauth2_token(token);
+        } else if let Some(cred) = botpassword.as_deref() {
+            let (user, pass) = cred.split_once(':').ok_or_else(|| {
+                WikipediaError::BadShape(format!(
+                    "{BOTPASSWORD_ENV} must be 'User@botname:password'"
+                ))
+            })?;
+            builder = builder.set_botpassword(user, pass);
+        }
+        Ok(Self {
+            api: builder.build().await?,
+        })
+    }
+
+    /// The etiquette-conformant builder base (UA, maxlag, assert, serial).
+    fn base_builder(api_url: &str) -> mwapi::Builder {
+        ApiClient::builder(api_url)
+            .set_user_agent(crate::USER_AGENT)
+            .set_maxlag(5)
+            .set_assert(Assert::User)
+            .set_concurrency(1)
     }
 
     /// Connect to an explicit API URL (tests point this at a mock server).
@@ -155,11 +186,7 @@ impl Wikipedia {
         api_url: &str,
         oauth2_token: Option<&str>,
     ) -> Result<Self, WikipediaError> {
-        let mut builder = ApiClient::builder(api_url)
-            .set_user_agent(crate::USER_AGENT)
-            .set_maxlag(5)
-            .set_assert(Assert::User)
-            .set_concurrency(1);
+        let mut builder = Self::base_builder(api_url);
         if let Some(token) = oauth2_token {
             builder = builder.set_oauth2_token(token);
         }
