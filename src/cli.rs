@@ -104,6 +104,17 @@ pub enum Command {
     },
     /// Whole-page lint scan (pre-existing defects; also used by replay).
     Lint { path: PathBuf },
+    /// Append this session's entry to the disclosure page log (idempotent;
+    /// uses house-rules disclosure page).
+    DisclosureLog {
+        slug: String,
+        /// Entry body (article, date, model, diff links) as wikitext.
+        #[arg(long)]
+        entry: String,
+        /// Unique marker for idempotency (e.g. wa-session:2026-09-25-tf).
+        #[arg(long)]
+        marker: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -232,6 +243,11 @@ pub async fn run(cli: Cli) -> Result<()> {
             } => ledger_claim(&slug, &prose, &quotes),
         },
         Command::Lint { path } => lint_cmd(&path),
+        Command::DisclosureLog {
+            slug,
+            entry,
+            marker,
+        } => disclosure_log_cmd(&slug, &entry, &marker).await,
     }
 }
 
@@ -728,6 +744,32 @@ fn ledger_claim(slug: &str, prose: &str, quotes: &[String]) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     ledger.save(&paths.ledger())?;
     println!("claim {id} recorded");
+    Ok(())
+}
+
+async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()> {
+    let _ = slug;
+    let corpus =
+        RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let wiki = Wikipedia::connect().await?;
+    let mut confirm = TtyConfirm;
+    let appended = wiki
+        .append_disclosure_log(
+            &corpus.house_rules.disclosure.page,
+            entry,
+            marker,
+            &mut confirm,
+        )
+        .await?;
+    println!(
+        "disclosure log {} for {}",
+        if appended {
+            "appended"
+        } else {
+            "already present (no-op)"
+        },
+        corpus.house_rules.disclosure.page
+    );
     Ok(())
 }
 
