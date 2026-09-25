@@ -15,6 +15,10 @@
 use crate::checks::quote_anchor::locate_quote;
 use serde::{Deserialize, Serialize};
 
+pub mod net;
+
+pub use net::{EarwigClient, NetError, SavePageNow, SourceFetcher};
+
 /// Ledger schema version (bump on breaking change; loader refuses newer).
 pub const LEDGER_SCHEMA_VERSION: u32 = 1;
 

@@ -12,6 +12,7 @@
 pub mod checks;
 pub mod ledger;
 pub mod session;
+pub mod wikipedia;
 
 /// User-Agent used for every outbound HTTP request to Wikimedia (and, with
 /// the same identity, to source/archive/Earwig hosts). Product-internalized
