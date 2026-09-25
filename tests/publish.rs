@@ -52,7 +52,7 @@ async fn mock_revid<'a>(server: &'a MockServer, revid: u64, title: &str) -> http
 }
 
 /// Mock GET+POST pair for a successful edit (matchers assert the body shape).
-async fn mock_edit_ok<'a>(server: &'a MockServer) -> httpmock::Mock<'a> {
+async fn mock_edit_ok(server: &MockServer) -> httpmock::Mock<'_> {
     mock_csrf_token(server).await;
     server
         .mock_async(|when, then| {
