@@ -447,7 +447,9 @@ pub fn session_url_from_state(
 ) -> Option<String> {
     let text = std::fs::read_to_string(state_path).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
-    let artifact_str = artifact.to_string_lossy();
+    // The caller may pass a relative path while lavish records absolute
+    // ones: canonicalize when possible, else fall back to suffix matching.
+    let canonical = artifact.canonicalize().ok();
     value
         .pointer("/sessions")?
         .as_object()?
@@ -457,7 +459,11 @@ pub fn session_url_from_state(
             let url = sess.get("url")?.as_str()?;
             Some((file.to_string(), url.to_string()))
         })
-        .find(|(file, _)| std::path::Path::new(file) == std::path::Path::new(&*artifact_str))
+        .find(|(file, _)| {
+            let file_path = std::path::Path::new(file);
+            canonical.as_ref().is_some_and(|c| file_path == c.as_path())
+                || file_path.ends_with(artifact)
+        })
         .map(|(_, url)| url)
 }
 
