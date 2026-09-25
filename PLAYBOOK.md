@@ -132,6 +132,16 @@ mechanically (`LLM-Disclosure: U:LuisVilla/wikiactive`).
 *use in article with attribution → `{{efn}}` → talk page (negative results
 and end-of-session provenance only) → drop.*
 
+### Drafting-style guards vs article defects
+
+Rules like the semicolon ban (`semicolon-prose`) are **model-quirk guards**:
+they gate every line *this tool drafts* (added-lines enforcement, hard
+block) but are not reported as pre-existing article defects — a semicolon
+in existing prose may be another editor's (or another model's) style, not
+ours to flag. Scope `drafted-lines` in `rules/linter.toml` encodes this
+(operator review note, TF live session round 1: the semicolon tic is an
+Opus 5.5 drafting quirk).
+
 ### Known limitations (by design)
 
 - The lavish revisions legend lists **at most 6 rounds**; the registry in

@@ -51,6 +51,12 @@ impl Severity {
 pub enum Scope {
     WholePage,
     AddedLines,
+    /// Drafting-style rules (model-quirk guards): gate added lines like
+    /// `AddedLines`, but do NOT report as pre-existing defects in whole-page
+    /// scans — a semicolon in existing article prose may be another editor's
+    /// (or another model's) style, not ours to flag (operator review note,
+    /// TF round 1: the semicolon tic is an Opus 5.5 drafting quirk).
+    DraftedLines,
 }
 
 /// One declared linter rule (parsed from `rules/linter.toml`).
@@ -253,6 +259,9 @@ pub fn added_lines(base: &str, proposed: &str) -> Vec<(usize, String)> {
 pub fn scan_whole_page(wikitext: &str, cfg: &LinterConfig) -> Vec<LintFinding> {
     let mut findings = Vec::new();
     for rule in cfg.rules.values() {
+        if rule.applies == Scope::DraftedLines {
+            continue; // drafting-style guard, not an article defect
+        }
         check_rule(rule, wikitext, &mut findings);
     }
     findings.sort_by(|a, b| a.rule.cmp(&b.rule).then(a.line.cmp(&b.line)));
@@ -273,7 +282,7 @@ pub fn gate(base: &str, proposed: &str, cfg: &LinterConfig) -> Vec<LintFinding> 
 
     for rule in cfg.rules.values() {
         match rule.applies {
-            Scope::AddedLines => {
+            Scope::AddedLines | Scope::DraftedLines => {
                 for (line, text) in &added {
                     check_rule_on(rule, text, *line, &mut findings);
                 }
@@ -825,7 +834,7 @@ mod tests {
             .values()
             .find(|r| r.id == "semicolon-prose")
             .expect("present");
-        assert_eq!(semicolon.applies, Scope::AddedLines);
+        assert_eq!(semicolon.applies, Scope::DraftedLines);
         let heading = c
             .rules
             .values()

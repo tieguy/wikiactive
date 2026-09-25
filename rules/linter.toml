@@ -54,9 +54,9 @@ sample_clean = "== Life ==\nHe was born in 1910."
 
 [rules.semicolon_prose]
 id = "semicolon-prose"
-description = "House rule: no semicolons in drafted prose; split the sentence or restructure"
+description = "Drafting-style guard (model-quirk): no semicolons in lines this tool drafts; existing article prose is not flagged"
 severity = "error"
-applies = "added-lines"
+applies = "drafted-lines"
 sample_violation = "The bridge opened in 1937; it cost $35 million."
 sample_clean = "The bridge opened in 1937 and cost $35 million."
 
