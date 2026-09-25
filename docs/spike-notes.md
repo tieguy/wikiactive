@@ -40,12 +40,39 @@
   (`http://…:4387/session/c9306658e8a64100`), poll running in a tracked
   background job.
 
-## Manual annotation round-trip (Phase 0.3) — PENDING OPERATOR
+## Manual annotation round-trip (Phase 0.3) — COMPLETE (2026-09-24 ~20:10)
 
-Waiting on the operator's three annotations (element comment, text
-selection, evidence comment) + Send. On delivery: capture the real poll
-TOON + annotation payload into `fixtures/lavish/`, resolve the selectors
-through `wa poll`, and record results here.
+The operator annotated the live session (Tailscale URL) and sent three
+comments, ending the session:
+
+1. element comment on the pane section (`selector: section#pane-new`) —
+   demonstrates a comment that does NOT root at a changed block: resolution
+   correctly fails loudly (the model sees UNRESOLVED, never a silent skip);
+2. text-range comment on `div#wa-1` — `target.type: text-range`,
+   `start.path[1]: 4, offset: 43`, `end.offset: 77`,
+   `text: "several hundred grammar/nitpicking"`;
+3. element comment on the evidence card (`div#ev-1`).
+
+Captured fixtures:
+- `fixtures/lavish/poll-feedback-real.toon` — the real poll TOON output
+  (includes the `[lavish-axi]` banner line; the parser skips banner lines).
+- `fixtures/lavish/spike-session-state.json` — the raw session state
+  (lavish's own JSON; supplementary reference for payload shapes).
+
+Parser/reality deltas discovered and handled (why the plan wanted a real
+capture):
+- poll output nests `status`/`session_ended`/`ended_by` under a root
+  `session:` map, not bare;
+- `prompts[3]:` rows are `- key: value` list items (YAML-ish dashes), one
+  object per `- `, fields on deeper lines;
+- nested maps open with bare `target:` / `start:` (no space after colon);
+- array values render as `path[1]: 4`;
+- selectors in the wild are `tag#id` (`div#wa-1`) — confirming the
+  id-rooted selector design.
+
+Pinned by `src/lavish.rs` tests `parses_real_captured_feedback_fixture` and
+`real_feedback_resolves_through_anchor_table` (parse → 3 comments →
+anchor-table resolution, including the pane-level loud failure).
 
 ## Write round-trip
 

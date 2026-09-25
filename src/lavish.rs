@@ -80,7 +80,9 @@ pub fn parse_toon(text: &str) -> Toon {
         .lines()
         .filter_map(|raw| {
             let trimmed = raw.trim();
-            if trimmed.is_empty() {
+            if trimmed.is_empty() || trimmed.starts_with("[lavish-axi]") {
+                // Poll banner chatter, not TOON (real capture:
+                // fixtures/lavish/poll-feedback-real.toon).
                 return None;
             }
             let indent = raw.len() - raw.trim_start().len();
@@ -121,13 +123,19 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
                     out.push((key, Toon::List(Vec::new())));
                     continue;
                 }
-                // KV-style entries under the header form object rows
-                // (e.g. `prompts[1]:` followed by `prompt: …` pairs);
-                // plain scalar lines are table rows.
-                let kv_like = deeper
+                // Observed row shapes (fixtures/lavish/poll-feedback-real.toon):
+                //  (a) `- key: value` list items — one object per `- ` start,
+                //      fields on the following deeper lines;
+                //  (b) bare `key: value` lines — a single object;
+                //  (c) plain scalars — string table rows.
+                if deeper.iter().any(|(_, l)| l.starts_with("- ")) {
+                    *pos = start;
+                    let items = parse_list_items(lines, pos, indent);
+                    out.push((key, Toon::List(items)));
+                } else if deeper
                     .iter()
-                    .any(|(_, l)| l.contains(": ") || (l.ends_with(':') && table_key(l).is_none()));
-                if kv_like {
+                    .any(|(_, l)| l.contains(": ") || (l.ends_with(':') && table_key(l).is_none()))
+                {
                     let mut p = start;
                     let child_indent = deeper[0].0;
                     let children = parse_block(lines, &mut p, child_indent);
@@ -160,6 +168,16 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
             *pos += 1;
             continue;
         }
+        // Bare scalar: when deeper lines follow, it opens an implicit map
+        // (observed: the leading file-path line with `status:` beneath it).
+        if lines.get(*pos + 1).is_some_and(|(i, _)| *i > indent) {
+            let key = strip_quotes(line).to_string();
+            *pos += 1;
+            let child_indent = lines[*pos].0.max(indent + 1);
+            let children = parse_block(lines, pos, child_indent);
+            out.push((key, Toon::Map(children)));
+            continue;
+        }
         out.push((
             "__line".to_string(),
             Toon::Str(strip_quotes(line).to_string()),
@@ -167,6 +185,92 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
         *pos += 1;
     }
     out
+}
+
+/// Parse `- key: value` list items (one [`Toon::Map`] per item) under a table
+/// header at `header_indent`. Item fields continue on deeper lines until the
+/// next `- ` at the item indent or a dedent to the header level.
+fn parse_list_items(lines: &[(usize, String)], pos: &mut usize, header_indent: usize) -> Vec<Toon> {
+    let mut items = Vec::new();
+    while *pos < lines.len() {
+        let (ind, line) = &lines[*pos];
+        if *ind <= header_indent {
+            break;
+        }
+        if !line.starts_with("- ") {
+            // Non-dash line inside a dash region: skip as scalar.
+            *pos += 1;
+            continue;
+        }
+        let item_indent = *ind;
+        let mut fields = Vec::new();
+        let first = line[2..].to_string();
+        *pos += 1;
+        if let Some((k, v)) = split_kv_inline(&first) {
+            if v.is_empty() {
+                let child_indent = lines
+                    .get(*pos)
+                    .map_or(item_indent + 1, |(i, _)| *i)
+                    .max(item_indent + 2);
+                let children = parse_block(lines, pos, child_indent);
+                fields.push((k, Toon::Map(children)));
+            } else {
+                fields.push((k, parse_value(&v)));
+            }
+        }
+        while *pos < lines.len() && lines[*pos].0 > item_indent {
+            let (ci, cline) = &lines[*pos];
+            if cline.starts_with("- ") {
+                fields.push((
+                    "__line".to_string(),
+                    Toon::Str(strip_quotes(cline).to_string()),
+                ));
+                *pos += 1;
+                continue;
+            }
+            if cline.ends_with(':') && !cline.starts_with("- ") {
+                // Bare `key:` — nested map opener (e.g. `target:`).
+                let k = strip_count(cline[..cline.len() - 1].trim());
+                let child_indent = lines
+                    .get(*pos + 1)
+                    .map_or(*ci + 1, |(i, _)| *i)
+                    .max(*ci + 1);
+                *pos += 1;
+                let children = parse_block(lines, pos, child_indent);
+                fields.push((k, Toon::Map(children)));
+            } else if let Some((k, v)) = split_kv_inline(cline) {
+                if v.is_empty() {
+                    let child_indent = lines
+                        .get(*pos + 1)
+                        .map_or(*ci + 1, |(i, _)| *i)
+                        .max(*ci + 1);
+                    *pos += 1;
+                    let children = parse_block(lines, pos, child_indent);
+                    fields.push((k, Toon::Map(children)));
+                } else {
+                    fields.push((k, parse_value(&v)));
+                    *pos += 1;
+                }
+            } else {
+                fields.push((
+                    "__line".to_string(),
+                    Toon::Str(strip_quotes(cline).to_string()),
+                ));
+                *pos += 1;
+            }
+        }
+        items.push(Toon::Map(fields));
+    }
+    items
+}
+
+/// Split `key: value`; `None` when the line is not a KV line.
+fn split_kv_inline(line: &str) -> Option<(String, String)> {
+    let idx = line.find(": ")?;
+    Some((
+        strip_count(line[..idx].trim()),
+        line[idx + 2..].trim().to_string(),
+    ))
 }
 
 /// Key of a table header `key[n]{cols}:` / `key[n]:` (line already ends with
@@ -276,20 +380,25 @@ pub fn comments_from_poll(tree: &Toon) -> Vec<CommentPrompt> {
                         tmap.iter()
                             .find(|(key, _)| key == name)
                             .and_then(|(_, v)| v.as_map())
-                            .map(|b| crate::anchors::RangeBoundary {
-                                selector: b
-                                    .iter()
-                                    .find(|(k, _)| k == "selector")
-                                    .and_then(|(_, v)| v.as_str())
-                                    .unwrap_or_default()
-                                    .to_string(),
-                                path: Vec::new(),
-                                offset: b
-                                    .iter()
-                                    .find(|(k, _)| k == "offset")
-                                    .and_then(|(_, v)| v.as_str())
-                                    .and_then(|s| s.parse().ok())
-                                    .unwrap_or(0),
+                            .map(|b| {
+                                let get = |k: &str| {
+                                    b.iter()
+                                        .find(|(key, _)| key == k)
+                                        .and_then(|(_, v)| v.as_str())
+                                        .unwrap_or_default()
+                                        .to_string()
+                                };
+                                // `path[2]: 3 5` parses to [3, 5];
+                                // `path[1]: 4` to [4].
+                                let path = get("path")
+                                    .split_whitespace()
+                                    .filter_map(|p| p.parse().ok())
+                                    .collect();
+                                crate::anchors::RangeBoundary {
+                                    selector: get("selector"),
+                                    path,
+                                    offset: get("offset").parse().unwrap_or(0),
+                                }
                             })
                             .unwrap_or_default()
                     };
@@ -435,6 +544,85 @@ mod tests {
             }
             crate::anchors::CommentTarget::Other => panic!("expected text-range"),
         }
+    }
+
+    /// The REAL captured round-trip payload (Phase 0 gate): three operator
+    /// annotations — pane element comment, text-range on wa-1, evidence
+    /// comment on ev-1. The parser must reproduce all three, and the
+    /// anchors resolver must map them exactly as the operator intended.
+    #[test]
+    fn parses_real_captured_feedback_fixture() {
+        let captured =
+            std::fs::read_to_string("fixtures/lavish/poll-feedback-real.toon").expect("fixture");
+        let tree = parse_toon(&captured);
+
+        // Session status under the leading file-path line.
+        // The session block is a root map (file/status/…); the poll banner
+        // line before it is skipped by the parser.
+        let session = tree.get("session").expect("session map");
+        assert_eq!(
+            session.get("status").and_then(Toon::as_str),
+            Some("feedback")
+        );
+        assert_eq!(session.get("ended_by").and_then(Toon::as_str), Some("user"));
+        assert!(
+            session
+                .get("file")
+                .and_then(Toon::as_str)
+                .is_some_and(|f| f.ends_with("spike-roundtrip.html"))
+        );
+
+        let comments = comments_from_poll(&tree);
+        assert_eq!(comments.len(), 3, "{comments:?}");
+
+        // (1) element comment rooted at the pane section.
+        assert_eq!(comments[0].selector, "section#pane-new");
+        assert!(comments[0].prompt.contains("whole element"));
+
+        // (2) text-range comment on wa-1 with real path/offset values.
+        assert_eq!(comments[1].selector, "div#wa-1");
+        let target = comments[1].target.as_ref().expect("target");
+        match target {
+            crate::anchors::CommentTarget::TextRange {
+                text, start, end, ..
+            } => {
+                assert_eq!(text, "several hundred grammar/nitpicking");
+                assert_eq!(start.path, vec![4]);
+                assert_eq!(start.offset, 43);
+                assert_eq!(end.path, vec![4]);
+                assert_eq!(end.offset, 77);
+            }
+            crate::anchors::CommentTarget::Other => panic!("expected text-range"),
+        }
+
+        // (3) evidence comment on ev-1.
+        assert_eq!(comments[2].selector, "div#ev-1");
+        assert_eq!(comments[2].prompt, "hrrrrrrm");
+    }
+
+    /// End-to-end: the real payload resolves through the anchor table the
+    /// same way `wa poll` does.
+    #[test]
+    fn real_feedback_resolves_through_anchor_table() {
+        let captured = std::fs::read_to_string("fixtures/lavish/poll-feedback-real.toon").unwrap();
+        let comments = comments_from_poll(&parse_toon(&captured));
+        let table: Vec<(String, String)> = vec![
+            ("wa-1".into(), "L3:C0-L3:C410".into()),
+            ("wa-2".into(), "L3:C0-L3:C433".into()),
+            ("ev-1".into(), "ledger:Q1".into()),
+        ];
+        // Pane-level comment: not in the table (the operator commented on
+        // the section, not a changed block) — fails loudly, never silently.
+        assert!(crate::anchors::resolve_comment(&comments[0], &table).is_err());
+        let text_range = crate::anchors::resolve_comment(&comments[1], &table).unwrap();
+        assert_eq!(text_range.element_id, "wa-1");
+        assert_eq!(text_range.wikitext_anchor, "L3:C0-L3:C410");
+        assert_eq!(
+            text_range.selected_text.as_deref(),
+            Some("several hundred grammar/nitpicking")
+        );
+        let evidence = crate::anchors::resolve_comment(&comments[2], &table).unwrap();
+        assert_eq!(evidence.wikitext_anchor, "ledger:Q1");
     }
 
     #[test]

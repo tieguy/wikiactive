@@ -1,0 +1,66 @@
+{
+  "artifact_failures": [],
+  "artifact_load": {
+    "artifact_load_token": "mj9p1Nj1IQlcOFeNV1a6qV2zW9Y7Xb7N",
+    "artifact_revision": 1,
+    "handoff_token": "NR7iCsGT-6V0QR0iOVwePxF95Ygkhu-f",
+    "last_pass_sequence": 0,
+    "request_id": "lavish-load-mugdun2b-1-ln9wcnm7cl",
+    "request_sequence": 1
+  },
+  "artifact_revision": 1,
+  "chat": [
+    {
+      "anchor": {
+        "excerpt": "new (proposed) wa-2 \u00b7 L3:C0-L3:C433 I contribute mainly to the English-language Wikipedia, but also contribute on Commo\u2026",
+        "kind": "element",
+        "label": "<section>",
+        "selector": "section#pane-new"
+      },
+      "at": "2026-09-25T03:11:40.276Z",
+      "kind": "annotation",
+      "prompt_id": "pmugdw4z470dk45g70c",
+      "role": "user",
+      "text": "this is a comment on the whole element, including \"new (proposed)\""
+    },
+    {
+      "anchor": {
+        "excerpt": "several hundred grammar/nitpicking",
+        "kind": "text",
+        "label": "text",
+        "selector": "div#wa-1"
+      },
+      "at": "2026-09-25T03:11:40.276Z",
+      "kind": "annotation",
+      "prompt_id": "pmugdwhbsx0j7mg4452",
+      "role": "user",
+      "text": "should this be \"grammar and nitpicking\""
+    },
+    {
+      "anchor": {
+        "excerpt": "ev-1 \u00b7 ledger:Q1 Source: lu.is contact page (fetched 2026-09-24) \u00b7 archive: https://web.archive.org/web/2026/https://lu\u2026",
+        "kind": "element",
+        "label": "<div>",
+        "selector": "div#ev-1"
+      },
+      "at": "2026-09-25T03:11:40.276Z",
+      "kind": "annotation",
+      "prompt_id": "pmugdwny8fbpxgbgb0v",
+      "role": "user",
+      "text": "hrrrrrrm"
+    }
+  ],
+  "chat_ack_ids": [],
+  "chat_revision": 1,
+  "delivered_attachments": [],
+  "dom_snapshot": "",
+  "ended_by": "user",
+  "file": "/home/louie/Projects/wiki/wikiactive/fixtures/lavish/spike/spike-roundtrip.html",
+  "key": "c9306658e8a64100",
+  "layout_warnings": [],
+  "pending_prompts": 0,
+  "prompts": [],
+  "status": "ended",
+  "updated_at": "2026-09-25T03:11:40.280Z",
+  "url": "http://deepthought.peafowl-polaris.ts.net:4387/session/c9306658e8a64100"
+}

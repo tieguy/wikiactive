@@ -1,0 +1,37 @@
+[lavish-axi] Long-polling for user feedback on /home/louie/Projects/wiki/wikiactive/fixtures/lavish/spike/spike-roundtrip.html. This stays silent until the user sends feedback, ends the session, or leaves every review window disconnected past the reconnect grace period - leave it running. Detected layout issues do NOT return this poll: they wait in the user's Layout issues inbox until the user queues them as ordinary feedback. If it gets killed or times out before feedback arrives, re-run `lavish-axi poll /home/louie/Projects/wiki/wikiactive/fixtures/lavish/spike/spike-roundtrip.html` - feedback remains queued until delivery. Poll delivery consumes the response, so read it completely.
+session:
+  file: /home/louie/Projects/wiki/wikiactive/fixtures/lavish/spike/spike-roundtrip.html
+  status: feedback
+  session_ended: true
+  ended_by: user
+prompts[3]:
+  - uid: "3"
+    prompt: "this is a comment on the whole element, including \"new (proposed)\""
+    selector: section#pane-new
+    tag: section
+    text: "new (proposed) wa-2 · L3:C0-L3:C433 I contribute mainly to the English-language Wikipedia, but also contribute on Commons, Wikidata, and elsewhere. I probably have several hundreda few hundred grammar/nitpicking edits from before this accou"
+  - uid: "5"
+    prompt: "should this be \"grammar and nitpicking\""
+    selector: div#wa-1
+    tag: text
+    text: several hundred grammar/nitpicking
+    target:
+      type: text-range
+      text: several hundred grammar/nitpicking
+      selector: div#wa-1
+      commonAncestorSelector: div#wa-1
+      start:
+        selector: div#wa-1
+        path[1]: 4
+        offset: 43
+      end:
+        selector: div#wa-1
+        path[1]: 4
+        offset: 77
+  - uid: "6"
+    prompt: hrrrrrrm
+    selector: div#ev-1
+    tag: div
+    text: "ev-1 · ledger:Q1 Source: lu.is contact page (fetched 2026-09-24) · archive: https://web.archive.org/web/2026/https://lu.is/contact/ I probably have several hundred grammar/nitpicking edits from before this account, and am looking forward to"
+next_step: This was the last feedback before the user ended the session. Stop polling /home/louie/Projects/wiki/wikiactive/fixtures/lavish/spike/spike-roundtrip.html and do not reopen it - deliver any remaining updates directly in this conversation instead. Only run `lavish-axi /home/louie/Projects/wiki/wikiactive/fixtures/lavish/spike/spike-roundtrip.html --reopen` if the user explicitly asks for further review or something genuinely important needs their visual attention.
+dom_snapshot: "uid=7 body \"wikiloop spike — anchor round-trip (Phase 0) article: User:LuisVilla · base revi\"\n  uid=8 main \"wikiloop spike — anchor round-trip (Phase 0) article: User:LuisVilla · base revi\"\n    uid=2 h1 \"wikiloop spike — anchor round-trip (Phase 0)\"\n    uid=9 p \"article: User:LuisVilla · base revid 709414140 · spike only, nothing publishes\"\n    uid=1 div \"Operator instructions: please annotate exactly three things, then press Send: (1\"\n      uid=10 strong \"Operator instructions:\"\n      uid=11 em \"Send\"\n      uid=12 em \"proposed\"\n      uid=13 em \"“several hundred grammar edits”\"\n    uid=14 h2 \"Proposed edit — one logical edit, L3 mine-existing-sources\"\n    uid=15 div \"old (base revid 709414140) wa-1 · L3:C0-L3:C410 I contribute mainly to EnWiki, b\"\n      uid=16 section \"old (base revid 709414140) wa-1 · L3:C0-L3:C410 I contribute mainly to EnWiki, b\"\n        uid=17 h3 \"old (base revid 709414140)\"\n        uid=5 div \"wa-1 · L3:C0-L3:C410 I contribute mainly to EnWiki, but also contribute on Commo\"\n          uid=18 span \"wa-1 · L3:C0-L3:C410\"\n          uid=19 a \"on Commons\"\n      uid=3 section \"new (proposed) wa-2 · L3:C0-L3:C433 I contribute mainly to the English-language \"\n        uid=20 h3 \"new (proposed)\"\n        uid=21 div \"wa-2 · L3:C0-L3:C433 I contribute mainly to the English-language Wikipedia, but \"\n          uid=22 span \"wa-2 · L3:C0-L3:C433\"\n          uid=23 ins \"the English-language Wikipedia\"\n          uid=24 a \"on Commons\"\n          uid=25 del \"several hundred\"\n          uid=26 ins \"a few hundred\"\n    uid=27 h2 \"Evidence rail\"\n    uid=6 div \"ev-1 · ledger:Q1 Source: lu.is contact page (fetched 2026-09-24) · archive: http\"\n      uid=28 span \"ev-1 · ledger:Q1\"\n      uid=29 span \"lu.is contact page (fetched 2026-09-24) · archive: https://web.archive.org/web/2\"\n      uid=30 blockquote \"I probably have several hundred grammar/nitpicking edits from before this accoun\"\n      uid=31 p \"Quote Q1 (verbatim, ellipsis-elided) supports the count claim in the proposed ed\"\n        uid=32 em \"Demo quote for the anchor spike — this session is not a real edit session.\"\n    uid=33 p \"end of spike artifact\"\n  uid=34 script"
