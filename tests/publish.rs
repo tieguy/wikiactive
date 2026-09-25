@@ -277,3 +277,39 @@ async fn disclosure_log_appends_when_marker_absent() {
         .expect("append");
     assert!(appended);
 }
+
+/// Userspace smoke: base revid 0 means create — no baserevid/nocreate
+/// params, no currency pre-check, one POST.
+#[tokio::test]
+async fn create_from_base_zero_posts_without_baserevid() {
+    let server = MockServer::start_async().await;
+    mock_csrf_token(&server).await;
+    let edit_mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .body_includes("action=edit")
+                .body_includes("assert=user")
+                .body_includes("LLM-Disclosure%3A+U%3ALuisVilla%2Fwikiactive")
+                .body_excludes("baserevid")
+                .body_excludes("nocreate");
+            then.status(200).json_body(serde_json::json!({
+                "edit": {"result": "Success", "newrevid": 42, "new": ""}
+            }));
+        })
+        .await;
+
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .unwrap();
+    let req = EditRequest {
+        title: "User:LuisVilla/wikiactive/smoke",
+        base_revid: 0,
+        wikitext: "smoke test page content",
+        summary: "wikiactive smoke test",
+        dry_run: false,
+    };
+    let mut approve = Approve;
+    let outcome = wiki.edit(req, &mut approve).await.expect("create ok");
+    assert_eq!(outcome.new_revid, 42);
+    assert_eq!(edit_mock.calls(), 1);
+}

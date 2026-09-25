@@ -289,13 +289,21 @@ impl Wikipedia {
     ) -> Result<EditOutcome, WikipediaError> {
         let summary = summary_with_disclosure(req.summary)?;
 
-        let current = self.current_revid(req.title).await?;
-        if current != req.base_revid {
-            return Err(WikipediaError::EditConflict {
-                base: req.base_revid,
-                current,
-            });
-        }
+        // Pre-check currency only when editing an existing page. A base of
+        // 0 means "create" (userspace smoke targets): nothing to check, and
+        // baserevid/nocreate are not sent.
+        let current = if req.base_revid > 0 {
+            let current = self.current_revid(req.title).await?;
+            if current != req.base_revid {
+                return Err(WikipediaError::EditConflict {
+                    base: req.base_revid,
+                    current,
+                });
+            }
+            current
+        } else {
+            0
+        };
 
         let prompt = format!(
             "Publish one edit to {}?\n  summary: {summary}\n  base revid: {}\nThis is the \
@@ -314,25 +322,24 @@ impl Wikipedia {
             });
         }
 
-        let base_str = req.base_revid.to_string();
-        let resp: Value = self
-            .api
-            .post_with_token(
-                "csrf",
-                [
-                    ("action", "edit"),
-                    ("title", req.title),
-                    ("text", req.wikitext),
-                    ("summary", summary.as_str()),
-                    ("baserevid", base_str.as_str()),
-                    // Explicit on the edit itself (the client-wide builder
-                    // assert covers reads; AC.7 wants it on the edit).
-                    ("assert", "user"),
-                    ("minor", "0"),
-                    ("nocreate", "1"),
-                ],
-            )
-            .await?;
+        // Fixed params for both create and update.
+        let mut params: Vec<(&str, &str)> = vec![
+            ("action", "edit"),
+            ("title", req.title),
+            ("text", req.wikitext),
+            ("summary", summary.as_str()),
+            // Explicit on the edit itself (the client-wide builder assert
+            // covers reads; AC.7 wants it on the edit).
+            ("assert", "user"),
+            ("minor", "0"),
+        ];
+        let base_str;
+        if req.base_revid > 0 {
+            base_str = req.base_revid.to_string();
+            params.push(("baserevid", base_str.as_str()));
+            params.push(("nocreate", "1"));
+        }
+        let resp: Value = self.api.post_with_token("csrf", params).await?;
 
         if let Some((code, info)) = error_code_and_info(&resp) {
             if code == "editconflict" || code == "articleexists" {

@@ -29,6 +29,7 @@ use crate::session::SessionPaths;
 use crate::wikipedia::EditRequest;
 use crate::wikipedia::TtyConfirm;
 use crate::wikipedia::Wikipedia;
+use crate::wikipedia::WikipediaError;
 
 #[derive(Parser)]
 #[command(
@@ -228,14 +229,21 @@ async fn session_init(article: &str, entry_loop: u8) -> Result<()> {
     let wiki = Wikipedia::connect()
         .await
         .context("connect to en.wikipedia")?;
-    let revid = wiki
-        .current_revid(article)
-        .await
-        .with_context(|| format!("fetch current revid for {article}"))?;
-    let wikitext = wiki
-        .wikitext_at_revid(article, revid)
-        .await
-        .context("fetch wikitext at pinned revid")?;
+    let (revid, wikitext) = match wiki.current_revid(article).await {
+        Ok(revid) => {
+            let wikitext = wiki
+                .wikitext_at_revid(article, revid)
+                .await
+                .context("fetch wikitext at pinned revid")?;
+            (revid, wikitext)
+        }
+        Err(WikipediaError::PageMissing(_)) => {
+            // New-page sessions (userspace smoke targets): base 0, empty
+            // base text; the publish path creates the page.
+            (0, String::new())
+        }
+        Err(other) => return Err(other.into()),
+    };
 
     let meta = SessionMeta {
         article: article.to_string(),
