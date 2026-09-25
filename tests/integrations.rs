@@ -253,3 +253,31 @@ async fn no_external_skill_files_are_read() {
     // ssrf_guard is compiled in, not configured by skill files.
     assert!(ssrf_guard(&url::Url::parse("http://localhost/").unwrap()).is_err());
 }
+
+// ------------------------------------------------- AC.12 SSRF redirect guard
+
+#[tokio::test]
+async fn fetch_refuses_redirect_to_private_target() {
+    // A public URL that 302s to the link-local metadata service: the
+    // per-hop SSRF guard must refuse to follow the redirect.
+    let server = MockServer::start_async().await;
+    server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::GET).path("/redirector");
+            then.status(302)
+                .header("location", "http://169.254.169.254/latest/meta-data");
+        })
+        .await;
+    let fetcher = SourceFetcher::with_allow_local().unwrap();
+    let err = fetcher
+        .fetch_text(&server.url("/redirector"))
+        .await
+        .unwrap_err();
+    // The redirect is refused (transport error from the policy), never
+    // followed to the metadata service.
+    let msg = err.to_string();
+    assert!(
+        msg.contains("network") || msg.contains("redirect"),
+        "redirect must not be followed: {msg}"
+    );
+}

@@ -49,7 +49,13 @@ pub enum Command {
         cmd: SessionCmd,
     },
     /// Build and print the context bundle (step 0 of every iteration).
-    Analyze { slug: String },
+    Analyze {
+        slug: String,
+        /// Prior-session base wikitext for L3 re-review drift context: a
+        /// unified diff against the current base is embedded in the bundle.
+        #[arg(long)]
+        prior_base: Option<PathBuf>,
+    },
     /// Findings authoring (schema-validated).
     Findings {
         #[command(subcommand)]
@@ -178,7 +184,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             } => session_init(&article, entry_loop).await,
             SessionCmd::Show { slug } => session_show(&slug),
         },
-        Command::Analyze { slug } => analyze(&slug),
+        Command::Analyze { slug, prior_base } => analyze(&slug, prior_base),
         Command::Findings { cmd } => match cmd {
             FindingsCmd::Add { slug, json } => findings_add(&slug, &json),
             FindingsCmd::List { slug } => findings_list(&slug),
@@ -249,6 +255,24 @@ async fn session_init(article: &str, entry_loop: u8) -> Result<()> {
     Ok(())
 }
 
+/// A small line-based unified diff (drift context for L3 re-reviews).
+fn unified_diff(old: &str, new: &str) -> String {
+    use similar::ChangeTag;
+    use similar::TextDiff;
+    let diff = TextDiff::from_lines(old, new);
+    let mut out = String::new();
+    for change in diff.iter_all_changes() {
+        let sign = match change.tag() {
+            ChangeTag::Delete => '-',
+            ChangeTag::Insert => '+',
+            ChangeTag::Equal => ' ',
+        };
+        out.push(sign);
+        out.push_str(change.value());
+    }
+    out
+}
+
 fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
@@ -279,19 +303,30 @@ fn load_session(slug: &str) -> Result<(SessionPaths, SessionMeta)> {
     Ok((paths, meta))
 }
 
-fn analyze(slug: &str) -> Result<()> {
+fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let wikitext = std::fs::read_to_string(paths.proposed()).unwrap_or_default();
+    let wikitext = std::fs::read_to_string(paths.proposed()).with_context(|| {
+        format!("sessions/{slug}/proposed.wikitext missing; nothing to analyze")
+    })?;
+    let base_wikitext = std::fs::read_to_string(paths.base())
+        .with_context(|| format!("sessions/{slug}/base.wikitext missing"))?;
     let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
+    let prior_session_diff = prior_base
+        .map(|path| {
+            let prior = std::fs::read_to_string(&path)
+                .with_context(|| format!("--prior-base {} unreadable", path.display()))?;
+            anyhow::Ok(unified_diff(&prior, &base_wikitext))
+        })
+        .transpose()?;
     let article = ArticleState {
         title: meta.article.clone(),
         base_revid: meta.base_revid,
         wikitext,
         entry_loop: meta.entry_loop,
-        prior_session_diff: None,
+        prior_session_diff,
     };
     let bundle = build_context_bundle(&corpus, &article, &findings.findings, &ledger)
         .map_err(|e| anyhow::anyhow!("{e}"))?;

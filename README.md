@@ -55,11 +55,23 @@ annotation payload and TOON output shapes; captured real output lives under
 export WIKIACTIVE_OAUTH2_TOKEN="..."
 ```
 
-Read actions work unauthenticated; publish requires the token.
+**Smoke-test fallback (userspace only):** a [Bot Password] works for the
+userspace smoke publish without OAuth — create one at
+en.wikipedia.org [[Special:BotPasswords]] (grant: edit existing pages) and:
+
+```
+export WIKIACTIVE_BOTPASSWORD="LuisVilla@wikiloop:password"
+```
+
+Plan policy: BotPasswords is for the smoke test ONLY — mainspace requires
+the OAuth consumer (it tags edits with the consumer name and is revocable
+without touching your password).
+
+Read actions work unauthenticated; publish requires a credential.
 
 ### Etiquette (product-internalized)
 
-The client hardcodes a identifying User-Agent
+The client hardcodes an identifying User-Agent
 (`wikiactive/0.1 (en.wikipedia User:LuisVilla; luis@lu.is)`), `maxlag=5`,
 `assert=user`, and Retry-After backoff. See
 [docs/api-etiquette.md](docs/api-etiquette.md). **A fork edits

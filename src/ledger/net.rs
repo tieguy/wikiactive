@@ -38,8 +38,10 @@ pub enum NetError {
 }
 
 /// Reject loopback/private/link-local targets and non-HTTP(S) schemes.
-/// Redirects are followed by the same client, so every hop stays guarded
-/// via reqwest's redirect policy plus this check on the initial URL.
+/// Host matching uses the parsed [`url::Host`] enum (not strings), so IPv6
+/// literals and alternate IPv4 encodings cannot slip through. Redirects
+/// are guarded per hop via [`guarded_redirect_policy`] — a public URL that
+/// 302s to a private target is refused, not followed.
 ///
 /// # Errors
 /// [`NetError::Ssrf`] when the URL is not fetchable by policy.
@@ -54,40 +56,85 @@ pub fn ssrf_guard(url: &Url) -> Result<(), NetError> {
     if !port_ok {
         return Err(NetError::Ssrf(format!("port {:?} not allowed", url.port())));
     }
-    if let Some(host) = url.host_str() {
-        let lower = host.to_lowercase();
-        // Host-suffix checks, not file-extension checks.
-        #[allow(clippy::case_sensitive_file_extension_comparisons)]
-        let blocked = lower == "localhost"
-            || lower == "metadata.google.internal"
-            || lower.ends_with(".local")
-            || lower.ends_with(".internal")
-            || lower.starts_with("127.")
-            || lower.starts_with("10.")
-            || lower.starts_with("192.168.")
-            || lower.starts_with("169.254.")
-            || lower.starts_with("0.")
-            || (lower.starts_with("172.")
-                && lower[4..]
-                    .split('.')
-                    .next()
-                    .and_then(|o| o.parse::<u8>().ok())
-                    .is_some_and(|o| (16..=31).contains(&o)));
-        if blocked {
-            return Err(NetError::Ssrf(format!("host {host} not allowed")));
+    match url.host() {
+        Some(url::Host::Domain(domain)) => {
+            let lower = domain.to_lowercase();
+            // Host-suffix checks, not file-extension checks.
+            #[allow(clippy::case_sensitive_file_extension_comparisons)]
+            let blocked = lower == "localhost"
+                || lower == "metadata.google.internal"
+                || lower.ends_with(".local")
+                || lower.ends_with(".internal")
+                || lower.ends_with(".localhost");
+            if blocked {
+                return Err(NetError::Ssrf(format!("host {domain} not allowed")));
+            }
+        }
+        Some(url::Host::Ipv4(ip)) => {
+            if is_blocked_ipv4(ip) {
+                return Err(NetError::Ssrf(format!("host {ip} not allowed")));
+            }
+        }
+        Some(url::Host::Ipv6(ip)) => {
+            if is_blocked_ipv6(ip) {
+                return Err(NetError::Ssrf(format!("host {ip} not allowed")));
+            }
+        }
+        None => {
+            return Err(NetError::Ssrf("no host".into()));
         }
     }
     Ok(())
 }
 
-/// Build the etiquette-conformant reqwest client (UA, redirect cap).
+/// Private/loopback/link-local IPv4 space (covers every dotted-quad and
+/// alternate integer/hex encoding — `Url` normalizes to one `Ipv4Addr`).
+fn is_blocked_ipv4(ip: std::net::Ipv4Addr) -> bool {
+    ip.is_loopback()
+        || ip.is_private()
+        || ip.is_link_local()
+        || ip.is_unspecified()
+        || ip.is_broadcast()
+        || ip.is_documentation()
+        || {
+            // 100.64.0.0/10 shared address space (CGNAT).
+            let o = ip.octets();
+            o[0] == 100 && (64..=127).contains(&o[1])
+        }
+}
+
+/// Loopback/link-local/unique-local IPv6 space.
+fn is_blocked_ipv6(ip: std::net::Ipv6Addr) -> bool {
+    ip.is_loopback() || ip.is_unspecified() || {
+        // Unique local fc00::/7 and link-local fe80::/10.
+        let seg = ip.segments();
+        (seg[0] & 0xfe00) == 0xfc00 || (seg[0] & 0xffc0) == 0xfe80
+    }
+}
+
+/// Redirect policy that re-runs [`ssrf_guard`] on every hop and caps the
+/// hop count at [`MAX_REDIRECTS`].
+fn guarded_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(move |attempt| {
+        if attempt.previous().len() >= MAX_REDIRECTS {
+            return attempt.error("too many redirects");
+        }
+        if ssrf_guard(attempt.url()).is_err() {
+            return attempt.error("redirect target rejected by SSRF guard");
+        }
+        attempt.follow()
+    })
+}
+
+/// Build the etiquette-conformant reqwest client (UA, per-hop guarded
+/// redirect policy).
 ///
 /// # Errors
 /// Client construction failure.
 pub fn http_client() -> Result<reqwest::Client, NetError> {
     reqwest::Client::builder()
         .user_agent(crate::USER_AGENT)
-        .redirect(reqwest::redirect::Policy::limited(MAX_REDIRECTS))
+        .redirect(guarded_redirect_policy())
         .timeout(Duration::from_mins(1))
         .build()
         .map_err(|e| NetError::Transport(e.to_string()))
@@ -557,6 +604,22 @@ mod tests {
         assert!(ssrf_guard(&u("ftp://example.com/x")).is_err());
         assert!(ssrf_guard(&u("http://82.94.9.168/")).is_ok());
         assert!(ssrf_guard(&u("https://example.com/page")).is_ok());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_ipv6_and_alternate_encodings() {
+        // IPv6 loopback / link-local / unique-local.
+        assert!(ssrf_guard(&u("http://[::1]/x")).is_err());
+        assert!(ssrf_guard(&u("http://[fe80::1]/x")).is_err());
+        assert!(ssrf_guard(&u("http://[fc00::1]/x")).is_err());
+        // Alternate IPv4 encodings normalize to 127.0.0.1.
+        assert!(ssrf_guard(&u("http://0x7f.0.0.1/x")).is_err());
+        assert!(ssrf_guard(&u("http://2130706433/x")).is_err());
+        assert!(ssrf_guard(&u("http://127.1/x")).is_err());
+        // CGNAT shared space.
+        assert!(ssrf_guard(&u("http://100.64.0.1/x")).is_err());
+        // Public IPv6 is fine.
+        assert!(ssrf_guard(&u("http://[2606:2800:220:1:248:1893:25c8:1946]/")).is_ok());
     }
 
     #[test]

@@ -8,6 +8,11 @@ use wikiloop::render::RevisionEntry;
 use wikiloop::render::render;
 use wikiloop::session::Finding;
 
+/// Strip the `C` prefix from an anchor column part ("C447" → "447").
+fn col_of(p: &str) -> &str {
+    p.strip_prefix('C').unwrap_or(p)
+}
+
 fn linter() -> LinterConfig {
     LinterConfig::load(std::path::Path::new("rules/linter.toml")).unwrap()
 }
@@ -76,24 +81,29 @@ fn ac5_golden_render_against_recorded_parsoid() {
         if entry.element_id.starts_with("ev-") {
             continue;
         }
-        let anchor = &entry.wikitext_anchor;
-        let parse_line = |tag: &str| -> usize {
-            anchor
-                .strip_prefix(tag)
-                .and_then(|rest| rest.split(':').next().map(str::parse::<usize>))
-                .and_then(Result::ok)
-                .unwrap_or_default()
-        };
-        let start = parse_line("L");
-        assert!(start >= 1, "{entry:?} anchor not line-based");
+        // Anchor is L<s>:C<a>-L<e>:C<b>; the covered wikitext slice must be
+        // non-empty (b > a on the start line, or e > s).
+        let parts: Vec<&str> = entry.wikitext_anchor.split(&['-', ':'][..]).collect();
         assert!(
-            start <= lines.len(),
-            "{entry:?} anchor line {start} beyond proposed ({} lines)",
-            lines.len()
+            parts.len() == 4
+                && parts[0].starts_with('L')
+                && parts[2].starts_with('L')
+                && parts[0][1..].parse::<usize>().is_ok()
+                && col_of(parts[1]).parse::<usize>().is_ok()
+                && parts[2][1..].parse::<usize>().is_ok()
+                && col_of(parts[3]).parse::<usize>().is_ok(),
+            "{entry:?} malformed anchor {}",
+            entry.wikitext_anchor
         );
+        let line_start: usize = parts[0][1..].parse().unwrap();
+        let col_start: usize = col_of(parts[1]).parse().unwrap();
+        let line_end: usize = parts[2][1..].parse().unwrap();
+        let col_end: usize = col_of(parts[3]).parse().unwrap();
+        assert!(line_start >= 1 && line_start <= lines.len(), "{entry:?}");
         assert!(
-            anchor.contains("-L") || anchor.contains(':'),
-            "{entry:?} empty range"
+            line_end > line_start || col_end > col_start,
+            "{entry:?} empty range {}",
+            entry.wikitext_anchor
         );
     }
 

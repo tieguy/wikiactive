@@ -1,6 +1,7 @@
 # House rules — mechanically enforced product decisions (not Wikipedia policy).
-# Consumed by wikipedia.rs (disclosure suffix), checks/linter.rs (semicolon ban
-# double-defined here for the publish-path summary validator), and tests.
+# The compiled constants in src/lib.rs (USER_AGENT, DISCLOSURE_SUFFIX) are what
+# the code enforces; this file mirrors them for maintainers and is kept in
+# exact sync by tests/integrations.rs::house_rules_match_compiled_constants.
 
 [disclosure]
 # Appended to every published edit summary. Format checked by tests/publish.rs.

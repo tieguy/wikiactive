@@ -146,39 +146,39 @@ impl Wikipedia {
     /// Connect to en.wikipedia with etiquette defaults and credentials from
     /// the environment: `OAuth2` owner-only token from [`OAUTH2_TOKEN_ENV`]
     /// if set, else the `BotPasswords` fallback from [`BOTPASSWORD_ENV`]
-    /// (smoke-test only), else unauthenticated read-only.
+    /// (smoke-test only), else unauthenticated read-only. `assert=user` is
+    /// set client-wide only when authenticated — an anonymous client must
+    /// be able to read; the edit path passes `assert=user` explicitly per
+    /// AC.7 either way.
     ///
     /// # Errors
     /// Client construction failure.
     pub async fn connect() -> Result<Self, WikipediaError> {
         let oauth2_token = std::env::var(OAUTH2_TOKEN_ENV).ok();
         let botpassword = std::env::var(BOTPASSWORD_ENV).ok();
-        let mut builder = Self::base_builder(ENWIKI_API);
+        let mut builder = ApiClient::builder(ENWIKI_API)
+            .set_user_agent(crate::USER_AGENT)
+            .set_maxlag(5)
+            .set_concurrency(1);
         if let Some(token) = oauth2_token.as_deref() {
-            builder = builder.set_oauth2_token(token);
+            builder = builder.set_oauth2_token(token).set_assert(Assert::User);
         } else if let Some(cred) = botpassword.as_deref() {
             let (user, pass) = cred.split_once(':').ok_or_else(|| {
                 WikipediaError::BadShape(format!(
                     "{BOTPASSWORD_ENV} must be 'User@botname:password'"
                 ))
             })?;
-            builder = builder.set_botpassword(user, pass);
+            builder = builder.set_botpassword(user, pass).set_assert(Assert::User);
         }
         Ok(Self {
             api: builder.build().await?,
         })
     }
 
-    /// The etiquette-conformant builder base (UA, maxlag, assert, serial).
-    fn base_builder(api_url: &str) -> mwapi::Builder {
-        ApiClient::builder(api_url)
-            .set_user_agent(crate::USER_AGENT)
-            .set_maxlag(5)
-            .set_assert(Assert::User)
-            .set_concurrency(1)
-    }
-
     /// Connect to an explicit API URL (tests point this at a mock server).
+    /// Client-wide `assert=user` is applied only when a token is given
+    /// (mirrors [`Wikipedia::connect`]); the edit path always carries an
+    /// explicit `assert=user` regardless.
     ///
     /// # Errors
     /// Client construction failure.
@@ -186,9 +186,12 @@ impl Wikipedia {
         api_url: &str,
         oauth2_token: Option<&str>,
     ) -> Result<Self, WikipediaError> {
-        let mut builder = Self::base_builder(api_url);
+        let mut builder = ApiClient::builder(api_url)
+            .set_user_agent(crate::USER_AGENT)
+            .set_maxlag(5)
+            .set_concurrency(1);
         if let Some(token) = oauth2_token {
-            builder = builder.set_oauth2_token(token);
+            builder = builder.set_oauth2_token(token).set_assert(Assert::User);
         }
         Ok(Self {
             api: builder.build().await?,
