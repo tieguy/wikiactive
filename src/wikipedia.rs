@@ -110,6 +110,9 @@ pub struct EditRequest<'a> {
     /// Operator-approved scoped summary, WITHOUT the disclosure suffix
     /// (appended here, idempotently).
     pub summary: &'a str,
+    /// Path to the rendered review artifact, shown in the confirmation
+    /// prompt so the human reviews the visual diff before confirming.
+    pub review_artifact: Option<&'a str>,
     /// Validate only: run every pre-flight step, do not post the edit.
     pub dry_run: bool,
 }
@@ -305,9 +308,15 @@ impl Wikipedia {
             0
         };
 
+        let review_line = req
+            .review_artifact
+            .map(|path| {
+                format!("\n  review artifact: {path} (review the rendered diff there first)")
+            })
+            .unwrap_or_default();
         let prompt = format!(
-            "Publish one edit to {}?\n  summary: {summary}\n  base revid: {}\nThis is the \
-             only gate before the wiki history changes.",
+            "Publish one edit to {}?\n  summary: {summary}\n  base revid: {}{review_line}\n\nThis              tty confirmation is the FINAL gate: the anchor/linter gate re-ran before this \
+             prompt, and the wiki history changes when you type yes.",
             req.title, req.base_revid
         );
         if !confirm.confirm(&prompt) {
@@ -398,6 +407,7 @@ impl Wikipedia {
                 base_revid: revid,
                 wikitext: &updated,
                 summary: "Append wikiactive session log entry",
+                review_artifact: None,
                 dry_run: false,
             },
             confirm,
@@ -475,6 +485,7 @@ mod tests {
             base_revid: 123,
             wikitext: "new text",
             summary: "s",
+            review_artifact: None,
             dry_run: true,
         };
         assert_eq!(req.base_revid, 123);

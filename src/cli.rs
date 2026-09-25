@@ -602,6 +602,7 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
                 base_revid: meta.base_revid,
                 wikitext: &proposed_wikitext,
                 summary,
+                review_artifact: Some(&format!("sessions/{slug}/review.html")),
                 dry_run: false,
             },
             &mut confirm,

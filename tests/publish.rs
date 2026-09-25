@@ -82,6 +82,7 @@ async fn absent_confirmation_refuses_without_edit() {
         base_revid: 500,
         wikitext: "new text",
         summary: "Smoke test edit",
+        review_artifact: None,
         dry_run: false,
     };
     let mut absent = DenyConfirm;
@@ -106,6 +107,7 @@ async fn test_stale_base_revid_aborts() {
         base_revid: 500,
         wikitext: "new text",
         summary: "edit",
+        review_artifact: None,
         dry_run: false,
     };
     let mut approve = Approve;
@@ -140,6 +142,7 @@ async fn edit_carries_summary_suffix_and_assert_user() {
         base_revid: 500,
         wikitext: "new text",
         summary: "Smoke test edit",
+        review_artifact: None,
         dry_run: false,
     };
     let mut approve = Approve;
@@ -164,6 +167,7 @@ async fn bare_summary_refused_before_any_request() {
         base_revid: 500,
         wikitext: "text",
         summary: "   ",
+        review_artifact: None,
         dry_run: false,
     };
     let mut approve = Approve;
@@ -185,6 +189,7 @@ async fn dry_run_validates_but_never_posts() {
         base_revid: 500,
         wikitext: "new text",
         summary: "Smoke",
+        review_artifact: None,
         dry_run: true,
     };
     let mut approve = Approve;
@@ -312,6 +317,7 @@ async fn create_from_base_zero_posts_without_baserevid() {
         base_revid: 0,
         wikitext: "smoke test page content",
         summary: "wikiactive smoke test",
+        review_artifact: Some("sessions/user-luisvilla-wikiactive-smoke/review.html"),
         dry_run: false,
     };
     let mut approve = Approve;
