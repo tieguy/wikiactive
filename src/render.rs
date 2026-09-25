@@ -84,6 +84,7 @@ pub enum RenderError {
 ///
 /// # Errors
 /// [`RenderError::GateBlocked`] with every reason, or an HTML parse failure.
+#[allow(clippy::too_many_lines)]
 pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     // 1. Mandatory pre-flight (AC.11).
     let verdict = crate::checks::gate::run_gate(&GateInput {
@@ -116,48 +117,72 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
 
     // 4. Walk the diff; assign wa-N ids + anchors (all anchored in the
     //    PROPOSED wikitext; a pure deletion anchors to the nearest
-    //    surviving proposed line).
+    //    surviving proposed line). Consecutive Delete+Insert runs pair into
+    //    ONE changed block whose inside is a WORD-LEVEL diff (<del>/<ins>
+    //    runs), so a one-word change is visible inside a long paragraph.
     let round_id = format!("r{}", input.round);
     let mut anchor_table: Vec<AnchorEntry> = Vec::new();
     let mut old_pane = String::new();
     let mut new_pane = String::new();
     let mut counter = 0usize;
     let mut prop_idx = 0usize;
+    let mut pending_deletes: Vec<&str> = Vec::new();
+
     for change in diff.iter_all_changes() {
         match change.tag() {
             similar::ChangeTag::Equal => {
+                flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
                 prop_idx += 1;
                 old_pane.push_str(&block_html(None, None, change.value(), "equal", &round_id));
                 new_pane.push_str(&block_html(None, None, change.value(), "equal", &round_id));
             }
             similar::ChangeTag::Delete => {
-                old_pane.push_str(&block_html(None, None, change.value(), "del", &round_id));
+                pending_deletes.push(change.value());
             }
             similar::ChangeTag::Insert => {
+                let new_text = change.value();
+                let old_text = pending_deletes.join("\n\n");
+                pending_deletes.clear();
                 counter += 1;
                 let id = format!("wa-{counter}");
                 // Anchor: the proposed wikitext range of this block.
-                let anchor = locate_block_anchor(input.proposed_wikitext, change.value())
+                let anchor = locate_block_anchor(input.proposed_wikitext, new_text)
                     .unwrap_or_else(|| next_line_anchor(input.proposed_wikitext, prop_idx));
                 prop_idx += 1;
                 anchor_table.push(AnchorEntry {
                     element_id: id.clone(),
                     wikitext_anchor: anchor.clone(),
                 });
-                new_pane.push_str(&block_html(
-                    Some(&id),
-                    Some(&anchor),
-                    change.value(),
-                    "add",
-                    &round_id,
-                ));
+                if old_text.is_empty() {
+                    // Pure insertion: no old counterpart to pair.
+                    new_pane.push_str(&block_html(
+                        Some(&id),
+                        Some(&anchor),
+                        new_text,
+                        "add",
+                        &round_id,
+                    ));
+                } else {
+                    let (old_inline, new_inline) = inline_word_diff(&old_text, new_text);
+                    old_pane.push_str(&block_html_inline(
+                        None,
+                        None,
+                        &old_inline,
+                        "del",
+                        &round_id,
+                    ));
+                    new_pane.push_str(&block_html_inline(
+                        Some(&id),
+                        Some(&anchor),
+                        &new_inline,
+                        "add",
+                        &round_id,
+                    ));
+                }
             }
         }
     }
-    // Deletions anchored via a second pass: any del block immediately before
-    // an added/equal block inherits that block's anchor. MVP: deletions
-    // without an id are visible in the old pane but not comment-anchored
-    // individually (the operator comments on the paired addition).
+    flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
 
     // 5. Evidence rail: one card per finding (gate guarantees quotes
     //    resolve into the ledger).
@@ -197,19 +222,39 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
 }
 
 /// Extract top-level content blocks (plain text) from Parsoid HTML:
-/// headings, paragraphs, list items, in document order.
+/// headings, paragraphs, list items, in document order. `<style>`/`<script>`
+/// descendant text (e.g. the `.mw-parser-output` CSS Parsoid embeds in the
+/// References section) is excluded — it is not content.
 fn extract_blocks(html: &str) -> Result<Vec<String>, String> {
     let doc = scraper::Html::parse_document(html);
     let selector = scraper::Selector::parse("h2, h3, h4, p, li, blockquote, pre, dd")
         .map_err(|e| format!("selector: {e:?}"))?;
     let mut blocks = Vec::new();
     for element in doc.select(&selector) {
-        let text = collapse_ws(&element.text().collect::<String>());
+        let text = collapse_ws(&text_of(element));
         if !text.is_empty() {
             blocks.push(text);
         }
     }
     Ok(blocks)
+}
+
+/// Visible text of an element, skipping style/script subtrees.
+fn text_of(element: scraper::ElementRef<'_>) -> String {
+    use scraper::node::Node;
+    let mut out = String::new();
+    for child in element.children() {
+        match child.value() {
+            Node::Text(t) => out.push_str(t),
+            Node::Element(e) if e.name() != "style" && e.name() != "script" => {
+                if let Some(inner) = scraper::ElementRef::wrap(child) {
+                    out.push_str(&text_of(inner));
+                }
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 fn collapse_ws(s: &str) -> String {
@@ -227,6 +272,73 @@ fn collapse_ws(s: &str) -> String {
         }
     }
     out.trim().to_string()
+}
+
+/// Emit buffered deletes that never paired with an insert (pure deletions).
+fn flush_pure_deletes(pending: &mut Vec<&str>, old_pane: &mut String, round_id: &str) {
+    for text in pending.drain(..) {
+        old_pane.push_str(&block_html(None, None, text, "del", round_id));
+    }
+}
+
+/// Word-level inline diff between the old and new sides of a changed block
+/// pair: returns (`old_html`, `new_html`) with `<del>`/`<ins>` runs around the
+/// changed words (equal words render plain in both).
+fn inline_word_diff(old: &str, new: &str) -> (String, String) {
+    let diff = similar::TextDiff::from_words(old, new);
+    let mut old_html = String::new();
+    let mut new_html = String::new();
+    let mut del_run = String::new();
+    let mut ins_run = String::new();
+    for change in diff.iter_all_changes() {
+        let piece = esc(change.value());
+        match change.tag() {
+            similar::ChangeTag::Delete => del_run.push_str(&piece),
+            similar::ChangeTag::Insert => ins_run.push_str(&piece),
+            similar::ChangeTag::Equal => {
+                if !del_run.is_empty() {
+                    let _ = write!(old_html, "<del>{del_run}</del>");
+                    del_run.clear();
+                }
+                if !ins_run.is_empty() {
+                    let _ = write!(new_html, "<ins>{ins_run}</ins>");
+                    ins_run.clear();
+                }
+                old_html.push_str(&piece);
+                new_html.push_str(&piece);
+            }
+        }
+    }
+    if !del_run.is_empty() {
+        let _ = write!(old_html, "<del>{del_run}</del>");
+    }
+    if !ins_run.is_empty() {
+        let _ = write!(new_html, "<ins>{ins_run}</ins>");
+    }
+    (old_html, new_html)
+}
+
+/// Wrap one inline-diffed block for a pane (content is pre-escaped HTML with
+/// `<del>`/`<ins>` runs).
+fn block_html_inline(
+    id: Option<&str>,
+    anchor: Option<&str>,
+    inline_html: &str,
+    class: &str,
+    round_id: &str,
+) -> String {
+    let id_attr = id.map_or_else(String::new, |i| format!(" id=\"{i}\""));
+    let anchor_attr = anchor.map_or_else(String::new, |a| format!(" data-wiki-anchor=\"{a}\""));
+    let rev_attr = id.map_or_else(String::new, |_| {
+        format!(" data-lavish-revision=\"{round_id}\"")
+    });
+    let tag = id.map_or_else(
+        || "-".to_string(),
+        |i| format!("{i} · {}", anchor.unwrap_or("-")),
+    );
+    format!(
+        "<div class=\"block {class}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{inline_html}</div>\n"
+    )
 }
 
 /// HTML-escape text.
@@ -391,6 +503,8 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .block {{ border: 1px solid var(--line); border-radius: 6px; padding: .75rem; margin: .5rem 0; position: relative; overflow: auto; }}
   .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
   .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
+  .block del {{ background: #f3b8b8; text-decoration: line-through; }}
+  .block ins {{ background: #a8d8a8; text-decoration: none; }}
   .evidence {{ border: 1px solid var(--accent); border-radius: 6px; margin: 1rem 0; padding: .75rem; background: #f6f2fc; overflow: auto; }}
   .evidence blockquote {{ margin: .5rem 0; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: #fff; }}
   .evidence .src, .evidence .finding, .evidence .fix {{ font-size: .85rem; }}
@@ -530,6 +644,55 @@ mod tests {
             "{}",
             anchor.wikitext_anchor
         );
+    }
+
+    /// Review feedback (TF round 1): a one-word change inside a long
+    /// paragraph must show word-level <del>/<ins> runs, not a whole-block
+    /// swap.
+    #[test]
+    fn changed_pairs_render_word_level_inline_diff() {
+        let ledger = crate::ledger::Ledger::default();
+        let out = render(&input(BASE_WT, PROP_WT, BASE_HTML, PROP_HTML, &ledger, &[])).unwrap();
+        assert!(
+            out.artifact_html.contains("<del>1937.</del>"),
+            "old side must mark the removed words; got artifact lacking del run"
+        );
+        assert!(
+            out.artifact_html
+                .contains("<ins>1937 and remains in use.</ins>"),
+            "new side must mark the added words"
+        );
+    }
+
+    /// Review feedback (TF round 1): Parsoid's embedded <style> text (the
+    /// `.mw-parser-output` CSS in the References section) must not leak
+    /// into block text.
+    #[test]
+    fn style_and_script_text_never_leak_into_blocks() {
+        let ledger = crate::ledger::Ledger::default();
+        let base_html = "<html><body><p>Old text.</p></body></html>";
+        let prop_html = concat!(
+            "<html><body>",
+            "<style>.mw-parser-output cite.citation{font-size:1px}</style>",
+            "<p>New text.</p>",
+            "<li>1 <style>.x{}</style>cited claim</li>",
+            "</body></html>"
+        );
+        let out = render(&input(
+            "Old text.\n",
+            "New text.\n",
+            base_html,
+            prop_html,
+            &ledger,
+            &[],
+        ))
+        .unwrap();
+        assert!(!out.artifact_html.contains("mw-parser-output"));
+        // The fixture's distinctive CSS strings must not appear (the
+        // artifact's own stylesheet legitimately mentions font sizes).
+        assert!(!out.artifact_html.contains("cite.citation"));
+        assert!(!out.artifact_html.contains(".x{}"));
+        assert!(out.artifact_html.contains("cited claim"));
     }
 
     #[test]
