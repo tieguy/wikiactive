@@ -1,0 +1,55 @@
+[package]
+name = "wikiloop"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.96"
+license = "GPL-3.0-or-later"
+description = "Structured Wikipedia improvement loop: one logical edit at a time, quote-anchored, human-gated"
+publish = false
+
+[lib]
+name = "wikiloop"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wa"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+clap = { version = "4.6", features = ["derive"] }
+mwapi = "0.7.0"
+parsoid = "0.10.1"
+percent-encoding = "2.3"
+regex = "1.13"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
+scraper = "0.27"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+similar = "2.7"
+thiserror = "2.0"
+tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "sync", "time"] }
+toml = "1.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+unicode-normalization = "0.1"
+url = { version = "2.5", features = ["serde"] }
+
+[dev-dependencies]
+httpmock = "0.8"
+tempfile = "3.27"
+
+[lints.rust]
+warnings = "deny"
+
+[lints.clippy]
+pedantic = "deny"
+
+[profile.release]
+codegen-units = 1
+debug = 0
+incremental = false
+lto = "thin"
+strip = "debuginfo"
