@@ -346,10 +346,22 @@ fn text_of(element: scraper::ElementRef<'_>) -> String {
         match child.value() {
             Node::Text(t) => out.push_str(t),
             Node::Element(e) if e.name() == "a" => {
+                // Only true content links: mw:WikiLink (internal) and
+                // mw:ExtLink (external). Citation backlinks (<a href="#cite_note…">)
+                // are navigation, not links — marking them glues a dotted
+                // underline onto the preceding word (operator catch:
+                // "restaurants" looked linked).
+                let is_content_link = e
+                    .attr("rel")
+                    .is_some_and(|r| r.contains("mw:WikiLink") || r.contains("mw:ExtLink"));
                 if let Some(inner) = scraper::ElementRef::wrap(child) {
-                    out.push(LINK_START);
-                    out.push_str(&text_of(inner));
-                    out.push(LINK_END);
+                    if is_content_link {
+                        out.push(LINK_START);
+                        out.push_str(&text_of(inner));
+                        out.push(LINK_END);
+                    } else {
+                        out.push_str(&text_of(inner));
+                    }
                 }
             }
             Node::Element(e) if e.name() != "style" && e.name() != "script" => {
