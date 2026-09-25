@@ -44,8 +44,8 @@ async fn mock_revid<'a>(server: &'a MockServer, revid: u64, title: &str) -> http
                 .query_param("titles", title.clone());
             then.status(200).json_body(serde_json::json!({
                 "batchcomplete": "",
-                "query": {"pages": {"1": {"pageid": 1, "ns": 0, "title": title,
-                    "revisions": [{"revid": revid, "slots": {"main": {"content": "old wikitext"}}}]}}}
+                "query": {"pages": [{"pageid": 1, "ns": 0, "title": title,
+                    "revisions": [{"revid": revid, "slots": {"main": {"content": "old wikitext"}}}]}]}
             }));
         })
         .await
@@ -203,11 +203,14 @@ async fn disclosure_log_append_is_idempotent() {
                 .query_param("titles", "User:LuisVilla/wikiactive");
             then.status(200).json_body(serde_json::json!({
                 "batchcomplete": "",
-                "query": {"pages": {"1": {"pageid": 1, "ns": 2,
+                "query": {"pages": [{
+                    "pageid": 1,
+                    "ns": 2,
                     "title": "User:LuisVilla/wikiactive",
                     "revisions": [{"revid": 900, "slots": {"main": {
                         "content": "== Sessions ==\n<!-- wa-session:2026-09-24-cd -->\nalready logged"
-                    }}}]}}}
+                    }}}]
+                }]}
             }));
         })
         .await;
@@ -240,11 +243,14 @@ async fn disclosure_log_appends_when_marker_absent() {
                 .query_param("titles", "User:LuisVilla/wikiactive");
             then.status(200).json_body(serde_json::json!({
                 "batchcomplete": "",
-                "query": {"pages": {"1": {"pageid": 1, "ns": 2,
+                "query": {"pages": [{
+                    "pageid": 1,
+                    "ns": 2,
                     "title": "User:LuisVilla/wikiactive",
                     "revisions": [{"revid": 900, "slots": {"main": {
                         "content": "== Sessions =="
-                    }}}]}}}
+                    }}}]
+                }]}
             }));
         })
         .await;

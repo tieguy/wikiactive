@@ -219,11 +219,11 @@ impl Wikipedia {
                 ("rvslots", "main"),
             ])
             .await?;
-        let pages = resp
-            .pointer("/query/pages")
-            .and_then(Value::as_object)
-            .ok_or_else(|| WikipediaError::BadShape("query.pages".into()))?;
-        for page in pages.values() {
+        let pages = query_pages(&resp);
+        if pages.is_empty() {
+            return Err(WikipediaError::BadShape("query.pages".into()));
+        }
+        for page in pages {
             if page.get("missing").is_some() {
                 return Err(WikipediaError::PageMissing(title.to_string()));
             }
@@ -255,11 +255,11 @@ impl Wikipedia {
                 ("revids", revid_str.as_str()),
             ])
             .await?;
-        let pages = resp
-            .pointer("/query/pages")
-            .and_then(Value::as_object)
-            .ok_or_else(|| WikipediaError::BadShape("query.pages".into()))?;
-        for page in pages.values() {
+        let pages = query_pages(&resp);
+        if pages.is_empty() {
+            return Err(WikipediaError::BadShape("query.pages".into()));
+        }
+        for page in pages {
             if let Some(content) = page
                 .pointer("/revisions/0/slots/main/content")
                 .and_then(Value::as_str)
@@ -404,6 +404,16 @@ impl Wikipedia {
         )
         .await?;
         Ok(true)
+    }
+}
+
+/// Pages from a `query.pages` value, accepting both formatversion shapes
+/// (v1: object keyed by pageid; v2: array — mwapi requests formatversion=2).
+fn query_pages(resp: &Value) -> Vec<&Value> {
+    match resp.pointer("/query/pages") {
+        Some(Value::Object(pages)) => pages.values().collect(),
+        Some(Value::Array(pages)) => pages.iter().collect(),
+        _ => Vec::new(),
     }
 }
 
