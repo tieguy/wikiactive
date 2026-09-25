@@ -603,6 +603,7 @@ fn print_lavish_output(output: &std::process::Output) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
@@ -640,6 +641,12 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
             lavish::terminal_link(&url, "open the live review session")
         );
     }
+    // Guarantee: confirming publishes the article edit AND upserts this
+    // session's entry on the disclosure log (one yes, both writes).
+    println!(
+        "confirming also updates the session log on {}",
+        corpus.house_rules.disclosure.log_page
+    );
 
     let wiki = Wikipedia::connect().await?;
     let mut confirm = TtyConfirm;
@@ -687,9 +694,68 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
         lavish::terminal_link(&outcome.permalink(), "open the saved revision"),
         outcome.permalink()
     );
-    println!(
-        "post-publish: run Earwig compare per new web source; append the disclosure-page log entry"
-    );
+    // Automatic disclosure-log upsert (bundled consent: the prompt stated
+    // confirming covers this). One entry per article session, growing with
+    // each published diff.
+    if outcome.created_revision() {
+        let diffs: Vec<String> = std::fs::read_to_string(paths.rounds())
+            .map(|text| {
+                text.lines()
+                    .filter_map(|line| serde_json::from_str::<RoundEntry>(line).ok())
+                    .filter(|e| e.phase == "published")
+                    .flat_map(|e| e.detail)
+                    .map(|d| {
+                        let label = d
+                            .rsplit("diff=")
+                            .next()
+                            .unwrap_or("diff")
+                            .split('&')
+                            .next()
+                            .unwrap_or("diff")
+                            .to_string();
+                        format!("[{d} {label}]")
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let model = &corpus.house_rules.disclosure.drafting_model;
+        let diffs_text = if diffs.is_empty() {
+            "(none)".to_string()
+        } else {
+            diffs.join(" ")
+        };
+        let entry = format!(
+            "* '''{date}''' — [[{article}]] (assisted editing session). AI assistance: {model} (initial drafting and tooling implementation; every edit human-reviewed and confirmed). Diffs: {diffs_text}",
+            date = chrono::Utc::now().date_naive(),
+            article = meta.article,
+            model = model,
+            diffs_text = diffs_text,
+        );
+        let marker = format!("wa-session:{slug}");
+        let mut bundled = crate::wikipedia::BundledConsent;
+        match wiki
+            .upsert_disclosure_log(
+                &corpus.house_rules.disclosure.log_page,
+                &marker,
+                &entry,
+                &mut bundled,
+            )
+            .await
+        {
+            Ok(Some(log_outcome)) => println!(
+                "session log updated: {}  (or: {})",
+                lavish::terminal_link(&log_outcome.permalink(), "open the log entry"),
+                log_outcome.permalink()
+            ),
+            Ok(None) => println!("session log already current"),
+            Err(e) => {
+                println!(
+                    "WARNING: session log upsert failed ({e}); run `wa disclosure-log` to retry"
+                );
+            }
+        }
+    }
+    println!("post-publish: run Earwig compare per new web source");
     Ok(())
 }
 

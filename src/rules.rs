@@ -33,6 +33,9 @@ pub struct DisclosureRules {
     /// Subpage carrying per-article-session log entries.
     #[serde(default = "default_log_page")]
     pub log_page: String,
+    /// Drafting model recorded in session-log entries.
+    #[serde(default)]
+    pub drafting_model: String,
     #[serde(default)]
     pub require_suffix: bool,
 }

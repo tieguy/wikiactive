@@ -76,6 +76,17 @@ impl ConfirmSource for DenyConfirm {
     }
 }
 
+/// A confirmation source for writes whose consent was BUNDLED into the
+/// publish prompt (the prompt states that confirming also updates the
+/// disclosure session log). Never usable for the article edit itself.
+pub struct BundledConsent;
+
+impl ConfirmSource for BundledConsent {
+    fn confirm(&mut self, _prompt: &str) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum WikipediaError {
     #[error("mwapi: {0}")]
@@ -441,6 +452,67 @@ impl Wikipedia {
                     base_revid: revid,
                     wikitext: &updated,
                     summary: "Append wikiactive session log entry",
+                    review_artifact: None,
+                    dry_run: false,
+                },
+                confirm,
+            )
+            .await?;
+        Ok(Some(outcome))
+    }
+    /// Upsert one session entry on the disclosure log page: if the page
+    /// already contains `<!-- {marker} -->`, the entry block that follows it
+    /// is REPLACED with `entry` (so a session's entry grows as its edits
+    /// accumulate); otherwise the marked entry is appended. Returns the
+    /// edit outcome, or `None` when the page already holds exactly this
+    /// entry text (no-op).
+    ///
+    /// # Errors
+    /// API errors from fetch or edit.
+    pub async fn upsert_disclosure_log(
+        &self,
+        page: &str,
+        marker: &str,
+        entry: &str,
+        confirm: &mut dyn ConfirmSource,
+    ) -> Result<Option<EditOutcome>, WikipediaError> {
+        let marker_comment = format!("<!-- {marker} -->");
+        let block = format!("{marker_comment}\n{entry}");
+        let current = self.current_revid(page).await;
+        let existing = match current {
+            Ok(revid) => self.wikitext_at_revid(page, revid).await?,
+            Err(WikipediaError::PageMissing(_)) => String::new(),
+            Err(other) => return Err(other),
+        };
+        let updated = if let Some(start) = existing.find(&marker_comment) {
+            if existing.contains(&block) {
+                return Ok(None); // already up to date
+            }
+            // Replace from the marker to the end of this entry block: the
+            // entry runs to the next marker comment or the next blank line.
+            let after = &existing[start..];
+            let end = after
+                .find("\n<!-- wa-session:")
+                .map_or(existing.len(), |e| start + e);
+            format!("{}{}{}", &existing[..start], block, &existing[end..])
+        } else {
+            format!("{existing}\n{block}\n")
+        };
+        if updated == existing {
+            return Ok(None);
+        }
+        let revid = match current {
+            Ok(revid) => revid,
+            Err(WikipediaError::PageMissing(_)) => 0,
+            Err(other) => return Err(other),
+        };
+        let outcome = self
+            .edit(
+                EditRequest {
+                    title: page,
+                    base_revid: revid,
+                    wikitext: &updated,
+                    summary: "Update wikiactive session log",
                     review_artifact: None,
                     dry_run: false,
                 },
