@@ -38,7 +38,7 @@ sample_clean = '<ref name="a">{{cite book|title=X|page=12}}</ref> later <ref nam
 
 [rules.named_ref_with_pinpoint]
 id = "named-ref-with-pinpoint"
-description = "A named full-citation ref must not carry |page=/|pages= pinpoints; reuse the named ref and put the page in {{rp|…}} at the use site"
+description = "A named full-citation ref must not carry a |page= pinpoint; reuse the named ref and put the page in {{rp|…}} at the use site (|pages= ranges are bibliographic, not pinpoints)"
 severity = "error"
 applies = "added-lines"
 sample_violation = '<ref name="fielding1942">{{cite book|title=Travel|page=12}}</ref>'

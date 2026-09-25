@@ -126,7 +126,7 @@ static PAGE_PARAM: LazyLock<Regex> =
 static PAGES_PARAM: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\|\s*pages\s*=").expect("valid regex"));
 static NAMED_REF_PINPOINT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?s)<ref\s+name\s*=\s*"[^"]*"[^>]*>\s*\{\{[^}]*?\|\s*pages?\s*="#)
+    Regex::new(r#"(?s)<ref\s+name\s*=\s*"[^"]*"[^>]*>\s*\{\{[^}]*?\|\s*page\s*="#)
         .expect("valid regex")
 });
 static HEADING_LINE: LazyLock<Regex> =
