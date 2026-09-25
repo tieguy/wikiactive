@@ -96,6 +96,10 @@ pub fn http_client() -> Result<reqwest::Client, NetError> {
 /// The shared fetcher for source pages.
 pub struct SourceFetcher {
     http: reqwest::Client,
+    /// SSRF guard bypass for loopback — used ONLY by tests against local
+    /// mock servers (and local dev wikis). Production paths construct via
+    /// [`SourceFetcher::new`], which never allows loopback.
+    allow_local: bool,
 }
 
 impl Default for SourceFetcher {
@@ -105,13 +109,25 @@ impl Default for SourceFetcher {
 }
 
 impl SourceFetcher {
-    /// Construct with the standard client.
+    /// Construct with the standard client (SSRF guard fully armed).
     ///
     /// # Errors
     /// Client construction failure.
     pub fn new() -> Result<Self, NetError> {
         Ok(Self {
             http: http_client()?,
+            allow_local: false,
+        })
+    }
+
+    /// Construct allowing loopback targets (tests, local dev wikis).
+    ///
+    /// # Errors
+    /// Client construction failure.
+    pub fn with_allow_local() -> Result<Self, NetError> {
+        Ok(Self {
+            http: http_client()?,
+            allow_local: true,
         })
     }
 
@@ -122,7 +138,14 @@ impl SourceFetcher {
     /// SSRF rejection, status, size, transport errors.
     pub async fn fetch_text(&self, url: &str) -> Result<String, NetError> {
         let parsed = Url::parse(url).map_err(|e| NetError::Ssrf(e.to_string()))?;
-        ssrf_guard(&parsed)?;
+        if !self.allow_local {
+            ssrf_guard(&parsed)?;
+        } else if !matches!(parsed.scheme(), "http" | "https") {
+            return Err(NetError::Ssrf(format!(
+                "scheme {} not allowed",
+                parsed.scheme()
+            )));
+        }
         let mut attempt = 0;
         loop {
             attempt += 1;

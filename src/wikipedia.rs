@@ -295,6 +295,9 @@ impl Wikipedia {
                     ("text", req.wikitext),
                     ("summary", summary.as_str()),
                     ("baserevid", base_str.as_str()),
+                    // Explicit on the edit itself (the client-wide builder
+                    // assert covers reads; AC.7 wants it on the edit).
+                    ("assert", "user"),
                     ("minor", "0"),
                     ("nocreate", "1"),
                 ],
