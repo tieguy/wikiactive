@@ -260,7 +260,7 @@ async fn disclosure_log_append_is_idempotent() {
         )
         .await
         .expect("idempotent append");
-    assert!(!appended, "marker present: no second append");
+    assert!(appended.is_none(), "marker present: no second append");
     assert_eq!(edit_mock.calls(), 0);
 }
 
@@ -314,7 +314,9 @@ async fn disclosure_log_appends_when_marker_absent() {
         )
         .await
         .expect("append");
-    assert!(appended);
+    let outcome = appended.expect("Some on append");
+    assert_eq!(outcome.new_revid, 901);
+    assert!(outcome.permalink().ends_with("901"));
 }
 
 /// Userspace smoke: base revid 0 means create — no baserevid/nocreate

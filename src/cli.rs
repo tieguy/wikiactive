@@ -753,23 +753,27 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
     let wiki = Wikipedia::connect().await?;
     let mut confirm = TtyConfirm;
-    let appended = wiki
+    match wiki
         .append_disclosure_log(
-            &corpus.house_rules.disclosure.page,
+            &corpus.house_rules.disclosure.log_page,
             entry,
             marker,
             &mut confirm,
         )
-        .await?;
-    println!(
-        "disclosure log {} for {}",
-        if appended {
-            "appended"
-        } else {
-            "already present (no-op)"
-        },
-        corpus.house_rules.disclosure.page
-    );
+        .await?
+    {
+        Some(outcome) => {
+            println!(
+                "disclosure log appended to {}",
+                corpus.house_rules.disclosure.log_page
+            );
+            println!("check it: {}", outcome.permalink());
+        }
+        None => println!(
+            "disclosure log already contains this entry (no-op): {}",
+            corpus.house_rules.disclosure.log_page
+        ),
+    }
     Ok(())
 }
 

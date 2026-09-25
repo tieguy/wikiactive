@@ -124,6 +124,24 @@ pub struct EditOutcome {
     pub diff_url: String,
 }
 
+impl EditOutcome {
+    /// Permanent link to the saved revision (empty `diff_url` = null edit; the
+    /// revid then names the existing revision that already holds the text).
+    #[must_use]
+    pub fn permalink(&self) -> String {
+        format!(
+            "https://en.wikipedia.org/wiki/Special:PermaLink/{}",
+            self.new_revid
+        )
+    }
+
+    /// Whether this outcome created a revision (null edits did not).
+    #[must_use]
+    pub fn created_revision(&self) -> bool {
+        !self.diff_url.is_empty()
+    }
+}
+
 /// Build the final edit summary: refuse a bare summary, append the
 /// disclosure suffix idempotently (AC.7).
 ///
@@ -395,7 +413,7 @@ impl Wikipedia {
         entry: &str,
         marker: &str,
         confirm: &mut dyn ConfirmSource,
-    ) -> Result<bool, WikipediaError> {
+    ) -> Result<Option<EditOutcome>, WikipediaError> {
         let current = self.current_revid(page).await;
         let existing = match current {
             Ok(revid) => self.wikitext_at_revid(page, revid).await?,
@@ -404,7 +422,7 @@ impl Wikipedia {
         };
         if existing.contains(marker) {
             tracing::info!("disclosure log already contains {marker}; skipping");
-            return Ok(false);
+            return Ok(None);
         }
         let updated = format!("{existing}\n{entry}\n");
         let revid = match current {
@@ -412,19 +430,20 @@ impl Wikipedia {
             Err(WikipediaError::PageMissing(_)) => 0,
             Err(other) => return Err(other),
         };
-        self.edit(
-            EditRequest {
-                title: page,
-                base_revid: revid,
-                wikitext: &updated,
-                summary: "Append wikiactive session log entry",
-                review_artifact: None,
-                dry_run: false,
-            },
-            confirm,
-        )
-        .await?;
-        Ok(true)
+        let outcome = self
+            .edit(
+                EditRequest {
+                    title: page,
+                    base_revid: revid,
+                    wikitext: &updated,
+                    summary: "Append wikiactive session log entry",
+                    review_artifact: None,
+                    dry_run: false,
+                },
+                confirm,
+            )
+            .await?;
+        Ok(Some(outcome))
     }
 }
 
