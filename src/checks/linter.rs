@@ -197,6 +197,7 @@ const NON_VARIANT_ISE_PREFIXES: &[&str] = &[
     "precise",
     "praise",
     "promise",
+    "raise",
     "revise",
     "rise",
     "supervise",
@@ -427,7 +428,8 @@ fn line_scan(rule: &LintRule, text: &str, re: &Regex, what: &str, findings: &mut
 
 /// Semicolon scan with URLs and HTML entities masked first.
 fn line_scan_stripped(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
-    let masked = URL_OR_ENTITY.replace_all(text, "");
+    let prose = mask_templates_and_refs(text);
+    let masked = URL_OR_ENTITY.replace_all(&prose, "");
     if let Some(found) = SEMICOLON.find(&masked) {
         let pos = found.start();
         let start = masked[..pos]
@@ -456,10 +458,59 @@ fn non_variant_ise(word: &str) -> bool {
     })
 }
 
+/// Replace `{{...}}` template bodies (brace-balanced) and `<ref ...>...</ref>`
+/// / `<ref ... />` spans with spaces, so citation/footnote content is not
+/// scanned as drafted prose (a semicolon inside an `{{efn|…}}` note or a
+/// `|magazine=Time` cite param is not prose). Newlines are preserved.
+fn mask_templates_and_refs(text: &str) -> String {
+    fn push_masked(out: &mut String, slice: &str) {
+        for ch in slice.chars() {
+            out.push(if ch == '\n' { '\n' } else { ' ' });
+        }
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut template_depth = 0usize;
+    let mut i = 0usize;
+    while i < text.len() {
+        if template_depth == 0 && text[i..].starts_with("<ref") {
+            let self_close = text[i..].find("/>");
+            let close_tag = text[i..].find("</ref>");
+            let (rel, tail) = match (self_close, close_tag) {
+                (Some(a), Some(b)) if a <= b => (a, 2),
+                (Some(a), None) => (a, 2),
+                (_, Some(b)) => (b, 6),
+                (None, None) => (text.len() - i, 0),
+            };
+            let stop = (i + rel + tail).min(text.len());
+            push_masked(&mut out, &text[i..stop]);
+            i = stop;
+            continue;
+        }
+        if text[i..].starts_with("{{") {
+            template_depth += 1;
+            out.push_str("  ");
+            i += 2;
+            continue;
+        }
+        if text[i..].starts_with("}}") {
+            template_depth = template_depth.saturating_sub(1);
+            out.push_str("  ");
+            i += 2;
+            continue;
+        }
+        let ch = text[i..].chars().next().unwrap_or(' ');
+        if template_depth > 0 {
+            push_masked(&mut out, &ch.to_string());
+        } else {
+            out.push(ch);
+        }
+        i += ch.len_utf8();
+    }
+    out
+}
+
 /// British/American marker suffix families for the cross-word check.
-const UK_FAMILIES: &[&str] = &[
-    "ise", "ised", "ises", "ising", "isation", "isations", "our", "ours",
-];
+const UK_FAMILIES: &[&str] = &["ise", "ised", "ises", "ising", "isation", "isations"];
 const US_FAMILIES: &[&str] = &["ize", "ized", "izes", "izing", "ization", "izations"];
 
 /// Detect a national-variety mix: an `-our`/`-or` twin pair, an `-ise`/`-ize`
@@ -520,7 +571,10 @@ fn variety_mix(text: &str) -> Option<String> {
 }
 
 /// Italic mismatch: a `''span''` whose text also appears outside italics.
-fn italic_mismatch(text: &str) -> Option<String> {
+fn italic_mismatch(raw: &str) -> Option<String> {
+    // Scan only drafted prose: cite-template params (|magazine=Time)
+    // italicize via the template and are not mismatches.
+    let text = mask_templates_and_refs(raw);
     let parts: Vec<&str> = text.split("''").collect();
     if parts.len() < 3 {
         return None;
@@ -690,6 +744,39 @@ mod tests {
             !scan_whole_page(clean, &c)
                 .iter()
                 .any(|f| f.rule == "lead-body-duplication")
+        );
+    }
+
+    #[test]
+    fn semicolon_inside_efn_or_ref_is_not_prose() {
+        let c = cfg();
+        let text = "He was born in 1913{{efn|The obituary gives 1912; see the note.}} in the Bronx.<ref name=\"npg\">{{Cite web |title=X |page=2}}</ref>";
+        let findings = super::scan_whole_page(text, &c);
+        assert!(
+            !findings.iter().any(|f| f.rule == "semicolon-prose"),
+            "{findings:?}"
+        );
+    }
+
+    #[test]
+    fn italic_work_inside_cite_param_is_not_a_mismatch() {
+        let c = cfg();
+        let text = "The piece in ''Time'' praised it.<ref name=\"t\">{{Cite magazine |magazine=Time |title=Modern Living |date=1969}}</ref>";
+        let findings = super::scan_whole_page(text, &c);
+        assert!(
+            !findings.iter().any(|f| f.rule == "italic-mismatch"),
+            "{findings:?}"
+        );
+    }
+
+    #[test]
+    fn four_and_raised_are_not_british_markers() {
+        let c = cfg();
+        let text = "They raised four children and organized the funds.";
+        let findings = super::scan_whole_page(text, &c);
+        assert!(
+            !findings.iter().any(|f| f.rule == "national-variety-mix"),
+            "{findings:?}"
         );
     }
 
