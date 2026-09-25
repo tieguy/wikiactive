@@ -1,0 +1,182 @@
+{{Short description|Explanatory essay}}
+{{redirect|WP:RECENT|text=You may be looking for [[Wikipedia:Recent additions]], [[Help:Recent changes]], [[Wikipedia:Recent changes patrol]], or [[Special:RecentChanges]]. For guidelines on using "recent[ly]" in articles, see [[MOS:DATED]] and [[MOS:RELTIME]]}}
+{{confuse|WP:Presentism}}
+{{supplement|pages=[[Wikipedia:Neutral point of view]], [[Wikipedia:Notability]], and [[Wikipedia:What Wikipedia is not]] policies|WP:RECENT|WP:RECENTISM|WP:RECENCY}}
+{{nutshell|Some Wikipedia articles tend to focus on recent events. Wikipedia has been praised for the way it deals with current news breaks. Nevertheless, it is appropriate to be aware of balance and historical perspective.}}
+[[File:Recentism.svg|right|180px|alt=icon]]
+'''Recentism''' is a phenomenon on Wikipedia where an article has an inflated or imbalanced focus on recent events. It is writing without an aim toward a long-term, historical view. This can result in, among others:
+* Articles overburdened with documenting [[WP:RSBREAKING|breaking news reports]] and controversy as it happens.
+* Articles created on flimsy, transient merits.   
+* Articles deleted despite concerning notable trans-historical subject matter, because a recentist article has given only flimsy and transient details available in news reports without the accompanying historical perspective, and because editors proposing deletion don't bother to research.
+* The muddling or diffusion of the timeless facets of a subject, previously recognized by Wikipedia consensus.
+* [[Wikipedia:Edit warring|Edit warring]] over whether to change an article's well-established [[Wikipedia:Article titles|title]], [[Wikipedia:Manual of Style/Abbreviations|abbreviation]], [[Wikipedia:Manual of Style/Dates and numbers|date and numbering format]], [[WP:ENGVAR|national variety of English]] and spelling, or wording in the [[WP:LEAD|lead section]] or article body on the basis of those used on [[WP:RSBREAKING|breaking news sources]].
+* Impassioned discussions on talk pages that debate not just the notability of the recent event ("Is this topic of lasting importance?") but also where (if anywhere) it should receive coverage on Wikipedia.  Often conducted in ignorance of the historical facts.
+
+Recentism is a symptom of Wikipedia's dynamic and immediate [[Editing|editorial]] process, and has positive aspects as well—up-to-date information on breaking news events, vetted and counter-vetted by enthusiastic volunteer editors, is something that no other encyclopedia can offer. Still, [[WP:NOTNEWS|Wikipedia is not a newspaper]] and it is [[WP:IINFO|not an indiscriminate collection of information]]. Articles should be written from a [[Wikipedia:Neutral point of view|neutral point of view]], with attention to the long-term significance of the information included, and with awareness that, under the [[WP:GNG|general notability guideline]], not every topic will merit its own stand-alone article.
+
+==What to do about it==
+Allegations of recentism should prompt consideration of proportion, balance, and due weight. Material may need to be moved, deleted, or expanded. Certain articles might be [[Wikipedia:Merging|merged]] or placed on the [[Wikipedia:Articles for deletion]] list. Conversely, an article might need [[Wikipedia:Splitting|to be split]] into multiple articles in order to achieve a balance not readily attainable within a single article. 
+
+Over-use of recent material does not by itself mean that an article should be deleted, but the quick and contemporaneous passage of events may make any subject difficult to judge as actually notable enough for a permanent encyclopedia entry.  Proper perspective requires maturity, judgment, and the passage of time {{crossref|(see also {{section link||Suggestions for dealing with recentism}}, below)}}.
+
+==Examples==
+===News spikes===
+{{see also|Wikipedia:Notability (events)#Breaking news|Wikipedia:Identifying reliable sources#Breaking news}}
+
+A news spike is a sudden mass interest in any current event, whereupon Wikipedians create and update articles on it, even if some readers later feel that the topic was not historically significant in any way. The result might be a well-written and well-documented [[wp: NPOV|neutral-point-of-view]] article on a topic that might hardly be remembered a month later (see [[Jennifer Wilbanks]] and [[Wikipedia:Votes for deletion/Jennifer Wilbanks|the article's deletion debate]]). Still, these articles are valuable for future historical research.
+
+An event that occurs in a certain geographic region might come to dominate an entire article about that region. For example, in the aftermath of [[Hurricane Katrina]], the [[New Orleans]] article was inundated with day-by-day facts about the hurricane. The solution: an article on the [[Effect of Hurricane Katrina on New Orleans]] was created to collect this quickly accumulating content.
+
+===Article imbalance===
+{{See also|Wikipedia:Biographies of living persons#Avoid gossip and feedback loops|Wikipedia:Verifiability#Access to sources|Wikipedia:Systemic bias#External factors}}
+
+Subjects with a long history might be described in purely modern terms, even though they were actually more significant in the past than they are today. Even when the topics remain significant, articles can cover the subject as if the most recent events were the salient, defining traits. For large-scale topics, such as [[slavery]], [[marriage]], or [[war]], the stress might be on simply the last few centuries, though the subject matter of the article might have a history of thousands of years.
+
+This tendency towards article imbalance is enhanced by the availability of reliable sources, which is not uniform across different topics. This manifests both from the language a source is written in and the ease with which it can be accessed. Sources published in a medium that is both widely available and familiar to editors, such as a news website, are more likely to be used than those from esoteric or foreign-language publications regardless of their reliability. For example, a 2010 story on [[CNN]] or [[BBC News]] website is more likely to be cited than a 1970 edition of the ''[[Bombay Samachar]]'' or ''[[Večernje novosti]]''. Similarly, the cost of access to a source can be a barrier; for example, most research in [[astronomy]] is freely available to the public via [[arXiv]] or [[NASA ADS]], while many [[law review|law journals]] are available only through costly subscription services.
+
+Thus, a political candidate's biography might become bloated with specific details related to a particular, recent election. Long passages in an athlete's or an actor's biography might be devoted to detailed coverage of a recent controversy. With celebrities, an article about a [[rock music]] singer or [[actor]] who became famous decades ago for achievements on stage may focus almost exclusively on recent news reports of alleged [[scandal]]s, [[infidelity]], or [[recreational drug]] use—none of which are the [[WP:N|notability]] justification behind the creation of their article in the first place. For example, Wikipedia's article on English disc jockey and television presenter [[Jimmy Savile]] changed rapidly and substantially during October 2012, with over 700&nbsp;edits to the article in that month alone compared to 85 for the rest of the year to that point. Eventually, a breakout article, [[Jimmy Savile sexual abuse scandal]] was required.
+
+==Debate over recentism==  
+Any disagreement over whether to remove an article might also be related to Wikipedia's ongoing [[M:Inclusionism|inclusionism]]-versus-[[M:Deletionism|deletionism]] debate. (Deletionists tend to view Wikipedia as a traditional, rigorous encyclopedia. Inclusionists tend to see it as a compendium of all knowledge, with broader remit.) Many editors identify as [[M:Mergism|mergists]], [[M:Separatism|separatists]], or some other more nuanced position, and they may have their own thoughts on dealing with recent material.
+
+===Recentism as a negative===
+Recentism in one sense&mdash;established articles that are bloated with event-specific facts at the expense of longstanding content&mdash;is considered a Wikipedia fault, as discussed above under News Spikes.
+
+[[WP:NOTNEWS|Wikipedia is not a newspaper]]. When dealing with contemporary subjects, editors should consider whether they are simply regurgitating media coverage of an issue or actually adding well-sourced information that will remain notable over time. Yes, unneeded content can be eliminated later, but a cluttered "first draft" of an article may degrade its eventual quality and a coherent orientation may not always be attained.
+
+The second sense of recentism&mdash;the creation of a glut of new articles on a recent event&mdash;can result in a slap-dash approach to the subject and a rambling, disorganized look to the encyclopedia. [[WP:IINFO|Wikipedia is not an indiscriminate collection of information]], and not every topic meets [[WP:GNG|Wikipedia's general notability guideline]] to merit its own stand-alone article.
+
+===Recentism as a positive===
+{{box quote|quote=[[Journalism]] is a first rough draft of history.| salign=right|author=—[[Phil Graham]]}}
+In many cases, such content is a valuable preliminary stage in presenting information. Any encyclopedia goes through [[wikt:draft|rough draft]]s; new Wikipedia articles are immediately published in what might be considered draft form: They can be—and are—improved in real time; these rapidly developing drafts may appear to be a clutter of news links and half-developed thoughts, but later, as the big picture emerges, the least relevant content ought to be—and often is—eliminated.
+
+One example is the [[Pitcairn sexual assault trial of 2004]], which was developed day by day as the trial and appeals process advanced. Eventually, when the process ended, later editors could place everything in perspective&mdash;while also retaining the chronological coverage as an exhaustive historical record. ({{As of|2024|06}} this article is still marked as "Cleanup Needed", showing that the editing procedure is never really ended.)
+
+Collaborative editing on Wikipedia has resulted in a massive encyclopedia of comprehensive and well-balanced articles on the many current events of the twenty-first century. This record will be valuable to those in the future who seek to understand the history of this time period. In other words: "If we don't make sense of it today, someone else will struggle to make sense of it tomorrow."
+
+One of Wikipedia's strengths is the collation and sifting through of vast amounts of reporting on current events, producing encyclopedia-quality articles in real time about ongoing events or developing stories: natural disasters, political campaigns and elections, wars, product releases, assassinations.
+
+Finally, Wikipedia articles are often developed via on-line references, which may be [[link rot|temporary in nature]]. But by documenting timely material with reliable sources at the outset, more permanent sources will hopefully be found and used later - and, with the original online sources linked from Wikipedia, they are much more likely to be picked up and archived by the [[Wayback Machine]] or other similar web archives before they disappear.
+
+==Recentism as recruitment==
+Search engines drive a large amount of traffic to Wikipedia's articles about what were at the moment recent events—for example, the death of [[Ronald Reagan]], the [[2004 Indian Ocean earthquake]] and subsequent [[tsunami]], the death of [[Pope John Paul II]] and election of a successor, the nomination of [[John Roberts]] to the [[Supreme Court of the United States]], and newsy articles like those from other English-speaking countries.
+
+What might seem at the time to be an excessive amount of information on recent topics actually serves the purpose of drawing in new readers—and among them, potential new Wikipedians. Example: Wikipedia received  positive coverage<ref name="onthemedia 8 July 2005">{{cite news|title=GET ME REWRITE: Transcript, Friday, July 08, 2005 |url=http://www.wnyc.org/story/129250-get-me-rewrite/ |accessdate=19 July 2016 |work=On The Media |date=8 July 2005 |author=Gladstone, Brooke|author2=Garfield, Bob}}</ref> on the American [[National Public Radio]] program ''[[On the Media]]'' about its quick response to the [[7 July 2005 London bombings|London bombings of July 2005]].
+
+==Recentist articles as case studies==
+The related articles that are written during a "recentist news frenzy" provide an in-depth look for interested readers. For example, the Terri Schiavo piece and its companion articles at [[:Category:Terri Schiavo case]] provide a [[case study|case-study]] outlook into how the state and federal governments in the United States interact constitutionally, some insight into motivations for politicians to intervene in court cases, and nuances of end-of-life issues.
+
+==Suggestions for dealing with recentism==
+{{Shortcut|WP:10YT}}
+Consider the '''ten-year test''' or '''twenty-year test''' as a thought experiment that might be helpful, but keep in mind the policy [[WP:CRYSTAL]]:
+
+<blockquote>Will someone ten or twenty years from now be confused about how this article is written? In ten or twenty years, will this addition still appear relevant? If I am devoting ''more'' time to it than other topics in the article, will it appear ''more'' relevant than what is already here?
+</blockquote>
+
+For example, in 2020, devoting more space to the [[2020 United States presidential election]] article than to the [[2000 United States presidential election]] article might seem logical. Nevertheless, in the future, when neither event is fresh, readers will benefit from a similar level of detail in both articles. As of May 2025, the 2020 entry is still twice as long as the 2000 entry. 
+
+Furthermore, detailed stand-alone articles and lists may no longer comply with the [[WP:GNG|general notability guideline]], particularly the "Presumed" criterion. Content that seemed notable at the time might, in retrospect, violate [[Wikipedia:What Wikipedia is not|what Wikipedia is not]] and other guidelines. Similarly, a person who receives a temporary [[WP:BLP1E|blip of news coverage]] for a single incident or event is not necessarily an appropriate topic for a standalone biographical article, if their notability claim is not likely to still be of sustained public interest in the next few decades.
+
+After "recentist" articles have calmed down and the number of edits per day has dropped to a minimum, why not initiate '''comprehensive rewrites'''? Many articles can be condensed to keep only the most important information, the wider notable effects of an event, and links to related issues. Much of the timeline and the day-to-day updates collected in the "rough draft" stages can safely be excised. A number of the citations to breaking news reports written at the time of the event (especially those later [[WP:RSBREAKING|found to be inaccurate]]) could be replaced by those to more scholarly, historical, or retrospective references created later on. Any detailed subarticle relating to the event may also be either merged back into the main article, or deleted (this includes any article about a subject [[WP:ONEEVENT|only notable for that one event]]).
+
+'''Just wait and see.''' Remember [[Wikipedia:There is no deadline|there is no deadline]], and [[WP:CCC|consensus can change]] later on. Editors writing today do not have a historical perspective on today's events, and [[WP:CRYSTAL|should not pretend to have a crystal ball.]] This is especially true during a news spike, when there is mass interest to create and update articles on a current event, regardless of whether it may be historically significant later on. Also, editors updating an article affected by a current event may not necessarily be the same ones participating months (or even years) later in the clean-up and maintenance of the page. Above all else, editors should avoid getting into [[Wikipedia:Edit warring|edit wars]] or contentious deletion discussions when trying to deal with recentism.
+
+===The Recentism tag===
+Some editors employ the Recentism tag {{tl|Recentism}} at the top of articles to warn the reader that the content may be tilted toward recent perspectives.
+
+<blockquote> The tag looks like this: {{Tlc|Recentism}} and results in this:</blockquote>
+{{Recentism}}
+
+Of course this tag, like many others, should be employed only if editors cannot immediately rectify the problems themselves.
+
+You can find a list of articles that have been tagged by going to [[:Category:Articles slanted towards recent events]]. Choose any article and examine it to see why an editor has tagged it; you may have to check the article history or the Discussion page to find out. If the tag is dated, look at the history of that month and the month preceding it. Improve the article by deleting the recentism or adding information that brings the piece into chronological balance (this may take a while because you have to find reputable sources). You might have to add an "Expert Needed" tag and move on. (For information, see [[Wikipedia:TC#Expert_needed]].) Sometimes you won't agree with the assessment, and you can simply remove the Recentism tag.
+
+==See also==
+===Policies===
+{{div col}}
+* [[Wikipedia:Article titles]]
+** [[WP:CRITERIA|§&nbsp;Deciding on an article title]]
+** [[WP:NAMECHANGES|§&nbsp;Name changes]]
+* [[Wikipedia:Biographies of living persons]]
+** [[WP:BLPSTYLE|§&nbsp;Writing style]]
+** [[WP:BLPGOSSIP|§&nbsp;Avoid gossip and feedback loops]]
+** [[WP:BLP1E|§&nbsp;Subjects notable only for one event]]
+** [[WP:BDP|§&nbsp;Recently dead or probably dead]]
+* [[Wikipedia:Neutral point of view]]
+** [[WP:BALASP|§&nbsp;Balancing aspects]]
+* [[Wikipedia:Verifiability]]
+** [[WP:SOURCEACCESS|§&nbsp;Accessibility]]
+** [[WP:VNOT|§&nbsp;Verifiability does not guarantee inclusion]]
+* [[Wikipedia:No original research]]
+** [[WP:PSTS|§&nbsp;Primary, secondary and tertiary sources]]
+* [[Wikipedia:What Wikipedia is not]]
+** [[WP:NOTADVOCACY|§&nbsp;Wikipedia is not a soapbox or means of promotion]]
+** [[WP:NOTNEWS|§&nbsp;Wikipedia is not a newspaper]]
+** [[WP:INDISCRIMINATE|§&nbsp;Wikipedia is not an indiscriminate collection of information]]
+* [[Wikipedia:Wikipedia is not a dictionary]]
+** [[WP:NEO|§&nbsp;Neologisms]]
+{{div col end}}
+
+===Guidelines===
+{{div col}}
+* [[Wikipedia:As of]]
+* [[Wikipedia:Content forking]]
+** [[Wikipedia:Content forking#Unacceptable types of forking|§&nbsp;Unacceptable types of forking]]
+** [[WP:SPINOFF|§&nbsp;Article spinoffs: "Summary style" meta-articles and summary sections]]
+* [[Wikipedia:Disambiguation]]
+** [[WP:PTOPIC|§&nbsp;Is there a primary topic?]]
+** [[WP:NCDAB|§&nbsp;Naming the specific topic articles]]
+* [[Wikipedia:Manual of Style]]
+** [[MOS:VAR|§&nbsp;Retaining existing styles]]
+** [[MOS:ID|§&nbsp;Identity]]
+** [[WP:MOS#Current|§&nbsp;Current]]
+* [[Wikipedia:Notability]]
+** [[WP:GNG|§&nbsp;General notability guideline]]
+** [[WP:SUSTAINED|§&nbsp;Notable topics have attracted attention over a sufficiently significant period of time]]
+** [[WP:PAGEDECIDE|§&nbsp;Whether to create standalone pages]]
+* [[Wikipedia:Notability (books)]]
+** [[WP:BKCRYSTAL|§&nbsp;Not-yet-published books]]
+* [[Wikipedia:Notability (events)]]
+* [[Wikipedia:Notability (films)]]
+** [[WP:NFF|§&nbsp;Future films, incomplete films, and undistributed films]]
+* [[Wikipedia:Notability (music)]]
+** [[WP:FUTUREALBUM|§&nbsp;Unreleased material]]
+* [[Wikipedia:Notability (people)]]
+** [[WP:BIO1E|§&nbsp;People notable for only one event]]
+* [[Wikipedia:Reliable sources]]
+** [[WP:AGE MATTERS|§&nbsp;Age matters]]
+** [[WP:RSBREAKING|§&nbsp;Breaking news]]
+** [[WP:HEADLINES|§&nbsp;Headlines]]
+* [[Wikipedia:Reliable sources (medicine)]]
+** [[WP:MEDPRI|§&nbsp;Respect secondary sources]]
+** [[WP:MEDDATE|§&nbsp;Use up-to-date evidence]]
+{{div col end}}
+
+===Essays===
+* [[Wikipedia:Build content to endure]]{{snd}} essay discussing how to prevent content from degrading over time
+* [[Wikipedia:Proseline]]{{snd}} the nephew of ''recentism'', proseline is the tendency to choppy writing, often containing dates, that ends up looking like a timeline
+* [[Wikipedia:Systemic bias]]
+* [[Wikipedia:Too soon]]
+* [[Wikipedia:Notability (periodicals)]]
+** [[WP:NMAG#Not yet or newly published periodicals|§&nbsp;Not yet or newly published periodicals]]
+
+===Templates===
+* [[Template:Recentism]]
+* [[Template:Clarify timeframe]]
+* [[Template:When]]
+
+===Articles===
+* [[Exceptionalism]]
+
+==References==
+{{Reflist}}
+
+==External links==
+*[https://www.forbes.com/sites/kalevleetaru/2019/04/17/the-four-eras-of-wikipedia-and-visualizing-history-without-maps/#29b1308d2ebf The Four Eras Of Wikipedia And Visualizing History Without Maps] (includes graphs of years by number of references in Wikipedia)
+*[http://www.npr.org/2012/12/18/167466320/coverage-rapid-and-often-wrong-in-tragedys-early-hours NPR audio/text - ''Coverage Rapid, And Often Wrong, In Tragedy's Early Hours'']
+
+[[Category:Wikipedia content selection|Recentism]]
+[[Category:Wikipedia essays|Recentism]]
+[[Category:Wikipedia essays about notability]]
+[[Category:Wikipedia essays about neutrality]]
+[[Category:Essays about what Wikipedia is]]

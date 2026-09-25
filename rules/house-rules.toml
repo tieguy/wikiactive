@@ -1,0 +1,32 @@
+# House rules — mechanically enforced product decisions (not Wikipedia policy).
+# Consumed by wikipedia.rs (disclosure suffix), checks/linter.rs (semicolon ban
+# double-defined here for the publish-path summary validator), and tests.
+
+[disclosure]
+# Appended to every published edit summary. Format checked by tests/publish.rs.
+suffix = "LLM-Disclosure: U:LuisVilla/wikiactive"
+# Page on en.wikipedia maintained as the full disclosure artifact.
+page = "User:LuisVilla/wikiactive"
+# Refuse to publish a summary that lacks the suffix (never append silently to
+# an operator-provided summary that tried to omit it).
+require_suffix = true
+
+[prose]
+# House rule: no semicolons in drafted prose (mirrored in linter.toml).
+ban_semicolons = true
+
+[citevar]
+named_refs = true
+ban_autonumber_refnames = ":N pattern"
+ban_templates = ["sfn"]
+pinpoint_template = "rp"
+
+[user_agent]
+# Must identify the operator (docs/api-etiquette.md). Asserted by tests/integrations.rs.
+string = "wikiactive/0.1 (en.wikipedia User:LuisVilla; luis@lu.is)"
+
+[etiquette]
+maxlag_seconds = 5
+backoff_on = [429, 503]
+respect_retry_after = true
+assert_user_on_edit = true

@@ -1,0 +1,226 @@
+{{Short description|Language to avoid when writing articles}}{{redirect|WP:WORDS}}
+{{pp-dispute|small=yes}}
+{{MoS guideline|MOS:WTW|WP:WORDS|sortkey=Words to watch}}
+{{nutshell|Be cautious with expressions that may introduce bias, lack precision, or include offensive terms. Use clear, direct language. Let facts alone do the talking.}}
+{{style}}
+
+There are no forbidden words or expressions on Wikipedia, but certain expressions should be used with caution because they may introduce bias or imprecise meaning. Strive to eliminate expressions that are flattering, disparaging, vague, clichéd, or endorsing of a particular viewpoint.
+
+The advice in this guideline is not limited to the examples provided and {{em|should not be applied rigidly}}.  If a word can be replaced by one with less potential for misunderstanding, it should be.<ref>See, e.g.: {{cite book |last=Gowers |first=Ernest |author-link=Ernest Gowers |title=[[The Complete Plain Words]] |date=1954 |quote=Be short, be simple, be human.}}</ref>  Some words have specific technical meanings in some contexts and are acceptable in those contexts, e.g. [[Claim (law)|''claim'' in law]].  What matters is that articles should be well written and be consistent with the core content policies&nbsp;– [[Wikipedia:Neutral point of view|Neutral point of view]], [[Wikipedia:No original research|No original research]], and [[Wikipedia:Verifiability|Verifiability]]. The guideline does not apply to quotations, which should be faithfully reproduced from the original sources ({{crossref|printworthy=y|see {{section link|Wikipedia:Manual of Style|Quotations}}}}).
+
+If you do not feel you can improve the problematic wording of an article yourself, a [[Wikipedia:Template messages/Cleanup|template message]] can be added to draw the attention of other editors to an article needing a [[Wikipedia:Cleanup|cleanup]].
+
+== Words that may introduce bias ==
+
+=== <span class="anchor" id="Peacock"></span>Puffery ===
+{{shortcut|MOS:PUFFERY|MOS:PEACOCK|MOS:FLOWERY}}
+<!--This list is not exhaustive and does not need expansion with OBVIOUS examples of PoV wording, like "incredible" and "stunning". The point of it being in WtW is to highlight terms often used in news journalism which are not actually neutral enough for encyclopedic prose.-->
+{{redirect|Wikipedia:SUPER|subscripts and superscripts|Wikipedia:Manual of Style/Superscripts and subscripts}}
+{{Redirect|Wikipedia:AWARDWINNING|the guideline concerning categories of award winners|Wikipedia:Overcategorization#Award recipients}}
+{{see also|Wikipedia:Neutral point of view|Wikipedia:Wikipuffery}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''legendary, best, great, greatest, acclaimed, iconic, visionary, outstanding, leading, celebrated, popular, award-winning, landmark, cutting-edge, innovative, revolutionary, extraordinary, brilliant, hit, famous, renowned, remarkable, prestigious, world-class, respected, notable, virtuoso, honorable, awesome, unique, pioneering, phenomenal, prominent''&nbsp;...}} }}
+}}
+
+[[File:Peacock terms.png|frameless|right|upright=1|alt=A peacock saying "I am the greatest bird ever!"]]
+
+Words such as these are often used without attribution to [[Wikipedia:What Wikipedia is not#Wikipedia is not a soapbox or means of promotion|promote the subject of an article]], while neither imparting nor plainly summarizing verifiable information. They are known as "peacock terms" by Wikipedia contributors.{{efn|name=peacock|1=The template {{tl|Peacock inline}} is available for inline notation of such language where used inappropriately.}} Instead of making subjective proclamations about a subject's importance, use facts and attribution to demonstrate it.
+; Peacock example{{colon}}
+: [[Bob Dylan]] is the defining figure of the 1960s counterculture and a brilliant songwriter.
+; Just the facts{{colon}}
+: Dylan was included in [[Time (magazine)|''Time'']]{{'}}s [[Time 100: The Most Important People of the Century|100: The Most Important People of the Century]], in which he was called "master poet, caustic social critic and intrepid, guiding spirit of the counterculture generation".<sup>[1]</sup> By the mid-1970s, his songs had been covered by hundreds of other artists.<sup>[2]</sup>
+
+An article suffering from such language should be rewritten to correct the problem or, if an editor is unsure how best to make a correction, the article may be tagged with an appropriate template, such as {{tl|Peacock inline}}.
+
+[[Puffery]] is an example of positively [[loaded language]]; negatively loaded language should be avoided just as much. People responsible for "public spending" (the neutral term) can be loaded both ways, as "tax-and-spend politicians borrowing off the backs of our grandchildren" or "public servants ensuring crucial investment in our essential infrastructure for the public good".
+
+=== Contentious labels ===
+{{Shortcut|clear=right|MOS:LABEL|MOS:RACIST|MOS:MYTH|MOS:TERRORIST|WP:CONTLABEL|MOS:CONTROVERSIAL}}
+{{redirect|MOS:MYTH|the WikiProject on mythology|Wikipedia:WikiProject Mythology}}
+{{redirect|WP:CONTLABEL|special procedures on contentious topics|Wikipedia:Contentious topics}}
+{{redirect|WP:RACIST|the essays about [[bigots]] on Wikipedia|Wikipedia:No Nazis|and|Wikipedia:No racists}}
+{{see also|Wikipedia:Biographies of living persons#Tone|Wikipedia:Myth versus fiction}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''cult, racist, perverted, sexist, homophobic, transphobic, misogynistic, sect, fundamentalist, heretic, extremist, denialist, terrorist, freedom fighter, bigot, myth, neo-Nazi'', {{nobreak|''-gate'',}} ''pseudo-, controversial''&nbsp;...}} }}<!--Some examples are nouns and some are adjectives for a reason: to shortcircuit any attempt at wikilawyering that this guideline doesn't apply to one grammatical class or the other.-->
+}}
+
+[[Loaded language|Value-laden]] labels&nbsp;– such as calling an organization a ''[[cult]]'', an individual a ''[[racist]], [[sexist]], [[terrorist]]'', or ''[[freedom fighter]]'', or a sexual practice a ''[[perversion]]''&nbsp;– may express contentious opinion and are best avoided unless widely used by reliable sources to describe the subject, in which case use [[Wikipedia:Citing sources#In-text attribution|in-text attribution]]. Avoid ''[[myth]]'' in its informal sense, and establish the scholarly context for any formal use of the term.
+
+The prefix ''[[pseudo-]]'' indicates something false or spurious, which may be debatable. The suffix ''[[List of scandals with "-gate" suffix|‑gate]]'' suggests the existence of a scandal. Use these in articles only when they are in wide use externally, e.g. [[Gamergate]], with in-text attribution if in doubt. Rather than describing an individual using the subjective and vague term ''controversial'', instead give readers information about relevant controversies. Make sure, as well, that reliable sources establish the existence of a controversy and that the term is not used to grant a [[Wikipedia:Fringe theories|fringe viewpoint]] undue weight.{{efn|1=The template {{tlx|POV-statement}} is available for inline notation of such language where used inappropriately.}}
+
+For the term ''[[pseudoscience]]'': per the policy [[Wikipedia:Neutral point of view]], pseudoscientific views "should be clearly described as such". Per the content guideline [[Wikipedia:Fringe theories]], the term ''pseudoscience'', if supported by reliable sources, may be used to distinguish fringe theories from mainstream science.
+
+{{Crossref|printworthy=y|For additional guidance on {{nowrap|''-ist/-ism''}} terms, see {{section link||Neologisms and new compounds}}, below.}}
+
+=== Unsupported attributions ===
+{{shortcut|MOS:WEASEL|MOS:AWW}}
+{{Redirect|WP:AWT|the title|Wikipedia:Administrators without tools}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''some people say, many people remember, many scholars state, it is believed/regarded/considered, many are of the opinion, most feel, experts declare, it is often reported, it is widely thought, research has shown, science says, scientists claim, it is often said, officially, is widely regarded as, {{var|X}} has been described as {{var|Y}}''&nbsp;...}} }}
+}}
+
+[[File:Weasel words.svg|frameless|right|upright=1|alt=A weasel saying "Some people say that weasel words are great!"]]
+
+[[Weasel word]]s are words and phrases aimed at creating an impression that something specific and meaningful has been said, when in fact only a vague or ambiguous claim has been communicated. A common form of weasel wording is through vague attribution, where a statement is [[argument from authority|dressed with authority]], yet has no substantial basis. Phrases such as those above present the appearance of support for statements but can deny the reader the opportunity to assess the source of the viewpoint. They may disguise a biased view. Claims about what people say, think, feel, or believe, and what has been shown, demonstrated, or proved should be clearly attributed.{{efn|1=The templates {{tlx|Who}}, {{tlx|Which}}, {{tlx|By whom}}, or {{tlx|Attribution needed}} are available for editors to request an individual statement be more clearly attributed.}}
+
+The examples above {{strong|are not automatically weasel words}}. They may legitimately be used in the [[Wikipedia:Manual of Style/Lead section|lead section]] of an article or in a [[topic sentence]] of a paragraph when the article body or the rest of the paragraph can supply attribution. Likewise, views that are properly attributed to a [[Wikipedia:Identifying reliable sources|reliable source]] may use similar expressions, {{em|if those expressions accurately represent the opinions of the source}}. Reliable sources may analyze and interpret, but for editors to do so would violate the [[Wikipedia:No original research]] or [[Wikipedia:Neutral point of view]] policies. Equally, editorial [[irony]] such as "Despite the fact that fishermen catch fish, they don't tend to find any" and [[damning with faint praise]], like "It is known that person X is skilled in golf, but is inferior to person Y" have no place in Wikipedia articles.
+
+Articles including weasel words should ideally be rewritten such that they are supported by reliable sources; alternatively, they may be tagged with the {{tlx|Weasel}}, {{tlx|By whom}}, or similar templates to identify the problem to future readers (who may elect to fix the problem).
+
+=== Expressions of doubt ===
+{{shortcut|MOS:ACCUSE|MOS:ACCUSED|MOS:ALLEGED|MOS:DOUBT|MOS:SCAREQUOTES}}
+{{redirects here|WP:ALLEGED|the policy on individuals accused of a crime|Wikipedia:Biographies of living persons#People accused of crime}}
+{{see also|Wikipedia:Manual of Style#Quotation point of view}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''supposed, apparent, purported, alleged, accused, so-called''&nbsp;...}} Also, scare-quoting: {{strong|''a Yale "report"''}}; undue emphasis: {{strong|a {{em|Baptist}} church}} }}
+}}
+
+Words such as ''supposed, apparent, alleged'', and ''purported'' can imply that a given point is inaccurate, although ''alleged'' and ''accused'' are appropriate when wrongdoing is asserted but undetermined, such as with people awaiting or undergoing a criminal trial; when these are used, ensure that the source of the accusation is clear. {{va|SO-CALLED|text=''So-called'' can mean ''commonly named, falsely named'', or ''contentiously named'', and it can be difficult to tell these apart. Simply ''called'' is preferable for the first meaning; detailed and attributed explanations are preferable for the others.}}
+
+Misused punctuation can also have similar effects. Quotation marks, when not marking an actual quotation,{{efn|Some sources may use quotation marks to highlight that a word is special for some reason (names of works, words as words, words in other languages, etc). See [[Wikipedia:Manual of Style/Text formatting]] on how to deal with those cases when writing Wikipedia articles.}} may be interpreted as "[[scare quotes]]", indicating that the writer is distancing themself from the otherwise common interpretation of the quoted expression. The use of {{em|[[Wikipedia:Manual of Style/Text formatting#Emphasis|emphasis]]}} may turn an innocuous word into a loaded expression, so such occurrences should also be considered carefully.
+
+=== Editorializing ===
+{{shortcut|MOS:EDITORIAL|MOS:OP-ED|MOS:OFCOURSE|WP:OFCOURSE}}
+{{redirect|WP:EDITORIAL|the reliability of editorial sources|Wikipedia:Reliable sources#News organizations}}
+{{redirect|WP:OFCOURSE|the essay which had the "OFCOURSE" shortcut prior to March 2021|Wikipedia:Of course it's voting}}
+{{redirect|MOS:OP-ED}}
+{{also|Wikipedia:Manual of Style#Instructional and presumptuous language|Wikipedia:It should be noted}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''notably, it should be noted, arguably, interestingly, essentially, utterly, actually, only, clearly, absolutely, of course, without a doubt, indeed, happily, sadly, tragically, aptly, fortunately, unfortunately, untimely''&nbsp;...}} }}
+}}
+
+Using descriptors like ''notable'' (''notably'', ''it should be noted'') or ''interesting'' (''interestingly'') to highlight something as particularly significant or certain without attributing that opinion should usually be avoided so as to maintain an [[Wikipedia:Neutral point of view#Impartial tone|impartial tone]]. Words such as ''fundamentally'', ''essentially'', and ''basically'' can indicate particular interpretive viewpoints and thus should also be attributed in controversial cases. Care should be used with ''actually'' and the modifiers ''only'' and ''just'', which imply something being contrary to expectations; make sure the expectation is [[Wikipedia:Verifiability|verifiable]] and broadly shared rather than assumed. ''Clearly, obviously, naturally'', and ''of course'' all presume too much about the reader's knowledge and perspective and often amount to verbiage. Wikipedia should not take a view on whether an event was ''fortunate'' or not.
+
+This kind of [[persuasive writing]] approach is also against the [[Wikipedia:No original research|policy against original research]] (Wikipedia does not try to steer the reader to a particular interpretation or conclusion) and the [[Wikipedia:Manual of Style#Instructional and presumptuous language|Instructional and presumptuous language]] guideline (Wikipedia does not break the [[fourth wall]] and write {{em|at}} the reader, other than with [[Wikipedia:Hatnote|navigational hatnotes]]).
+
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''but, despite, however, though, although, furthermore, while''&nbsp;...}} }}
+}}
+
+More subtly, editorializing can produce [[Wikipedia:No original research#Synthesis of published material|implications that are not supported by the sources]]. When used to link two statements, words such as ''but, despite, however'', and ''although'' may imply a relationship where none exists, possibly unduly calling the validity of the first statement into question while giving [[Wikipedia:Neutral point of view#Due and undue weight|undue weight]] to the credibility of the second.
+
+=== <span class="anchor" id="Claim"></span><span id="Various synonyms for said"></span>Synonyms for ''said'' ===
+
+{{Shortcut|MOS:SAID|MOS:SAY|MOS:CLAIM|WP:SAYS}}
+{{redirect|WP:EXPLAIN|the editing policy|Wikipedia:Editing policy#Be helpful: explain|more details|Help:Edit summary#Edits should be explained}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''reveal, point out, clarify, expose, explain, find, note, observe, insist, speculate, surmise, claim, assert, admit, confess, deny, confirm''&nbsp;...}} }}
+}}
+
+In some types of writing, repeated use of ''said'' [[Said bookism|is considered tedious]], and writers are encouraged to employ synonyms. On Wikipedia, it is more important to avoid language that makes undue implications.
+
+''Said'', ''described'', ''wrote'', ''commented'', ''remarked'', and ''according to'' are almost always neutral and accurate. ''Stated'' is usually acceptable, especially in formal contexts (e.g., a declaration in court).  Extra care is needed with more [[loaded term]]s. For example, to write that a person ''noted'', ''observed'', ''clarified'', ''explained'', ''exposed'', ''found'', ''pointed out'', ''showed'', ''confirmed'', or ''revealed'' something can imply objectivity or truthfulness, instead of simply conveying the fact that it was ''said''. To write that someone ''insisted'', ''speculated'', or ''surmised'' can suggest the degree of the person's carefulness, resoluteness, or access to evidence, even when such things are unverifiable.
+
+To say that someone ''asserted'' or ''claimed'' something can call their statement's credibility into question, by emphasizing any potential contradiction or implying disregard for evidence. Similarly, be judicious in using ''admit'', ''confess'', ''reveal'', and ''deny'', [[Wikipedia:Biographies of living persons|particularly for living persons]], because these verbs can inappropriately imply [[culpability]].
+
+To avoid the twin pitfalls of biased wording and tedious repetition of "he said&nbsp;... she said&nbsp;...", consider rewriting the prose to remove the need for such verbs in the first place; [[Wikipedia:The problem with elegant variation|it is often repeated <em>information</em>]], rather than the repetition of specific words, that creates a sense of repetition in prose. Overuse of variation is also likely to introduce an [[Wikipedia:Writing better articles#Tone|unencyclopedic tone]], unclarity, and even unintended humour or muddled metaphor.
+
+== Expressions that lack precision ==
+
+{{See also|Wikipedia:Please clarify|Wikipedia:Vagueness}}
+
+===Euphemisms===
+{{shortcut|MOS:EUPHEMISM|MOS:EUPH}}
+{{Redirect|WP:EUPHEMISM|the essay advising bluntness|Wikipedia:Call a spade a spade}}
+{{Redirect|WP:PASSEDAWAY|Wikipedians who have recently died|Wikipedia:Deceased Wikipedians}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''passed away, gave their life, eternal rest, make love, challenge, an issue with, collateral damage, differently abled''&nbsp;...}} }}
+}}
+
+[[Euphemism]]s should generally be avoided in favor of more neutral and precise terms. ''Died'' and ''had sex'' are neutral and accurate; ''passed away'' and ''made love'' are euphemisms. Some words and phrases that are proper in many contexts also have euphemistic senses that should be avoided: ''[[civilian casualties]]'' should not be masked as ''[[collateral damage]]''.  Problems can be named without spinning them as ''challenges''; disputes should not be smoothed over by saying that people ''have issues with'' it. 
+
+If a person has a medical condition, say just that, specifying the condition to the extent that is relevant and supported by appropriate sources. See [[MOS:MEDLANG|Wikipedia:Manual of Style/Medicine-related articles § Careful language]] for more guidance on writing about medical conditions. See also [[MOS:SUICIDE]].
+
+Norms vary for expressions about disabilities and disabled people. Do not assume that plain language is inappropriate.<ref>The [[National Federation of the Blind]], for instance, opposes terms such as ''sightless'', in favor of the straightforward ''blind''. Similarly, the same group argues there is no need to substitute awkward circumlocutions such as ''[[People-first language|people with blindness]]'' for the simpler phrase ''blind people''; see [http://www.nfb.org/Images/nfb/Publications/bm/bm93/brlm9308.htm#2 "Resolution 93-01"], National Federation of the Blind, July 9, 1993, accessed April 26, 2010.</ref> The goal is to express ideas clearly and directly without causing unnecessary offense. See also [[Wikipedia:WikiProject Disability/Style advice]].
+
+=== Clichés and idioms ===
+{{shortcut|MOS:CLICHE|MOS:IDIOM}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''lion's share, tip of the iceberg, landslide, white elephant, gild the lily, take the plunge, ace up the sleeve, bird in the hand, twist of fate, at the end of the day, rounded out the top five, the likes of, ''&nbsp;...}} }}
+}}
+
+[[Cliché]]s and [[idiom]]s should generally be avoided in favor of direct, literal expressions. ''Lion's share'' is often misunderstood and a ''[[landslide victory]]'' is imprecise; instead use a term such as ''all, most, two-thirds'', or whatever matches the context. The ''tip of the iceberg'' should be reserved for discussions of [[iceberg]]s.  If something is seen as wasteful excess, do not call it ''gilding the lily'' or a ''white elephant''; instead, describe the wasteful thing in terms of the actions or events that led to the excess. Instead of writing that someone ''took the plunge'', state their action matter-of-factly.
+
+In general, if a literal reading of a phrase makes no sense given the context, the sentence needs rewording. Some idioms are common only in certain parts of the world, and many readers are not native speakers of English; articles should not presume familiarity with particular phrases. [[Wiktionary]] has a long [[wikt:Category:English idioms|list of English idioms]], many of which should be avoided.
+
+=== Relative time references ===
+{{shortcut|MOS:RELTIME|MOS:REALTIME}}
+{{See also|Wikipedia:As of#Precise language|Wikipedia:Manual of Style/Dates and numbers#Statements likely to become outdated}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''recently, lately, currently, today, presently, to date, X years ago, formerly, in the past, traditionally, this/last/next (year/month/winter/spring/summer/fall/autumn), yesterday, tomorrow, in the future, now, to this day, soon, since''&nbsp;...}} }}
+}}
+
+Absolute specifications of time are preferred to relative constructions using ''recently, currently'', and so on, because the latter may go out of date. "By {{CURRENTMONTHNAME}} {{CURRENTYEAR}} contributions had dropped" has the same meaning as "Recently, contributions have dropped", but the first sentence retains its meaning as time passes.
+
+''Recently''-type constructions may be ambiguous even at the time of writing: Was it in the last week? Month? Year?{{efn|1=In long-view sciences such as palaeontology, ''[[recent]]'' may have [[Term of art|terms-of-art]] meanings such as "within the last 11,700 years"&nbsp;– the [[Holocene]]&nbsp;– and does not go out of date.}} The information that "The current president, [[Alberto Fernández]], took office in 2019", or "Alberto Fernández has been president since 2019", is better rendered "Alberto Fernández became president in 2019". Wordings such as "17 years ago" or "Jones is 65 years old" should be rewritten as "in {{#expr:{{CURRENTYEAR}}-17}}", "Jones was 65 years old at the time of the incident", or "Jones was born in {{#expr:{{CURRENTYEAR}}-65}}". If a direct quote contains relative time, ensure the date of the quote is clear, such as "Joe Bloggs in 2007 called it 'one of the best books of the last decade{{'"}}.
+
+When material in an article may become out of date, follow the [[Wikipedia:As of]] guideline, which allows information to be written in a less time-dependent way.{{efn|1=The "as of" technique is implemented in the {{tlx|As of}} template; it additionally tags information that will become dated. {{tlx|as of|{{CURRENTYEAR}}|{{CURRENTMONTH}}}} produces the text {{xt|{{as of|{{CURRENTYEAR}}|{{CURRENTMONTH}}}}}} and categorises the article appropriately. "A new widget is currently being developed" can usefully become something like "a new widget was under development {{as of|2008|lc=y}}" or, if supported by a source, "it was announced in November 2007 that a new widget was being developed" (no need for {{tlx|As of}} template). The {{tlx|Age}} template always displays current age when the text is displayed in Wikipedia, but may not be correct for printouts and non-live text: a person born on 25 December 2000 would be {{Age|2000|12|25}} [entered as {{tnull|Age|2000|12|25}}] years old now.}} There are also several templates for alerting readers to time-sensitive wording problems.{{efn|1=For example, the template {{tlx|When}} is available for editors to indicate when a sentence, or part of one, should be worded more precisely. The {{tlx|Out of date}} template may be used when an article's factual accuracy may be compromised due to out-of-date information.}}
+
+Expressions like "former", "in the past", and "traditionally" lump together unspecified periods in the past. "Traditional" is particularly pernicious because it implies [[Time immemorial|immemorial]] established usage. It is better to use explicit dates supported by sources: instead of "hamburgers are a traditional American food", say "the hamburger was invented in about 1900 and became widely popular in the United States in the 1930s".{{efn|1={{Crossref|printworthy=y|See also: [[Wikipedia:WikiProject Food and drink/Original, authentic, and traditional|WikiProject Food and Drink, on "original", "traditional", "authentic", and other distracting terminology]].}} However, "traditional" has permissible usage as a [[term of art]] in particular disciplines, including [[folklore studies]] and [[cultural anthropology]]: "a [[Traditional music|traditional song]] of Jamaica" (as opposed to a modern composition of known authorship), "a traditional religious practice of the [[Penitentes (New Mexico)|Penitentes]] of northern New Mexico dating to the Conquistador era" (in contrast to a matter of codified Roman Catholic doctrinal practice).}} Similarly, phrases such as "in recent years" or "in modern times" should be reworded to a more specific time or period, as far as can be determined from the sources, such as "since the 1990s" or "in the mid-2010s".{{efn|Given that such descriptions often reflect the time in which editors have been writing since Wikipedia's launch in 2001, more fitting descriptions often include "by the early 21st century", "since the early 2000s", or "in the 2010s and 2020s".}} If there are no sources, or the sources do not specify a time or period, a {{tlx|When}} template may be added to ask for clarification.
+
+Because seasons differ between the northern and southern hemispheres, try to use months, quarters, or other non-seasonal terms such as ''mid-year'' unless the season itself is pertinent (''spring blossoms, autumn harvest''); see {{section link|Wikipedia:Manual of Style/Dates and numbers|Seasons of the year}}.
+
+=== Unspecified places or events ===
+{{shortcut|MOS:WHATPLACE}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''this country, here, there, somewhere, sometimes, often, occasionally, somehow''&nbsp;...}} }}
+}}
+
+As in the previous section, prefer specific statements to general ones. It is better to use explicit descriptions, based on reliable sources, of when, where, or how an event occurred. Instead of saying "In April 2012, Senator Smith somehow managed to increase his approval rating by 10%", say "In April 2012, Senator Smith's approval rating increased by 10%, which respondents attributed to his new position on foreign policy.{{Dummy cite}}" Instead of saying "Senator Smith often discusses foreign policy in his speeches", say "Senator Smith discussed foreign policy during his election campaign, and subsequently during his victory speech at the State Convention Center.{{Dummy cite|2}}"
+
+Remember that Wikipedia is a global encyclopedia, and does not assume particular places or times are the default. We emphasize facts and viewpoints to the same degree that they are emphasized by the reliable sources. Terms like ''this country'' should not be used.
+
+=== ''Survived by'' ===
+{{shortcut|MOS:SURVIVEDBY}}
+{{see also|Wikipedia:What Wikipedia is not#Wikipedia is not a blog, Web hosting service, social networking service, or memorial site|Wikipedia:What Wikipedia is not#Wikipedia is not a newspaper}}
+{{tmbox|image=none|text={{big|Words to watch: {{strong|''is/was survived by, [Name]'s survivors include'',&nbsp;...}} }}
+}}
+
+Phrasing such as "Smith died in 1982, survived by her husband Jack and two sons" should be avoided; this information can be made more complete and spread out through the article. The "survived by" phrasing is a common way to end newspaper obituaries and legal death notices, and is relevant at the time of death or for inheritance purposes. But an encyclopedia article covers the subject's entire life, not just their death, and information about children and spouses might be presented in an infobox or in sections about the subject's personal life. From such information readers can generally infer which family members died after the subject, so this information is not usually worth highlighting explicitly except in unusual situations (such as when children predecease their parents, or an inheritance is disputed).
+
+Even in a [[Wikipedia:Stub|stub article]], a different arrangement with more details sounds more like an encyclopedia and less like an obituary: "Smith married Jack in 1957. The couple had two sons. She died in 1982."
+
+Note also that to say "...&nbsp;survived by two children" doesn't prove that the subject only ''had'' two children; she might have had others who predeceased her. If so, obits will ''usually'' add "a third child died in infancy". Whether a lack of mention of predeceasing children is sufficient for us to indicate that there weren't any is beyond the scope of this rule.
+
+{{As of|April 2026}}, [https://en.wikipedia.org/w/index.php?search=%22was+survived+by+his%22+OR+%22was+survived+by+her%22+OR+%22is+survived+by+his%22+OR+%22is+survived+by+her%22&title=Special%3ASearch&profile=advanced&fulltext=1&ns0=1 about 14,900 articles required copyediting to fix this language].
+
+=== Person or office? ===
+{{shortcut|MOS:PERSONOROFFICE}}
+{{see also|Wikipedia:Manual of Style/Biography#Positions, offices, and occupational titles}}
+It is necessary for a reference work to distinguish carefully between an office and an incumbent. A newspaper does not usually need to make this distinction; for a newspaper "President X" and "the President" are one and the same during X's presidency.
+* {{!xt|President X nominates new justices of the US Supreme Court.}} – No; whoever is US president at the time does.
+* {{xt|President George W. Bush nominated John Roberts as Chief Justice.}} – Yes, as this will always be true.
+* {{xt|The president nominated John Roberts as Chief Justice in 2005.}} – Yes, as the year makes this clear.
+* {{xtn|The guest list included Charles, Prince of Wales.}} – This is usually acceptable for events between [[Charles III]]'s creation as Prince of Wales in 1958 and his accession to the throne in 2022, as a confusion with [[Charles I of England]], Prince of Wales from 1616 to 1625, is highly unlikely. In any event, "Charles, Prince of Wales" would usually be [[Wikipedia:Manual of Style/Linking|linked]]. {{!xt|The guest list included the Prince of Wales}} or {{!xt|The Duke and Duchess of Kent}}, while common in UK news sources, is ambiguous without a name.<!--see virtually any Wikipedia article about a UK Royal event for multiple examples of ambiguous use. E.g.[[List of wedding guests of Prince Charles and Lady Diana Spencer]] article as of 13 March 2023-->
+* {{!xt|Former President Richard Nixon met with Mao Zedong in 1972.}} – This is incorrect because [[Richard Nixon|Nixon]] was not a {{em|former}} US president at the time; he was still in office. Write {{xt|President Richard Nixon met with Mao Zedong in 1972.}} The construction {{xtn|then-President Nixon}} is often superfluous, unless the context calls for distinctions between periods of Nixon's career, other holders of the office, or between other people also named Nixon.
+
+=== Neologisms and new compounds ===
+{{shortcut|MOS:NEO}}
+{{See also|Wikipedia:Wikipedia is not a dictionary#Neologisms|Wikipedia:Manual of Style/Biography#Neopronouns and the singular they}}
+[[Neologism]]s are expressions coined recently or in isolated circumstances to which they have remained restricted. In most cases, they do not appear in general-interest dictionaries, though they may be used routinely within certain communities or professions. They should generally be avoided because their definitions tend to be unstable and many do not last. Where the use of a neologism is necessary to describe recent developments in a certain field, its meaning must be supported by reliable sources.
+
+Adding common prefixes or suffixes such as ''pre-, post-, non-, anti-'', or {{nobreak|''-like''}} to existing words to create new compounds can aid brevity, but make sure the resulting terms are not misleading or offensive, and that they do not lend [[Wikipedia:Neutral point of view#Due and undue weight|undue weight]] to a point of view. For instance, adding {{nobreak|''-ism''}} or {{nobreak|''-ist''}} to a word may suggest that a tenuous belief system is well-established, that a belief's adherents are particularly dogmatic or ideological (as in ''abortionism''), or that factual statements are actually a matter of doctrine (as in ''evolutionism'').  Some words, by their structure, can suggest extended forms that may turn out to be contentious (e.g. ''lesbian'' and ''transgender'' imply the longer words ''lesbianism'' and ''transgenderism'', which are sometimes taken as offensive for seeming to imply a belief system or agenda).
+
+{{Crossref|printworthy=y|For additional guidance on {{nowrap|''-ist/-ism''}} terms, see {{section link||Contentious labels}}, above.}}
+
+===Easily confused terms===
+{{shortcut|MOS:CONFUSE|MOS:ARAB}}
+Do not use similar or related words in a way that blurs meaning or is incorrect or distorting.
+
+For example, the adjective ''Arab'' refers to people and things of [[Arabs|ethnic Arab]] origin. The term ''Arabic'' generally refers to the [[Arabic]] language or writing system, and related concepts. ''Arabian'' relates to the [[Arabian Peninsula]] or [[Arabia (disambiguation)|historical Arabia]]. (These terms are all [[Proper and common nouns|capitalized]], e.g. [[Arabic script|{{xt|Arabic script}}]] and [[Arabian horse|{{xt|Arabian horse}}]], aside from a few [[Wikipedia:Manual of Style/Capital letters#Peoples and their languages|conventionalized exceptions]] that have lost their cultural connection, such as [[Gum arabic|{{xt|gum arabic}}]].) Do not substitute these terms for ''[[Islam]]ic, [[Muslim]], [[Islamism|Islamist]], [[Ethnic groups in the Middle East|Middle-eastern]]'', etc.; a [[Muslim Arab]] is someone who is both Arab and Muslim. {{crossref|pw=y|(Further information: [[Wikipedia:Manual of Style/Religion]], [[Wikipedia:Manual of Style/Islam-related articles]], [[Wikipedia:Manual of Style/Arabic]], and [[Help:Arabic]].)}}
+
+Similar concerns pertain to many cultural, scientific, and other topics and the terminology used about them. When in doubt about a term, consult major modern dictionaries.
+
+==Vulgarities, obscenities, and profanities==
+{{shortcut|MOS:VULGAR}}
+{{main|Wikipedia:Offensive material}}
+[[Wikipedia:NOTCENSORED|Wikipedia is not censored]], and the inclusion of material that might offend is compatible with its [[Wikipedia:Five pillars|purpose as an encyclopedia]]. Quotes should always be verbatim and as they appear in the [[Wikipedia:Verifiability|original source]]. However, language that is [[vulgarity|vulgar]], [[obscene]], or [[profanity|profane]] should be used only if its omission would make an article less accurate or relevant, and if there is no non-obscene alternative. Such words should not be used outside quotations and names except where they are themselves an article topic.
+
+== See also ==
+* {{section link|Wikipedia:Manual of Style/Medicine-related articles#Careful language}} – precision matters, and Wikipedia cannot advise
+* {{section link|Wikipedia:Manual of Style#Subset terms}} – avoid redundant ones
+* [[Wikipedia:Article titles]] – see especially the sections on neutrality and precision
+* {{section link|Wikipedia:Signs of AI writing#Content}} – list of writing and formatting conventions typical of AI chatbots such as ChatGPT
+* [[wikt:Category:English idioms|List of English idioms on Wiktionary]]
+
+== Notes ==
+{{Notelist}}
+
+== References ==
+{{Reflist}}
+
+== External links ==
+* [[s:The Elements of Style/Misuse|''The Elements of Style''&nbsp;– Words and Expressions Commonly Misused]]
+
+{{Manual of Style}}
+
+[[Category:Wikipedia Manual of Style (content)|Words to watch]]

@@ -1,0 +1,255 @@
+{{Use mdy dates|date=December 2018}}
+{{Short description|List of frequently discussed sources}}
+{{hatnote group|
+{{for|encyclopedic coverage of this list|Perennial sources list}}
+{{redirect|WP:RSP|obtaining access to resources|Wikipedia:Resource support pilot}}
+{{redirect|WP:RSPS|entries on this list that start with "S"|Wikipedia:Reliable sources/Perennial sources/7}}
+}}
+{{Information page|interprets=the [[Wikipedia:Reliable sources]] guideline.|shortcut1=WP:RSP|shortcut2=WP:RS/P|shortcut3=WP:RSPS}}
+{{nutshell|This is a list of repeatedly discussed sources, collected and summarized for convenience. [[WP:Consensus can change|Consensus can change]], and [[WP:CONTEXTMATTERS|context matters]] tremendously when determining how to use this list. {{em|Only}} sources that have been {{em|repeatedly}} raised for discussion are listed here; it is {{em|not}} a general or comprehensive list of all generally reliable or unreliable sources in the world. It is a {{em|summary of discussions}} about the listed sources.}}
+
+{{Short URL box|4paF}}
+
+{{bi|<big>[[#Sources|↓{{pad|0.6em}}''Jump to the list of frequently discussed sources.''{{pad|0.6em}}↓]]</big>}}
+
+This is a non-exhaustive list of sources whose [[Wikipedia:Reliable sources|reliability]] and use on Wikipedia are frequently discussed. This list summarizes prior consensus and consolidates links to the most in-depth and recent discussions from the [[Wikipedia:Reliable sources/Noticeboard|reliable sources noticeboard]] and elsewhere on Wikipedia.
+
+[[WP:CONTEXTMATTERS|Context matters]] tremendously, and a source's reliability depends on the claim for which it is being used. When in doubt, defer to the linked discussions for more detailed information on a particular source and its use. [[WP:Consensus can change|Consensus can change]], and if more recent discussions considering new evidence or arguments reach a different consensus, this list should be updated to reflect those changes.
+__TOC__
+
+==How to use this list==
+{{shortcut|WP:RSPUSE}}
+Refer to the [[#Legend|legend]] for definitions of the icons in the list, but note that the discussion summaries provide more specific guidance on sources than the icons in the "Status" column. When in doubt, defer to the linked discussions, which provide in-depth arguments on when it is appropriate to use a source. The list is not an independent document; it is derived from the conclusions of the referenced discussions and formal [[Wikipedia:Requests for comment]] (RfCs). This list indexes discussions that reflect community [[WP:CON|consensus]], and is intended as a useful summary.
+
+[[WP:CONTEXTMATTERS|Context matters]] tremendously when determining the reliability of sources, and their appropriate use on Wikipedia. Sources which are generally unreliable may still be useful in some situations. For example, even extremely low-quality sources, such as social media, may sometimes [[WP:SELFPUB|be used as self-published sources]] for routine information [[WP:ABOUTSELF|about the subjects themselves]]. Conversely, some otherwise high-quality sources may not be reliable for highly technical subjects that fall well outside their normal [[areas of expertise]], and even very high-quality sources may occasionally make errors, or retract pieces they have published in their entirety. Even considering content published by a single source, some may represent high-quality professional journalism, while other content may be merely opinion pieces, which mainly represent the personal views of the author, and depend on the author's personal reliability as a source. Be especially careful with [[WP:SPONSORED|sponsored content]], because while it is usually unreliable as a source, it is designed to appear otherwise.
+
+Consider the type of content being referenced, alongside the reliability of the sources cited. [[WP:BLUE|Mundane, uncontroversial claims]] can be supported by lightweight sources, while information related to [[WP:BMI|biomedicine]] and [[WP:BLP|living persons]] typically require the most weighty ones.
+
+=== What if a source is not here? ===
+{{shortcut|WP:RSPMISSING}}
+If a source is not listed here, it only means that it has not been the subject of repeated community discussion. That may be because the source is a ''stellar'' source, and we simply never needed to talk about it because it is so obviously reliable,{{efn|This is the case for some of the most prestigious academic journals in the world, like ''[[The Lancet]]'', ''[[Nature (journal)|Nature]]'', and ''[[Science (journal)|Science]]''.}} or it could mean the source is so obviously poor it never merited discussion. It could mean that the source covers a niche topic{{efn|For sources in a specific field, more information about their reliability might be provided by specific WikiProjects, such as the lists shown at [[:Category:WikiProject lists of reliable sources]].}} or that it simply fell through the cracks. If you're concerned about any source being used on Wikipedia, you should review the [[WP:RSN|reliable sources noticeboard]] (RSN), following the instructions at the top of that page, where you can "Search the noticeboard archives":
+
+{{mbox
+|image=none
+|text=<inputbox>
+type=fulltext
+prefix=Wikipedia:Reliable sources/Noticeboard
+searchbuttonlabel=Search the noticeboard archives
+</inputbox>
+}}
+
+If you do not find what you're looking for and are still unsure how reliable the source is, please start a discussion about it at RSN. That is, after all, how the entries on this list got here to begin with.
+
+You can also find a much longer list of previously discussed sources on various topics at [[Wikipedia:New page patrol source guide]].
+
+A source's absence from the list does not imply that it is any more or less reliable than the sources that are present. Absence just means its reliability has not been the subject of serious questioning yet. [[Absence of evidence is not evidence of absence]].
+
+=== What this page is ===
+{{shortcut|WP:RSPIS|WP:ONLYALIST}}
+
+* {{tick}} a list of sources whose general suitability for most purposes has been <em>discussed repeatedly</em>
+* {{tick}} a very brief and simple summary of the consensus found in such discussions
+{{-}}
+
+=== What this page is not ===
+{{shortcut|WP:RSPISNOT|WP:RSPIN|WP:RSPNOT}}
+
+* [[File:X mark.svg|20px|link=|alt=&#9746;]]<!--{{cross}}; see WP:PEIS--> a [[Wikipedia:Policies and guidelines|policy or guideline]]
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of pre-approved sources that can always be used without regard for the [[Wikipedia:Core content policies|ordinary rules of editing]]
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of banned sources that can never be used or should be removed on sight
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of [[WP:RSBIAS|biased]] or unbiased sources
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of sources that are correct [[WP:RSCONTEXT|regardless of context]]
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of every source that has been discussed
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of sources that have never been discussed, or whose reliability should be obvious to most editors
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of [[WP:USEPRIMARY|primary]], secondary, or tertiary sources
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of [[Wikipedia:Independent sources|independent]] or affiliated sources
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a list of [[Wikipedia:Identifying and using self-published works|self-published]] or traditionally published sources
+* [[File:X mark.svg|20px|link=|alt=&#9746;]] a representative [[Sampling (statistics)|sample]] of all sources used on Wikipedia or all sources in existence
+
+==How to improve this list==
+{{shortcut|WP:RSPIMPROVE}}
+[[WP:CCC|Consensus can change]]. If circumstances have evolved since the most recent discussion, new evidence has emerged that was not available at the time, or there is a new line of argument not previously covered, consider starting a discussion or a [[WP:RfC|request for comment]] (RfC) at the [[WP:RSN|reliable sources noticeboard]].
+
+Before doing so, please thoroughly familiarize yourself with content of previous discussions, and particularly the reasoning why consensus was reached, and not simply the outcome itself. Also consider when consensus was formed, and that the outcomes of very recent discussions are unlikely to be quickly overturned. Repeatedly restarting discussions where a strong and recent consensus already exists, may be considered [[WP:DE|disruptive]] and a type of [[WP:FORUMSHOP|forum shopping]].
+
+If you feel that this list inadequately summarizes the content of the linked discussions, [[WP:BEBOLD|please help to improve it]], or start a discussion on [[WT:RS/P|the talk page]], especially [[WP:BRD|if your changes prove controversial]]. In updating this list, please be mindful that '''it should only summarize the content of past discussions''', and should not include novel arguments not previously covered in a centralized forum. If you would like to present a novel argument or interpretation, please do so in one of these forums, so that the discussion may be linked to, and itself summarized here.
+
+===Inclusion criteria===
+{{shortcut|WP:RSPCRITERIA}}
+<onlyinclude>{{#ifeq:{{{transcludesection|Inclusion criteria}}}|Inclusion criteria|
+For a source to be added to this list, editors generally expect '''an uninterrupted [[WP:RFC|request for comment]] on the source's reliability, or two or more significant discussions about the source's reliability in the past that took place on the [[WP:RSN|reliable sources noticeboard]]'''. For a discussion to be considered significant, most editors expect no fewer than two qualifying participants for RSN discussions where the source's name is in the section heading, and no fewer than three qualifying participants for all other discussions. Qualifying participants are editors who make at least one comment on the source's reliability.
+
+Please do not mass-create shortcuts. A shortcut must have at least one use before it can be included on this list, and more uses than that before it should. Excessive listing of shortcuts clogs up both the table's display and size against technical page size limits. (Uses of the shortcut within copies of RSP do not count.)
+}}</onlyinclude>
+
+===Instructions===
+Any editor may improve this list. Please refer to the [[/Instructions|instructions]] for details, and ask for help on [[WT:RSP|the talk page]] if you get stuck.
+
+==Legend==
+<onlyinclude>{{#ifeq:{{{transcludesection|DEPS legend}}}|DEPS legend|{{plainlist|class=perennial-sources-legend}}
+}}</onlyinclude>
+* {{anchor|Generally reliable}}{{shortcut|WP:GREL|WP:GENREL}}{{legend|invert=y|#dff2eb|[[File:Yes Check Circle.svg|20px|Generally reliable|link=]] '''Generally reliable in its areas of expertise''': Editors show [[WP:CON|consensus]] that the source is [[WP:RS|reliable]] in most cases on subject matters in its areas of expertise. The source has a reputation for fact-checking, accuracy, and error-correction, often in the form of a strong editorial team. It will normally still be necessary to analyze how much [[WP:WEIGHT|weight]] to give the source and how to describe its statements. Arguments that entirely exclude such a source must be strong and convincing, e.g., the material is contradicted by more authoritative sources, it is outside the source's accepted areas of expertise (e.g. a [[WP:NEWSORG|well-established news organization]] would be normally reliable for politics but not for philosophy), a specific subcategory of the source is less reliable (such as opinion pieces in a newspaper), the source is making an [[WP:EXCEPTIONAL|exceptional claim]], or a different standard of sourcing is required (such as [[WP:MEDRS|medicine]] or [[WP:BLP|biographies of living persons]]) for the statement in question.}}
+* {{anchor|No consensus|Marginally reliable}}{{shortcut|WP:MREL}}{{legend|invert=y|#FFFFDD|[[File:Achtung-orange.svg|20px|No consensus|link=]] '''[[WP:NOCON|No consensus]], unclear, or additional considerations apply''': The source is marginally reliable (i.e. neither [[#Generally reliable|generally reliable]] nor [[#Generally unreliable|generally unreliable]]), and may be usable [[WP:CONTEXTMATTERS|depending on context]]. Editors may not have been able to agree on whether the source is appropriate, or may have agreed that it is only reliable in certain circumstances. It may be necessary to evaluate each use of the source on a case-by-case basis while accounting for specific factors unique to the source in question. Carefully review the Summary column of the table for details on the status of the source and the factors that should be considered. For additional information, see [[Wikipedia:Reliable sources/Perennial sources/Further classification]].}}
+* {{anchor|Generally unreliable}}{{shortcut|WP:GUNREL}}{{legend|invert=y|#FFDDDD|[[File:Argentina - NO symbol.svg|20px|Generally unreliable|link=]] '''Generally unreliable''': Editors show consensus that the source is [[WP:QUESTIONABLE|questionable]] in most cases. The source may lack an editorial team, have a poor reputation for fact-checking, fail to correct errors, be [[WP:SPS|self-published]], or present [[WP:UGC|user-generated content]]. Outside exceptional circumstances, the source should normally not be used, and it should never be used for information about a [[WP:BLP|living person]]. Even in cases where the source may be valid, it is usually better to find a more reliable source instead. If no such source exists, that may suggest that the information is inaccurate. The source may still be used for [[WP:ABOUTSELF|uncontroversial self-descriptions]], and self-published or user-generated content authored by established subject-matter experts is also acceptable.}}
+<onlyinclude>{{#ifeq:{{{transcludesection|DEPS legend}}}|DEPS legend|* {{anchor|Deprecated}}{{shortcut|WP:DEPREC}}{{legend|invert=y|#FFBBBB|2=[[File:Stop hand.svg|20px|Deprecated|link=]] '''Deprecated''': There is community consensus from a request for comment to [[WP:DEPS|deprecate]] the source. The source is considered [[#Generally unreliable|generally unreliable]], and use of the source is generally prohibited. Despite this, the source may be used for [[WP:ABOUTSELF|uncontroversial self-descriptions]], although reliable [[WP:SECONDARY|secondary sources]] are still preferred. An [[WP:EF|edit filter]], {{efl|869}}, may be in place to warn editors who attempt to cite the source as a reference in articles. The warning message can be dismissed. Edits that trigger the filter are <span class="plainlinks">[{{fullurl:Special:RecentChanges|tagfilter=deprecated+source}} tagged]</span>.}}
+* {{anchor|Blacklisted}}{{legend|invert=y|#DDDDDD|[[File:X-circle.svg|20px|Blacklisted|link=WP:SPB]] '''Blacklisted''': Due to persistent abuse, usually in the form of [[WP:LINKSPAM|external link spamming]], the source is registered on the [[WP:SPB|spam blacklist]] or the [[m:Spam blacklist|Wikimedia global spam blacklist]]. Edits that attempt to add this source are automatically prevented on a technical level, unless an exception is made for a specific link in the [[Wikipedia talk:WHITELIST|spam whitelist]].}}
+* [[File:Treffpunkt.svg|20px|Request for comment|link=]] '''Request for comment''': The linked discussion is an uninterrupted [[WP:RFC|request for comment]] for determining the source's reliability on the [[WP:RSN|reliable sources noticeboard]] or another suitable and centralized venue. The closing statement of any RfC that is not clearly outdated should normally be considered authoritative and can only be overturned by a newer RfC.
+* {{anchor|Stale discussions}}[[File:Farm-Fresh hourglass delete.png|20px|Stale discussions|link=]] '''Stale discussions''': The source has not been discussed on the reliable sources noticeboard for four or more [[calendar year]]s, and the [[WP:CCC|consensus may have changed]] since the most recent discussion. However, sources that are considered [[#Generally unreliable|generally unreliable]] for being [[WP:SPS|self-published]] or presenting [[WP:UGC|user-generated content]] are excluded. A change in consensus resulting from changes in the source itself does not apply to publications of the source from before the changes in question. Additionally, while it may be prudent to review these sources before using them, editors should generally assume that the source's previous status is still in effect if there is no reason to believe that the circumstances have changed.
+* {{anchor|Discussion in progress}}[[File:Pictogram voting wait.svg|20px|Discussion in progress|link=]] '''Discussion in progress''': The source is currently being discussed on the reliable sources noticeboard. Italic numbers represent active discussions (all discussions that are not closed or archived) on the reliable sources noticeboard. Letters represent discussions outside of the reliable sources noticeboard.
+* 📌 '''[[WP:SC|Shortcut]]''': Abbreviated [[H:WIKILINK|wikilink]] to the {{#ifeq:{{SUBPAGENAME}}|Perennial sources|RSP|[[WP:Reliable sources/Perennial sources]]}} entry for the source.
+{{endplainlist}}
+}}</onlyinclude>
+
+==Sources==
+<!--
+	Please refer to the instructions at [[WP:RSPI]] (also linked in the editnotice above) for help editing this list.
+	Feel free to ask for help on the talk page ([[Wikipedia talk:RSP]]) if you get stuck.
+section tags are used for selective transclusion while waiting on the merge discussion.
+Selection transclusion ensures that pages will always remain in sync.
+See WP:SELTRANS and H:LST
+-->
+{{shortcut|WP:RSPSOURCES|WP:RSPSS|WP:RSPLIST|WP:LISTOFSOURCES}}
+
+<templatestyles src="Wikipedia:Reliable sources/Perennial sources/styles.css" />
+{{Compact ToC|center=yes|nobreak=yes|num=yes|0-9=[[#112 Ukraine|0–9]]|a=[[#ABC News|A]]|b=[[#Baidu Baike|B]]|c=[[#The California Globe|C]]|d=[[#The Daily Beast|D]]|e=[[#The Economist|E]]|f=[[#Facebook|F]]|g=[[#Game Developer|G]]|h=[[#Haaretz|H]]|i=[[#Idolator|I]]|j=[[#Jacobin|J]]|k=[[#Kirkus Reviews|K]]|l=[[#Land Transport Guru|L]]|m=[[#Mail & Guardian|M]]|n=[[#The Nation|N]]|o=[[#Occupy Democrats|O]]|p=[[#PanAm Post|P]]|q=[[#Quackwatch|Q]]|r=[[#Radio Free Asia|R]]|s=[[#Salon|S]]|t=[[#Taki's Magazine|T]]|u=[[#Unz|U]]|v=[[#Vanity Fair|V]]|w=[[#The Wall Street Journal|W]]|x=[[#X|X]]|y=[[#Yahoo News|Y]]|z=[[#ZDNet (pre-October 2020)|Z]]|custom1=Legend}}
+
+'''Additional entries are present at [[WP:Reliable sources/Perennial sources/X]].'''
+
+Note that summaries often contain content that are not explicitly marked as quoted from the discussions it references. See the linked discussions' revision histories for attribution ([[WP:CWW]]).
+
+If you add/remove a source in the "[[#Generally unreliable|generally unreliable]]", "[[#Deprecated|deprecated]]", or "[[#Blacklisted|blacklisted]]" categories, please update {{slink|WP:CITEWATCH/SETUP/GENERAL|WP:RSP}}, or leave a note at [[Wikipedia talk:CITEWATCH]] if you need help.
+{| class="wikitable sortable perennial-sources"
+|+ Perennial sources
+!rowspan="2" scope="col" | Source
+!rowspan="2" scope="col" | Status<br />{{small|([[#Legend|legend]])}}
+!colspan="3" scope="colgroup" | Discussions
+!rowspan="2" scope="col" class="unsortable" | Use
+|-
+! scope="col" class="unsortable" | List
+! scope="col" | Last
+! scope="col" class="unsortable" | Summary
+{{WP:Reliable sources/Perennial sources/1}} <!-- Spans 1,A -->
+{{WP:Reliable sources/Perennial sources/2}} <!-- Spans B,C,D -->
+{{WP:Reliable sources/Perennial sources/3}} <!-- Spans E,F,G -->
+{{WP:Reliable sources/Perennial sources/4}} <!-- Spans H,I,J,K,L -->
+{{WP:Reliable sources/Perennial sources/5}} <!-- Spans M,N -->
+{{WP:Reliable sources/Perennial sources/6}} <!-- Spans O,P,Q,R -->
+{{WP:Reliable sources/Perennial sources/7}} <!-- Spans S,T -->
+{{WP:Reliable sources/Perennial sources/8}} <!-- Spans U,V,W,X,Y,Z -->
+|}
+
+==Types==
+
+===Large language models<span class="anchor" id="ChatGPT"></span>===
+{{shortcut|WP:RSPLLM|WP:RSPCHATGPT}}
+{{See also|Wikipedia:Large language models}}
+Per the [[WP:RSML|guideline on sources produced by machine learning]], [[large language model]]s (LLMs) such as [[ChatGPT]] and other [[AI chatbot]]s are unreliable. While LLMs are trained on a vast amount of data and generate responses based on that, they can often provide [[Hallucination (artificial intelligence)|inaccurate or fictitious]] information. The information page [[Wikipedia:Large language models]] recommends against using LLMs to generate references.<ref>See {{slink|Wikipedia:Reliable sources/Noticeboard/Archive 408|ChatGPT}}.</ref>
+
+===Paid reporting in Indian news organizations===
+{{shortcut|WP:NEWSORGINDIA|WP:RSNOI}}
+Paid news and undisclosed advertorials are a [[Paid news in India|pervasive]] and deeply integrated practice within many Indian commercial news organizations (print, television, and web). They often disguise [[WP:SPONSORED|sponsored content]] and paid [[press release]]–based write-ups as regular news with inadequate or no disclosure. This is especially the case in reviews, articles about celebrities, and profiles of people, companies and entities of borderline [[WP:N|notability]]. Coverage related to the above-mentioned entities requires extra vigilance given the diverse systemic [[User:Ms Sarah Welch/sandbox/Paid news and private treaties|approaches]] to paid news. Exercise caution in using such sources for factual claims or to establish notability. Look at the tone and language of the article, its placement in the publication, use of generic bylines not identifying an individual reporter or reviewer, and overlap in language with articles found in other publications and on other websites.
+
+Examples of sponsored content include supplements published by ''[[The Times of India]]''; the [https://www.dailypioneer.com/special/page/1 Special] section of the ''[[Daily Pioneer]]''; the [https://news.abplive.com/brand-wire Brand Wire] section of [[ABP Live]]; the [https://www.firstpost.com/category/press-release Press Release News] or the [https://www.firstpost.com/author/digpu-news-network Digpu News Network] sections of ''[[Firstpost]]''; the [https://www.outlookindia.com/business-spotlight Business Spotlight] section of ''[[Outlook (Indian magazine)|Outlook]]''; the [https://www.hindustantimes.com/brand-post Brand Post] section of ''[[Hindustan Times]]''; [https://www.indiatoday.in/impact-feature Impact feature] section of ''[[India Today]]''; the [https://www.forbesindia.com/brand-connect/1613/1 Brand Connect] section of ''[[Forbes India]]''; certain publishers may provide disclosures through terms such as "brand content" although advertorial content may not be restricted to such sections for many and may not contain any disclosures. If in doubt about any source, consult the [[WP:RSN|reliable sources noticeboard]].
+
+===Nigerian news organisations===
+{{shortcut|WP:NEWSORGNIGERIA|WP:RSNON}}
+Concern has been raised about undisclosed or unclearly disclosed promotional articles across many Nigerian news media outlets. Although Nigeria has a relatively free press, Nigerian journalists are known to give news coverage, or provide more favourable coverage, to individuals and organisations in exchange for payment, a long-standing practice called [[brown envelope journalism]].<ref>{{Cite news |date=2015-03-05 |title=Nigeria's 'brown envelope' journalism |url=https://www.bbc.co.uk/news/world-africa-31748257 |access-date=2024-12-21 |work=BBC News |language=en-GB}}</ref><ref>{{Cite web |last=Nwaubani |first=Adaobi Tricia |date=5 February 2024 |title=How one Nigerian newspaper took on outrage fatigue |url=https://www.cjr.org/first_person/nigeria-next-newspaper-yaradua-retrospective.php |access-date=2025-06-12 |website=Columbia Journalism Review |language=en |quote=It was also unique, even shocking, for [a Nigerian news organisation] declining to accept payment in exchange for publishing stories. Nigerian journalists are known to prowl to and fro in search of anyone whose pay will inspire their pens. It is standard for brown envelopes containing cash to be handed out during press briefings. Many young journalists I meet do not have the slightest idea that this practice is unethical. Their bosses encourage it.}}</ref><ref>{{Cite journal |last=Page |first=Matthew T. |date=2018-07-17 |title=A New Taxonomy for Corruption in Nigeria |url=https://carnegieendowment.org/research/2018/07/a-new-taxonomy-for-corruption-in-nigeria |journal=Carnegie Endowment for International Peace |language=en |quote=Although Nigeria has a vibrant and (mostly) free press, brown envelope journalism is rife: for both media moguls and the journalists who work for them, accepting—or even soliciting—cash from politicians is a perquisite of the job. Over 75 percent of journalists surveyed as part of a 2013 study admitted to accepting such financial gifts ... Above the working level, editors and publishers often receive even bigger bribes to manipulate their coverage and quash stories that might embarrass their political patrons. ... Such grand corruption not only erodes press freedoms and fuels media bias, it also sustains many fly-by-night media outlets that rely on brown envelope journalism to stay in business.}}</ref> Consequently, Nigerian newspaper coverage should be considered with caution when assessing notability, particularly for biographies. For an explanatory essay on the guideline and tips how to identify promotional content, see [[WP:SYO|here]].
+
+===Religious scriptures texts===
+See {{slink|#Religious scriptures texts}}.
+
+===Greco-Roman literary sources===
+{{shortcut|WP:GRLIT|WP:GRECOROMAN}}
+[[Greco-Roman world|Greco-Roman]] literary sources, such as the writings of [[Aristotle]], [[Cicero]], [[Herodotus]], [[Livy]], and [[Plutarch]], must be used in accordance with [[WP:PRIMARY]]: editors may not analyze or [[WP:SYNTH|synthesize]] material found in them. Editors must take care not to present the claims of such sources uncritically. Statements made by such sources should be [[WP:INTEXT|clearly attributed]] to them, rather than presented as objective fact. An entire article, or large parts thereof, may not be based only on such sources. The weight given to one of these sources should be roughly [[WP:PROPORTION|proportional]] to its treatment in modern, published [[WP:SCHOLARSHIP|scholarship]] on the same subject, and this scholarship should be cited when possible. In some instances, old or public domain editions and translations of these sources will not reflect current scholarly readings or views. See {{slink|Wikipedia:Reliable sources/Noticeboard/Archive 479#Classical sources (Herodotus, Plutarch etc)}}.
+
+===Self-published peerage websites===
+The following [[WP:SPS|self-published]] [[peerage]] websites have been deprecated in requests for comment:
+{{div col}}
+* {{duses|almanach.be}}
+* {{duses|almanachdegotha.org}}
+* {{duses|angelfire.com/realm/gotha}}
+* {{duses|chivalricorders.org}}
+* {{duses|cracroftspeerage.co.uk}}
+* {{duses|englishmonarchs.co.uk}}
+* {{duses|jacobite.ca}}
+* {{duses|royalark.net}}
+* {{duses|thepeerage.com}}
+* {{duses|worldstatesmen.org}}
+{{div col end}}
+
+See {{slink||Peerage websites}} for the corresponding entry. See also {{slink|MediaWiki talk:Spam-blacklist/archives/June 2020#Fake nobility sites}}.
+
+===State-sponsored fake news sites===
+{{shortcut|WP:SSFN}}
+A limited number of sites not already covered in the entries above are identified by credible sources (e.g. the EU's anti-disinformation [https://euvsdisinfo.eu East Stratcom Task Force]) as disseminators of fake news. Many of these are state-sponsored. These sites are considered unreliable and should be blacklisted when identified. See {{section link|Wikipedia:Reliable sources/Noticeboard/Archive 281|RfC: Deprecation of fake news / disinformation sites.}} and {{section link|Wikipedia:Reliable_sources/Noticeboard/Archive_487#Pravda_network_sites}}.
+{{div col}}
+* {{duses|dan-news.info}}
+* {{duses|rusdialog.ru}}
+* {{duses|topwar.ru}}
+* {{duses|ukraina.ru}}
+* {{duses|veteransnewsnow.com}}
+{{div col end}}
+
+===Student media===
+{{shortcut|WP:RSSM}}
+{{see also|Wikipedia:College and university article advice#Reliable sources}}
+Reputable student media outlets, such as ''[[The Harvard Crimson]]'', are considered generally reliable sources for news on their school and local community.<ref name="CrimsonStatue">{{cite web |title=Wikipedia:Reliable sources/Noticeboard/Archive 134 |url=https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_134#The_Harvard_Crimson_at_John_Harvard_statue |website=Wikipedia |accessdate=22 April 2020 |language=en |date=October 2012 |archive-date=April 19, 2020 |archive-url=https://web.archive.org/web/20200419163000/https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_134#The_Harvard_Crimson_at_John_Harvard_statue |url-status=live }}</ref><ref name="IowaState">{{cite news |title=Wikipedia:Reliable sources/Noticeboard/Archive 288 |url=https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_288#God's_Not_Dead |accessdate=22 April 2020 |work=Wikipedia |date=March 2020 |language=en |archive-date=August 26, 2020 |archive-url=https://web.archive.org/web/20200826094834/https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_288#God's_Not_Dead |url-status=live }}</ref><ref name="StudentNews">{{cite web |title=Wikipedia:Reliable sources/Noticeboard/Archive 46 |url=https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_46#Are_student-run_college_newspapers_considered_reliable_sources? |website=Wikipedia |language=en |date=October 2009 |access-date=April 22, 2020 |archive-date=April 18, 2020 |archive-url=https://web.archive.org/web/20200418072841/https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_46#Are_student-run_college_newspapers_considered_reliable_sources? |url-status=live }}</ref> They can sometimes be considered reliable on other topics, although professional sources are typically preferred when available.<ref name="IowaState"/> However, given their local audience and lack of independence from their student body, student media does not contribute to notability for topics related to home institutions.<ref>{{cite web|title=Wikipedia:Reliable sources/Noticeboard/Archive 366|url=https://en.wikipedia.org/wiki/Wikipedia:Reliable_sources/Noticeboard/Archive_366#Are_student_newspapers_considered_independent_RS_when_assessing_notability_of_fellow_students_at_the_same_university%3F|website=Wikipedia|date=January 2022}}</ref>
+
+===Tabloids===
+{{shortcut|WP:TABLOID}}
+[[Tabloid journalism|Tabloids]] are types of news reporting characterized by sensationalistic stories. Consensus is that well-established tabloids should be used with care. They often repeat unverified rumors, have questionable fact-checking, and are often unsuitable for information about living people. When judging reliability of tabloids, editors often first assume its reliability to be mixed and then work it up or down. [[Tabloid journalism]] should not be confused with [[tabloid (newspaper format)]]. Many publications that are not tabloid journalism use the tabloid format (and many that are do not).
+
+==See also==
+{{div col|colwidth=40em}}
+* [[Wikipedia:Advanced source searching|Advanced source searching]], includes tips and links to custom search engines for Wikipedians
+* [[Wikipedia:External links/Perennial websites|External links/Perennial websites]], a list of websites used as external links
+* [[List of fake news websites|Fake news websites]], a list of websites that intentionally publish hoaxes
+* [[Wikipedia:Neutrality of sources|Neutrality of sources]], an essay on the use of reliable, but non-neutral, sources
+* [[Wikipedia:New page patrol source guide|New page patrol source guide]], a list of sources organized by reliability, region, and topic
+* [[Newspaper of record]], newspapers whose editorial and news-gathering functions are considered authoritative
+* [[Wikipedia:Potentially unreliable sources|Potentially unreliable sources]], a list of questionable sources
+* [[List of satirical news websites]], a list of websites that publish humorous, satirical news stories
+* ''[[Wikipedia:WikiProject Academic Journals/Journals cited by Wikipedia/Questionable1|The Wikipedia CiteWatch]]'', a bot-compiled list of potentially problematic sources, ranked by frequency of use
+* [[Help:Introduction to referencing with Wiki Markup/reliable sources quiz]] for a quick quiz
+{{div col end}}
+
+===Topic-specific pages===
+{{main page|Category:WikiProject lists of reliable sources}}
+{{div col|colwidth=40em}}
+* [[Wikipedia:WikiProject Africa/Africa Sources List|WikiProject Africa/Africa Sources list]] – list of African sources
+* [[Wikipedia:WikiProject AfroCine/Reliable Sources|WikiProject AfroCine/Reliable Sources]] – list of reliable sources for African cinema, theatre and arts
+* [[Wikipedia:WikiProject Albums/Sources|WikiProject Albums/Sources]], a list of sources about music
+* [[Wikipedia:WikiProject Video games/Sources|WikiProject Video games/Sources]] – list of sources about video games
+* [[Wikipedia:WikiProject Film/Resources|WikiProject Film/Resources]]
+* [[Wikipedia:WikiProject Film/Indian cinema task force#Guidelines on sources|WikiProject Film/Indian cinema task force#Guidelines on sources]] – list of sources (reliable and unreliable) for Indian cinema
+* [[Wikipedia:WikiProject Latter Day Saint movement/Sources|WikiProject Latter Day Saint movement/Sources]]
+* [[Wikipedia:WikiProject Korea/Reliable sources|WikiProject Korea/Reliable sources]]
+* [[Wikipedia:WikiProject Christian music/Sources|WikiProject Christian music/Sources]]
+* [[Wikipedia:WikiProject Venezuela/Reliable and unreliable sources|WikiProject Venezuela/Reliable and unreliable sources]]
+* [[Wikipedia:WikiProject Nigeria/Nigerian sources]] – list of Nigerian and Nigeria-related sources
+{{div col end}}
+
+===Templates and categories===
+{{div col|colwidth=40em}}
+* {{tl|RSP entry}}
+* {{tl|Deprecated inline}}
+* [[:Category:All articles with deprecated sources]]
+{{div col end}}
+
+===Tools===
+{{div col|colwidth=40em}}
+* [[WP:UPSD|Unreliable/Predatory Source Detector]], a user script designed to detect unreliable sources
+* [[:m:Cite Unseen|Cite Unseen]], a user script that adds icons to denote the nature of sources, including reliability
+* [[User:Novem Linguae/Scripts/CiteHighlighter|CiteHighlighter]], a user script that highlights sources based on reliability
+* [[User:SuperHamster/RSP-to-JSON|RSP-to-JSON]], a user script that converts the RSP table to machine-readable JSON format
+{{div col end}}
+
+==Notes==
+{{notelist}}
+
+==References==
+<references />
+
+[[Category:Wikipedia culture]]
+[[Category:WikiProject lists of reliable sources]]
+[[Category:Wikipedia perennial sources]]

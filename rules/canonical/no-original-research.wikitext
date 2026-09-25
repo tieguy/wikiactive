@@ -1,0 +1,224 @@
+{{short description|Wikipedia policy page}}
+{{Redirect-2|WP:NOR|WP:OR|the explanatory essay|Wikipedia:These are not original research|the geography WikiProjects|Wikipedia:WikiProject Norway|and|Wikipedia:WikiProject Oregon}}
+{{For|raising issues with specific articles|Wikipedia:No original research/Noticeboard}}
+{{pp-semi-indef|small=yes}}
+{{pp-move-indef}}
+{{Policy|WP:OR|WP:NOR}}
+{{Nutshell|Wikipedia [[WP:ORIGINALITY|does not publish original thought]]. All material in Wikipedia must be [[Wikipedia:Verifiability|attributable]] to a [[WP:RS|reliable, published source]]. Articles must not contain any new analysis or synthesis of published material that reaches or implies a conclusion not clearly stated by the sources themselves. Simple calculations are not original research, see {{section link||Routine calculations}}.}}
+{{Content policy list}}
+[[File:Manusingmicroscope.jpg|thumb|Outside Wikipedia, original research is a key part of scholarly work. However, Wikipedia editors must base their contributions on reliable, published sources, not their {{em|own}} original research.|alt=A microbiologist conducting scientific research using a microscope.]]
+
+{{strong|Wikipedia articles must not contain original research.}} On [[Wikipedia]], ''original research'' means material—such as facts, allegations, and ideas—for which no [[Wikipedia:Verifiability#Reliable sources|reliable source]] has ever been published.  By this, the community means that the reliable source must [[Wikipedia:Published|have been published and still exist]]—somewhere in the world, in any language, whether or not it is reachable online—even if no source is currently named in the article. Articles that currently name zero references of any type may be fully compliant with this policy—so long as there is a {{em|reasonable expectation}} that editors could ''find'' a published, reliable source to support every bit of material. The definition of original research includes any analysis or synthesis of published material that [[#Synthesis of published material| reaches or implies a conclusion not stated by the sources]]. To demonstrate that one is not adding original research, one must be able to cite – even if not yet expressly cited – reliable, published sources that are {{em|directly related}} to the topic of the article and {{em|directly support}}{{efn|A source "directly supports" a given piece of material if the information is present {{em|explicitly}} in the source so that using this source to support the material is not a violation of this policy. For questions about where and how to place citations, see [[Wikipedia:Citing sources]], {{section link|Wikipedia:Manual of Style/Lead section|Citations}}, etc.}} the material being presented.
+
+The prohibition against original research means that it must be possible for editors to {{em|find}} a reliable, [[Wikipedia:Published|published]] source that [[Wikipedia:Directly supports|directly supports]] any given bit of material.  Uncited material does not automatically violate this policy because it can be [[Wikipedia:Glossary#verifiable|''verifi{{em|able}}'']] even though it is not ''[[Wikipedia:Glossary#cited|cited]]''. For example, the statement <!-- DO NOT CHANGE THE WORD ORDER IN THE Paris-France SENTENCE -->"the capital of France is Paris"<!-- DO NOT CHANGE THE WORD ORDER IN THE Paris-France SENTENCE - it was chosen deliberately because some other cities called Paris are not capitals of France --> [[Wikipedia:You don't need to cite that the sky is blue|does not require a source to be cited]], nor is it original research, because editors could {{em|find}} a reliable source that directly supports this sentence if they tried to. 
+
+Despite the need for reliable sources, one must not [[Wikipedia:Plagiarism|plagiarize]] them or [[Wikipedia:Copyright violations|violate their copyrights]]. Rewriting source material in one's own words while retaining the substance is not considered original research.
+
+"No original research" (NOR) is one of three core content policies that, along with [[Wikipedia:Neutral point of view|Neutral point of view]] and [[Wikipedia:verifiability|Verifiability]], determine the type and quality of material acceptable in articles. Because these policies work in harmony, they should not be interpreted in isolation from one another, and editors should familiarize themselves with all three. For questions about whether any particular edit constitutes original research, see the [[WP:NORN|No original research noticeboard]].
+
+{{visible anchor|ORTP|NORTP|text=This policy does not apply to [[Help:Using talk pages|talk pages]] and other pages which evaluate article content and sources, such as deletion discussions or policy noticeboards.}}
+
+== Using sources ==
+{{Shortcut|WP:STICKTOTHESOURCE}}
+Wikipedia is fundamentally built on research that has been collected and organized from [[Wikipedia:reliable sources|reliable sources]], as described in content policies such as this one. If no reliable [[Wikipedia:Independent sources|independent sources]] can be found on a topic, Wikipedia should not have an article about it. If a user discovers something new, Wikipedia is not the place to announce such a discovery.
+
+The best practice is to research the most reliable sources on the topic and summarize what they say [[Wikipedia:Use our own words|in one's own words]], with each statement in the article being verifiable in a source that makes that statement explicitly. Source material should be carefully summarized or rephrased without changing its meaning or implication, going beyond what the sources express, or using them in ways inconsistent with the intention of the source, such as using material [[out of context]]. In short, one must {{em|stick to the sources.}}
+
+=== Reliable sources ===
+{{See|Wikipedia:Verifiability|Wikipedia:Reliable sources}}
+Material for which no reliable source can be found is considered original research. The only way one can show that an edit is not original research is to cite a reliable published source that contains the same material. Even with well-sourced material, if one uses it out of context, or to state or imply a conclusion not ''directly and explicitly'' supported by the source, one is engaging in original research, [[Quod vide|which see]] [[#Synthesis of published material|below]].
+
+Information in an article must be [[Wikipedia:Verifiability|verifiable]] in the references cited. In general, article statements should not rely on unclear or inconsistent passages or on passing comments. Any passages open to multiple interpretations should be precisely cited or avoided. A summary of extensive discussion should reflect the conclusions of the source. Conclusions which are not evident in the source are original research regardless of the type of source. Sources must be cited in context and on topic.
+
+=== <span class="anchor" id="Primary, secondary, and tertiary sources"></span>Primary, secondary and tertiary sources ===
+{{shortcut|WP:PSTS}}
+{{See|Wikipedia:Identifying and using primary sources|Wikipedia:Based upon|Wikipedia:Published}}
+Wikipedia articles should be based on [[WP:Reliable sources|reliable]], published [[secondary source]]s, and to a lesser extent, on [[tertiary source]]s and [[primary source]]s. Secondary or tertiary sources are needed to establish the topic's [[WP:N|notability]] and avoid novel interpretations of primary sources. All analyses and interpretive or synthetic claims about primary sources must be referenced to a secondary or tertiary source and must not be an original analysis of the primary-source material by Wikipedia editors.
+
+Appropriate sourcing can be a complicated issue, and these are general rules. {{vanchor|psort1|psort2|text=Deciding whether primary, secondary, or tertiary sources are appropriate in any given instance is a matter of good editorial judgment and [[WP:COMMONSENSE|common sense]], and should be discussed on article talk pages. A source may be considered primary for one statement but secondary for a different one. Even a given source can contain both primary and secondary source material for one particular statement. For this policy, primary, secondary and tertiary sources are defined as follows}}:{{efn|The [[University of Maryland Libraries]] provides typical examples of primary, secondary and tertiary sources.<ref>{{cite web |title=Primary, Secondary and Tertiary Sources |url=http://www.lib.umd.edu/ues/guides/primary-sources |publisher=University of Maryland Libraries |archiveurl=https://web.archive.org/web/20130201122612/http://www.lib.umd.edu/ues/guides/primary-sources |archivedate=1 February 2013}}</ref>}}
+{{shortcut|WP:PRIMARY}}{{Anchor|Primary}}
+{{Redirect|WP:PRIMARY|the article naming guideline|Wikipedia:Disambiguation#Is there a primary topic?}}
+*'''[[Primary source]]s''' are original materials that are close to an event, and are often accounts written by people who are directly involved. They offer an insider's view of an event, a period of history, a work of art, a political decision, and so on. Primary sources may or may not be [[Wikipedia:Independent sources|independent sources]]. An account of a traffic incident written by a witness is a primary source of information about the event; similarly, a scientific paper documenting a new experiment conducted by the author is a primary source for the outcome of that experiment. For Wikipedia's purposes, breaking news stories are also [[Wikipedia:Reliable sources#Breaking news|considered]] to be primary sources.{{efn|
+{{Anchor|defs|NORPS|NOROPED}}Further examples of primary sources include: diaries; archeological artifacts; census results; video or transcripts of surveillance, public hearings, etc.; investigative reports; trial/litigation in any country (including material—which relates to either the trial or to any of the parties involved in the trial—published/authored by any involved party, before, during or after the trial); editorials, op-eds, columns, blogs, and other opinion pieces, including (depending on context) reviews and interviews {{crossref|(see {{section link|Wikipedia:Reliable sources#News organizations}})}}; tabulated results of surveys or questionnaires; original philosophical works; religious scripture; medieval and ancient works, even if they cite earlier known or lost writings; tomb plaques and gravestones; and artistic and fictional works such as poems, scripts, screenplays, novels, motion pictures, videos, and television programs. For definitions of primary sources: {{bulleted list |The [[University of Nevada, Reno]] Libraries define primary sources as providing "an inside view of a particular event". They offer as examples: '''original documents''', such as autobiographies, diaries, e-mail, interviews, letters, minutes, news film footage, official records, photographs, raw research data, and speeches; '''creative works''', such as art, drama, films, music, novels, and poetry; and '''relics or artifacts''', such as buildings, clothing, DNA, furniture, jewelry, and pottery.<ref>{{cite web |title=What is a Primary Source? |url=http://www.library.unr.edu/instruction/help/primary.html |publisher=University of Nevada, Reno Libraries |archiveurl=https://web.archive.org/web/20070209235512/http://www.library.unr.edu/instruction/help/primary.html |archivedate=9 February 2007}}</ref> |The [[University of California, Berkeley Libraries]] offers this definition: "Primary sources were either created during the time period being studied or were created at a later date by a participant in the events being studied (as in the case of memoirs). They reflect the individual viewpoint of a participant or observer. Primary sources enable the researcher to get as close as possible to what actually happened during an historical event or time period".<ref name=Berkeley>{{cite web |title=Finding Historical Primary Sources |url=http://www.lib.berkeley.edu/instruct/guides/primarysources.html|publisher=University of California, Berkeley Libraries |archiveurl=https://web.archive.org/web/20120702201241/http://www.lib.berkeley.edu/instruct/guides/primarysources.html |archivedate=2 July 2012}}</ref> |[[Duke University Libraries]] offers this definition: "A primary source is a first-hand account of an event. Primary sources may include newspaper articles, letters, diaries, interviews, laws, reports of government commissions, and many other types of documents."<ref>{{cite web |title=How to Find Primary Sources |url=http://library.duke.edu/research/finding/primarysource.html |publisher=Duke University Libraries |archiveurl=https://web.archive.org/web/20120313082729/http://library.duke.edu/research/finding/primarysource.html |archivedate=13 March 2012}}</ref>}}}}
+*:{{fontcolor|maroon|'''''Policy'''''}}: Unless restricted by another policy,
+*:# Primary sources that have been '''[[WP:RS|reputably published]]''' may be used in Wikipedia, but only with care, because it is easy to misuse them.{{efn|Any exceptional claim would require [[Wikipedia:Verifiability#Exceptional claims require exceptional sources|exceptional sources]].}}
+*:# Any ''interpretation'' {{vanchor|anyinterpret1|anyinterpret2|text=of primary source material requires a reliable secondary source for that interpretation. While a primary source is generally the best source for its own contents, even over a summary of the primary source elsewhere, do not put [[WP:UNDUE|undue weight]] on its contents.}}
+*:# A primary source may be used on Wikipedia only to make straightforward, descriptive '''statements of facts''' that can be '''verified by any educated person with access''' to the primary source but without further, specialized knowledge.<!--That wording is quoted in full at Wikipedia:Manual of Style/Writing about fiction#Primary – please update it if the text here is changed.--> For example, an article about a musician may cite discographies and track listings published by the record label, and an article about a novel may cite passages to [[WP:PLOTREF|describe the plot]], but any interpretation needs a secondary source.
+*:# {{strong|Do not}} {{vanchor|nointerpretself1|nointerpretself2|text=analyze, evaluate, interpret, or synthesize material found in a primary source yourself; instead, refer to reliable secondary sources that do so.}}<!--That wording is quoted in full at Wikipedia:Manual of Style/Writing about fiction#Primary – please update it if the text here is changed.-->
+*:# {{strong|Do not}} base an entire article on primary sources, and be cautious about basing large passages on them.
+*:# {{Anchor|I-SAW-IT}}<!--Anchor used by Wikipedia:I-SAW-IT.-->{{strong|Do not}} add unsourced material from your personal experience, because that would make Wikipedia a primary source of that material.
+*:# Use {{strong|extra caution}} when handling primary sources about {{strong|living people}}; see {{section link|WP:Biographies of living persons|Avoid misuse of primary sources}}.
+{{Anchor|Secondary|AEIS|aeis}}<!--Anchor used by Template:AEIS and WP:AEIS.-->{{shortcut|WP:SECONDARY}}
+*A '''[[secondary source]]''' provides thought and reflection based on primary sources, generally at least one step removed from an event. It contains ''analysis, evaluation, interpretation, or synthesis'' of the facts, evidence, concepts, and ideas taken from primary sources. [[Wikipedia:Secondary does not mean independent|Secondary sources are not necessarily independent sources]]. They rely on primary sources for their material, making analytic or evaluative claims about them.{{efn|The [[University of California, Berkeley Libraries]] defines "secondary source" as "a work that interprets or analyzes an historical event or phenomenon. It is generally at least one step removed from the event".<ref name=Berkeley/>}} For example, a review article that analyzes research papers in a field is a secondary source for the research.{{efn|The Ithaca College Library's page on primary and secondary sources compares research articles to review articles.<ref>{{cite web |title=Primary and secondary sources |url=http://www.ithacalibrary.com/sp/subjects/primary |publisher=Ithaca College Library |archiveurl=https://web.archive.org/web/20131006053234/http://www.ithacalibrary.com/sp/subjects/primary |archivedate=6 October 2013}}</ref> Be aware that either type of article can be both a primary and secondary source, although research articles tend to be more useful as primary sources and review articles as secondary sources.}} Whether a source is primary or secondary depends on context. A book by a military historian about the Second World War might be a secondary source about the war, but where it includes details of the author's own war experiences, it would be a primary source about those experiences. A book review too can be an opinion, summary, or scholarly review.{{efn|Book reviews may be found listed under separate sections within a news source or might be embedded within larger news reports. Having multiple coverages in book reviews is considered one of the [[WP:Notability (books)|notability criteria for books]]; book reviews should be considered as supporting sources in articles about books. Avoid using book reviews as reliable sources for the topics covered in the book. A book review is intended to be an independent review of the book, the author, and related writing issues, not a secondary source for the topics covered within the book. For definitions of book reviews: {{bulleted list |Princeton's Wordnet 2011 defines book review as "a critical review of a book (usually, [of] a recently published book)".<ref>{{cite web |title=book review |url=http://wordnetweb.princeton.edu/perl/webwn?s=book%20review |website=WordNet Search 3.1 |publisher=Princeton University |access-date=2011-09-22 |archive-date=2011-11-05 |archive-url=https://web.archive.org/web/20111105055403/http://wordnetweb.princeton.edu/perl/webwn?s=book%20review |url-status=live }}</ref> |Virginia Tech University Libraries provides the following definition: "A book review is an article that is published in a newspaper, magazine, or scholarly work that describes and evaluates a book.{{nbsp}}... Reviews differ from literary critiques of books. Critiques explore the style and themes used by an author or genre."<ref>{{cite web |title=Book Reviews |url=http://www.lib.vt.edu/find/byformat/bookreviews.html |publisher=Virginia Tech University Libraries |archiveurl=https://web.archive.org/web/20130105100902/http://www.lib.vt.edu/find/byformat/bookreviews.html |archivedate=5 January 2013}}</ref>}}}}
+*:{{fontcolor|maroon|'''''Policy'''''}}: Wikipedia articles usually rely on material from reliable secondary sources. Articles may make an analytic, evaluative, interpretive, or synthetic claim ''only if'' it has been published by a reliable secondary source.
+{{Anchor|Tertiary}}{{shortcut|WP:TERTIARY}}
+*'''[[Tertiary source]]s''' are publications such as encyclopedias and other [[Compendium|compendia]] that summarize, and often quote, primary and secondary sources. Wikipedia is considered to be a tertiary source.{{efn|While it is a tertiary source, Wikipedia is not considered a reliable source for Wikipedia articles; see {{section link|WP:Verifiability#Wikipedia and sources that mirror or use it}}, and {{section link|WP:Reliable sources|User-generated content}}.}} Many introductory undergraduate-level textbooks are regarded as tertiary sources because they sum up multiple secondary sources.
+*:{{fontcolor|maroon|'''''Policy'''''}}: Reliable tertiary sources can help provide broad summaries of topics that involve many primary and secondary sources and may help evaluate [[WP:DUE|due weight]], especially when primary or secondary sources contradict each other. Some tertiary sources are more reliable than others. Within any given tertiary source, some entries may be more reliable than others. Wikipedia articles may not be used as tertiary sources in other Wikipedia articles, but are sometimes used as primary sources in articles about Wikipedia itself (see [[:Category:Wikipedia]] and [[:Category:WikiProject Wikipedia articles]]).
+
+== Synthesis of published material ==
+{{Anchor|Synthesis of published material that advances a position}}
+<!--Note: If this heading is changed, update [[Template:Syn]] and the link in the lead section.-->{{shortcut|WP:SYNTH}}
+{{Seealso|Wikipedia:What SYNTH is not|Wikipedia:Combining sources|Wikipedia:Citing sources#Text–source integrity}}
+
+Do not synthesize meaning from multiple sources to state or imply a conclusion not explicitly stated by any of those sources. Similarly, do not combine different parts of one source to state or imply a conclusion not explicitly stated by that source. If one reliable source says A and another reliable source says B, do not join A and B together to imply a conclusion C not mentioned by either of the sources. This would be an improper editorial ''synthesis'' of published material to imply a new conclusion, which is '''not allowed'''.{{efn|Synthesis often constitutes original research, as defined in this policy. Even in cases where it does not, it is a form of misuse of the cited source(s) and is disallowed anyway.}}{{efn|Jimmy Wales has said of synthesized historical theories: "Some who completely understand why Wikipedia ought not create novel theories of physics by citing the results of experiments and so on and synthesizing them into something new, may fail to see how the same thing applies to history."<ref>{{cite web |last=Wales |first=Jimmy |title=Original research |url=https://lists.wikimedia.org/hyperkitty/list/wikien-l@lists.wikimedia.org/message/ZMPYZNORFFA7QOPXZDJIVT5Q6B4RJQNE/ |website=WikiEN-l Mailing List |publisher=Wikimedia Foundation |date=6 December 2004}}</ref>}} "A and B, therefore, C" is acceptable ''only if'' a [[WP:RS|reliable source]] has published the same argument concerning the topic of the article. If a single source says "A" in one context, and "B" in another, without connecting them, and does not provide an argument of "therefore C", then "therefore C" cannot be used in any article.
+
+Here are two sentences showing simple examples of improper editorial synthesis. Both halves of the first sentence may be reliably sourced but are combined to imply that the UN has failed to maintain world peace. ''If no reliable source has combined the material in this way, it is original research.''
+
+{{Quote box|style=background-color:#FFFF0010;color:inherit;width:70%;|align=center|salign=right
+|quote={{xmark}} '''The United Nations' stated objective is to maintain international peace and security, but since its creation there have been 160 wars throughout the world.'''
+}}
+
+In this second sentence, the opposite is implied using the same material, illustrating how easily such material can be manipulated when the sources are not adhered to:
+
+{{Quote box
+| style=background-color:#FFFF0010;color:inherit;width:70%;
+| align = center
+| salign = right
+| quote = {{xmark}} '''The United Nations' stated objective is to maintain international peace and security, and since its creation there have been only 160 wars throughout the world.'''
+}}
+
+Here are two paragraphs showing more complex examples of editorial synthesis. They are based on an actual Wikipedia article about a dispute between two authors, here called Smith and Jones. This first paragraph is fine because each of the sentences is carefully sourced, using a source that refers to the same dispute:
+
+{{Quote box
+| style=background-color:#FFFF0010;color:inherit;width:70%;
+| align = center
+| salign = right
+| quote = {{tick}} '''Smith stated that Jones committed plagiarism by copying references from another author's book. Jones responded that it is acceptable scholarly practice to use other people's books to find new references.'''
+}}
+
+This second paragraph demonstrates improper editorial synthesis:
+
+{{Quote box
+| style=background-color:#FFFF0010;color:inherit;width:70%;
+| align = center
+| salign = right
+| quote = {{xmark}} '''If Jones did not consult the original sources, this would be contrary to the practice recommended in the Harvard ''Writing with Sources'' manual, which requires citation of the source actually consulted. The Harvard manual does not call violating this rule "plagiarism". Instead, plagiarism is defined as using a source's information, ideas, words, or structure without citing them.'''
+}}
+
+The second paragraph is original research because it expresses a Wikipedia editor's opinion that, given the Harvard manual's definition of plagiarism, Jones did not commit it. Making the second paragraph policy-compliant would require a reliable source ''specifically commenting on the Smith and Jones dispute and making the same point about the Harvard manual and plagiarism''. In other words, that precise analysis must have been published by a reliable source concerning the topic before it can be published on Wikipedia.
+
+== What is not original research ==
+{{shortcut|WP:WINOR}}
+{{For|a related essay|Wikipedia:These are not original research}}
+
+=== Using own words ===
+{{shortcut|WP:OWNWORDSNOR}}
+{{See also|Wikipedia:Editing policy#Copyright|Wikipedia:Verifiability#Copyright and plagiarism|}}
+
+Describing the information from cited material in one's own words while retaining the substance (i.e., not introducing ideas or arguments absent from the source) is not original research. In fact, writing in your own words is strongly encouraged to avoid [[Wikipedia:Plagiarism#Avoiding plagiarism|plagiarism]], [[Wikipedia:Close paraphrasing|close paraphrasing]], and [[Wikipedia:Copyright violations|copyright violations]].
+
+=== Translations and transcriptions ===
+{{shortcut|WP:TRANSCRIPTION}}
+{{See also|Wikipedia:Translation}}
+
+Faithfully translating sourced material into English, or transcribing spoken words from audio or video sources, is not considered original research. For information on how to handle sources that require translation, see {{section link|WP:Verifiability#Non-English sources}}.
+
+[[Transliteration]] is not considered original research.  See [[Wikipedia:Romanization]] for links to language-specific advice.
+
+=== Routine calculations ===
+{{shortcut|WP:CALC|WP:BASICMATH}}
+
+Routine calculations do not count as original research, provided there is consensus that the results of the calculations are correct, and a meaningful reflection of the [[WP:Verifiability#Reliable sources|sources]]. [[Basic arithmetic]], such as adding numbers, converting units, or calculating a person's age, is almost always permissible. See also [[:Category:Conversion templates]].
+
+Numeracy might be necessary to follow a "routine" calculation, particularly for articles on mathematics or in the [[Hard science|hard sciences]]. Consider showing your work in a [[Wikipedia:Explanatory notes|footnote]].
+
+Comparisons of statistics present particular difficulties. Do not compare statistics from sources that use different methodologies.
+
+=== Acceptable media ===
+{{shortcut|WP:ORMEDIA}}
+Source information does not need to be in [[prose]] form: Any form of information, such as maps, charts, graphs, and tables may be used to provide source information. Any straightforward reading of such media is not original research provided that there is [[Wikipedia:Consensus|consensus]] among editors that the techniques used are correctly applied and a meaningful reflection of the sources.
+
+=== Original images ===
+{{shortcut|WP:OI|WP:IMAGEOR}}
+{{See also|WP:Image use policy#Diagrams and other images|WP:Manual of Style/Images#Pertinence and encyclopedic nature}}
+Because of copyright laws in several countries, there may be relatively few images available for use on Wikipedia. Editors are therefore encouraged to upload their own images, releasing them under appropriate [[Creative Commons license]]s or other free licenses. Original images created by a Wikimedian are not considered original research, so long as they, or their captions, ''do not illustrate or introduce unpublished ideas or arguments''. Examples of {{em|not}} fulfilling this requirement include:
+* using [[photo manipulation]] to distort the facts or position illustrated by an image; see [[Wikipedia:Image use policy#NOPHOTOMANIPULATION|clause in WP:Image use policy]]
+* presenting living persons in a false or disparaging light; see {{section link|WP:Biographies of living persons|Images}}
+* using AI to wholly generate the image (in most cases); see {{section link|WP:Image use policy|AI-generated images}}
+
+== Related policies ==
+=== Verifiability ===
+{{Main|Wikipedia:Verifiability}}
+
+{{shortcut|WP:VERIFYOR}}
+Wikipedia's content is determined by '''previously published information''' rather than by the personal beliefs or experiences of its editors. Even if you're sure something is {{em|true}}, it {{em|must}} be verifiable before you can add it. The policy says that all challenged or likely to be challenged material and all quotations need a reliable source; what counts as a reliable source is described at {{section link|WP:Verifiability#Reliable sources}}.
+
+=== Neutral point of view ===
+{{shortcut|WP:NPOVOR}}
+{{Main|Wikipedia:Neutral point of view}}
+
+The prohibition against original research limits the extent to which editors may present their own points of view in articles. By reinforcing the importance of including verifiable research produced by others, this policy promotes the inclusion of multiple points of view. Consequently, this policy reinforces our neutrality policy. In many cases, there are multiple established views of any given topic. In such cases, no single position, no matter how well researched, is authoritative. It is not the responsibility of any individual editor to research {{em|all}} points of view. But when incorporating research into an article, editors must provide context for this point of view by indicating how prevalent the position is and whether it is held by a majority or minority.
+
+The inclusion of a view that is held by only a tiny minority may constitute original research. [[Jimmy Wales|Jimbo Wales]] has said of this:
+* If your viewpoint is in the majority, then it should be easy to substantiate it with references to commonly accepted reference texts;
+* If your viewpoint is held by a significant minority, then it should be easy to name prominent adherents;
+* If your viewpoint is held by an extremely small minority, then—whether it's true or not, whether you can prove it, or not—it doesn't belong in Wikipedia, except perhaps in some ancillary article. Wikipedia is not the place for original research.<ref>{{cite web |last=Wales |first=Jimmy |url=http://mail.wikipedia.org/pipermail/wikien-l/2003-September/006715.html |website=WikiEN-l Mailing List |title=roy_q_royce@hotmail.com: --A Request RE a WIKIArticle-- |date=29 September 2003 |publisher=Wikimedia Foundation |access-date=17 September 2006 |archive-date=22 September 2004 |archive-url=https://web.archive.org/web/20040922204751/http://mail.wikipedia.org/pipermail/wikien-l/2003-September/006715.html |url-status=live }}</ref>
+
+== See also ==
+{{Wikiversity-c|allows [[v:Wikiversity:What is Wikiversity?#Wikiversity for researching|original&nbsp;research]].}}
+
+=== Guidelines ===
+* [[Wikipedia:Citing sources|Citing sources]]
+* [[Wikipedia:Conflict of interest#Citing yourself|Conflict of interest § Citing yourself]]
+* [[Wikipedia:No original research/Examples|No original research examples]]
+* [[Wikipedia:No original research/Noticeboard|No original research noticeboard]]{{mdash}}discussions of specific article content suspected of being OR
+* [[Wikipedia:Wikipedia is not for things made up one day|Wikipedia is not for things made up one day]]
+=== Templates ===
+{{div col}}
+* {{Tl|Original research}}{{mdash}}used to warn of original research
+* {{Tl|Original research section}}{{mdash}}to warn of original research in an article section
+* {{Tl|OR}}{{mdash}}inline tag used to warn of original research
+* {{Tl|Synthesis}}{{mdash}}used to warn of unpublished synthesis
+* {{Tl|AEIS}}{{mdash}}used in talk/noticeboards to remind that ''analytic, evaluative, interpretive, or synthetic'' claims require secondary sources
+* [[Wikipedia:Template messages/Disputes|Template messages/Disputes]]{{mdash}}lists other warning templates related to OR, among others
+{{div col end}}
+
+=== Supplemental pages ===
+{{div col}}
+* [[Wikipedia:Core content policies#History|Core content policies § History]], an overview of the origin of this policy
+* [[Wikipedia:Identifying and using independent sources|Identifying and using independent sources]]
+* [[Wikipedia:Identifying and using primary sources|Identifying and using primary sources]]
+* [[Wikipedia:These are not original research|These are not original research]]
+* [[Wikipedia:What SYNTH is not|What SYNTH is not]]
+* [[Wikipedia:When to cite#When a source or citation may not be needed|When to cite &sect;&nbsp;When a source or citation may not be needed]]
+
+{{div col end}}
+
+=== Essays ===
+{{div col}}
+* [[Wikipedia:Cherrypicking|Cherrypicking]]
+* [[Wikipedia:Dictionaries as sources|Dictionaries as sources]]
+* [[Wikipedia:Identifying and using style guides|Identifying and using style guides]]
+* [[Wikipedia:Identifying and using tertiary sources|Identifying and using tertiary sources]]
+* [[Wikipedia:Party and person|Party and person]]
+* [[Wikipedia:POV and OR from editors, sources, and fields|POV and OR from editors, sources, and fields]]
+* [[Wikipedia:Using maps and similar sources in Wikipedia articles|Using maps and similar sources in Wikipedia articles]]
+* [[Wikipedia:1.5 sources|1.5 sources]]
+* [[Wikipedia:You don't need to cite that the sky is blue|You don't need to cite that the sky is blue]]
+{{div col end}}
+
+=== Research help ===
+{{div col}}
+* [[Wikipedia:WikiProject Resource Exchange/Resource Request|WikiProject Resource Exchange/Resource Request]]
+* [[Wikipedia:The Wikipedia Library|The Wikipedia Library]]
+{{div col end}}
+
+== Notes ==
+{{Notelist}}
+
+== References ==
+{{Reflist}}
+
+== Further reading ==
+{{Refbegin}}
+* Wales, Jimmy. [http://mail.wikipedia.org/pipermail/wikien-l/2003-July/005288.html Crackpot articles], mailing list, July 12, 2003.
+* Wales, Jimmy. [https://lists.wikimedia.org/hyperkitty/list/wikien-l@lists.wikimedia.org/message/WGCTIJNSFHVWGTV5IZCR3LBGXKNHZXQO/ "NPOV and 'new physics'"], mailing list, September 26, 2003.
+* Wales, Jimmy. [https://lists.wikimedia.org/hyperkitty/list/wikien-l@lists.wikimedia.org/message/QITEOZ47CS3YU2ELEYVHDDDNH64IDSIG/ "NPOV and 'new physics'"], mailing list, September 26, 2003 (followup to above)
+* Wales, Jimmy. [https://lists.wikimedia.org/hyperkitty/list/wikien-l@lists.wikimedia.org/message/J5YNBK754O43GRXCB47MKAH4OTJW4P6A/ "Original research"], mailing list, December 3, 2004
+{{Refend}}
+== External links ==
+* [https://www.youtube.com/watch?v=0mlGDZ1ZDFI YouTube video demonstrating the dangers of original research]
+{{Wikipedia policies and guidelines}}
+
+[[Category:Wikipedia content policies]]
+[[Category:Wikipedia verifiability]]

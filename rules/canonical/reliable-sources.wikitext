@@ -1,0 +1,385 @@
+<noinclude>{{short description|Content guideline for determining the reliability of a source}}{{pp-semi-indef|small=yes}}</noinclude>
+{{redirect-multi|3|WP:RS|WP:IRS|WP:RELIABILITY|other uses|WP:RS (disambiguation)|and|Wikipedia:Independent sources|and|Wikipedia:Incident Reporting System|and|Wikipedia:WikiProject Reliability}}
+{{for-multi|community input on the reliability of a source|Wikipedia:Reliable sources/Noticeboard|a list of frequently discussed sources|Wikipedia:Reliable sources/Perennial sources}}
+{{For|the Wikipedia ''policy'' on reliable sources|Wikipedia:Verifiability#Reliable sources}}
+{{subcat guideline|content guideline|Reliable sources|WP:RS}}
+{{nutshell|Each book, article, or other source needs to be credible for supporting the particular claim(s) it supports. In case of a dispute, editors need to be able to explain why they relied on that source.}}
+<!--EDITORS, PLEASE NOTE:
+BEFORE ADDING MATERIAL TO THIS PAGE, PLEASE CHECK THAT IT IS NOT ALREADY INCLUDED IN [[Wikipedia:Verifiability]] OR [[Wikipedia:No original research]], WHICH ARE THE POLICY PAGES ON SOURCES. REPETITION IS POINTLESS, AND INCONSISTENCY IS WORSE THAN POINTLESS. MANY THANKS.-->
+{{Guideline list}}
+
+Wikipedia articles should be based on '''reliable, published sources''', making sure that {{strong|all majority and significant minority views}} that have appeared in those sources are covered ({{crossref|see [[Wikipedia:Neutral point of view]]}}). If no reliable sources can be found on a topic, [[Wikipedia:Notability|Wikipedia should not have an article on it]].
+
+This guideline discusses the reliability of various types of sources. The policy on sourcing is [[Wikipedia:Verifiability]], which requires [[Wikipedia:Citing sources#Inline citations|inline citations]] for any material challenged or likely to be challenged, and for all quotations. The verifiability policy is strictly applied to all material in the mainspace—articles, lists, and sections of articles—without exception, and in particular to [[Wikipedia:Biographies of living persons|biographies of living persons]], which states:
+
+{{quote|Contentious material about living persons (or, [[Wikipedia:Biographies of living persons#Recently dead or probably dead|in some cases, recently deceased]]) that is unsourced or poorly sourced—whether the material is negative, positive, neutral, or just questionable—must be removed immediately and without waiting for discussion.}}
+
+In the event of a contradiction between this guideline and our policies regarding sourcing and attribution, the policies take priority and editors should seek to resolve the discrepancy. Other policies relevant to sourcing are [[Wikipedia:No original research]] and [[Wikipedia:Biographies of living persons]]. For questions about the reliability of particular sources, see [[Wikipedia:Reliable sources/Noticeboard]].
+
+==Overview==
+{{further|Wikipedia:Neutral point of view#Good research}}
+{{shortcut|WP:REPUTABLE}}
+[[File:ZoneSystem-Gradient-lines.png|thumb|Source reliability falls on a spectrum: No source is 'always reliable' or 'always unreliable' for everything. However, some sources provide stronger or weaker support for a given statement. Editors must use their judgment to draw the line between usable and inappropriate sources for each statement.]]
+Articles should be based on reliable, [[Wikipedia:Independent sources|independent]], published sources with a reputation for fact-checking and accuracy. This means that we publish only the analysis, views, and opinions of reliable authors, and not those of Wikipedians, who have read and interpreted primary source material for themselves. The following examples cover only some of the possible types of reliable sources and source reliability issues, and are not intended to be exhaustive. Proper sourcing ''always'' depends on context; common sense and editorial judgment are an indispensable part of the process.
+
+===Definition of a source===
+{{shortcut|WP:SOURCEDEF}}
+A ''source'' is where the material comes from. For example, a source could be a book or a webpage. A source can be reliable or unreliable for the material it is meant to support. Some sources, such as unpublished texts and an editor's own personal experience, are prohibited.
+
+When editors talk about sources that are being cited on Wikipedia, they might be referring to any one of these four concepts:
+* The piece of work itself (the article, book)
+* The creator of the work (the writer, journalist)
+* The publication that contains the work (the journal, newspaper)
+* The publisher of the work (for example, [[Random House]] or [[Cambridge University Press]])
+
+{{strong|Any of the four can affect reliability.}} Reliable sources may be published materials with a reliable publication process, authors who are regarded as authoritative in relation to the subject, or both. These qualifications should be demonstrable to other people.
+
+===Definition of ''published''===
+{{shortcut|WP:PUBLISHED}}
+{{redirect-distinguish|WP:PUBLISHED|Wikipedia:Published}}
+
+''[[Wikipedia:Published|Published]]'' means, for Wikipedia's purposes, any source that was ''made available to the public in some form''. The term is most commonly associated with text materials, either in traditional printed format or online; however, audio, video, and multimedia materials that have been recorded then broadcast, distributed, or archived by a reputable party may also meet the necessary criteria to be considered reliable sources. Like text, media must be produced by a reliable source and be properly cited. 
+
+Additionally, an accessible copy of the media must exist. It is convenient, but by no means necessary, for the copy to be accessible via the Internet.
+
+===Context matters===
+{{See also|Wikipedia:Verifiability#Exceptional claims require exceptional sourcing}}{{shortcut|WP:CONTEXTMATTERS|WP:RSCONTEXT}}
+The reliability of a source depends on context. Each source must be carefully weighed to judge whether it is reliable for the statement being made in the Wikipedia article and is an appropriate source for that content. 
+
+In general, the more people engaged in checking facts, analyzing legal issues, and scrutinizing the writing, the more reliable the publication. Sources should {{em|directly support}} the information as it is presented in the Wikipedia article.
+
+Information provided in passing by an otherwise reliable source or information that is not related to the principal topics of the publication may not be reliable; editors should cite sources focused on the topic at hand where possible. For example, a publisher's web site is likely to be reliable for an author's identity, date of publication, etc., but not necessarily for a critical, artistic, or commercial evaluation of the work {{See below|{{slink||Reliability in specific contexts}}, below}}.
+
+===Age matters===
+{{shortcut|WP:AGE MATTERS}}
+Especially in scientific and academic fields, older sources may be inaccurate because new information has been brought to light, new theories proposed, or vocabulary changed. In areas like politics or fashion, laws or trends may make older claims incorrect. Be sure to check that older sources have not been superseded, especially if it is likely that new discoveries or developments have occurred in the last few years. In particular, [[Wikipedia:Identifying reliable sources (medicine)#Use up-to-date evidence|newer sources are generally preferred in medicine]].
+
+Sometimes sources are ''too'' new to use, such as with [[Wikipedia:Reliable sources#Breaking news|breaking news]] (where later reports might be more accurate), and primary sources which purport to debunk a long-standing consensus or introduce a new discovery (in which case awaiting studies that attempt to replicate the discovery might be a good idea, or reviews that validate the methods used to make the discovery).
+
+Sources of any age may be prone to [[Wikipedia:Recentism|recentism]], and this needs to be balanced out by careful editing.
+
+===Usage by other sources===
+{{Shortcut|WP:UBO|WP:USEBYOTHERS}}
+How accepted and high-quality reliable sources use a given source provides evidence, positive or negative, for its reliability and reputation. The more widespread and consistent this use is, the stronger the evidence. For example, widespread citation without comment for facts is evidence of a source's reputation and reliability for similar facts, whereas widespread doubts about reliability weigh against it. If outside citation is the main indicator of reliability, particular care should be taken to adhere to other guidelines and policies, and to not unduly represent contentious or minority claims. The goal is to reflect established views of a topic as far as we can determine them.
+
+==Some types of sources==
+{{shortcut|WP:SOURCETYPES}}
+{{further|Wikipedia:Verifiability#Reliable sources|Wikipedia:Verifiability#Verifiability does not guarantee inclusion}}
+Many Wikipedia articles rely on scholarly material. When available, academic and peer-reviewed publications, scholarly monographs, and textbooks are usually the most reliable sources. However, some scholarly material may be outdated, in competition with alternative theories, controversial within the relevant field, or largely ignored by the mainstream academic discourse. Try to cite current scholarly consensus when available, recognizing that this is often absent. Reliable non-academic sources may also be used in articles about scholarly issues, particularly material from high-quality mainstream publications. Deciding which sources are appropriate depends on context. Material should be [[WP:INTEXT|attributed in-text]] where [[WP:ASF|sources disagree]].
+
+===Scholarship===
+{{shortcut|WP:SCHOLARSHIP}}
+* '''Prefer secondary sources''' – Articles should rely on [[wp:secondary source|secondary source]]s whenever possible. For example, a paper reviewing existing research, a review article, monograph, or textbook is often better than a primary research paper. When relying on primary sources, extreme caution is advised. Wikipedians should never interpret the content of primary sources for themselves ({{crossref|see [[Wikipedia:No original research]] and [[Wikipedia:Neutral point of view]]}}).
+* '''Reliable scholarship''' – Material such as an article, book, monograph, or research paper that has been vetted by the scholarly community is regarded as reliable, where the material has been published in reputable peer-reviewed sources or by well-regarded academic presses.{{shortcut|WP:THESIS}}
+* '''Dissertations''' – Completed dissertations or theses written as part of the requirements for a doctorate, and which are publicly available (most via interlibrary loan or from [[ProQuest]]), can be used but care should be exercised, as they are often, in part, primary sources. Some of them will have gone through a process of academic peer reviewing, of varying levels of rigor, but some will not. If possible, use theses that have been cited in the literature, supervised by recognized specialists in the field, or reviewed by independent parties. Unfinished dissertations are generally not reliable sources. Masters dissertations and theses are considered reliable only if they can be shown to have had significant scholarly influence. Some theses are later published in the form of scholarly monographs or peer reviewed articles, and, if available, these are usually preferable to the original thesis as sources. 
+* '''Citation counts''' – One may be able to confirm that discussion of the source has entered mainstream academic discourse by checking what scholarly citations it has received in [[citation index]]es or lists such as [[DOAJ]]. Works published in journals not included in appropriate databases, especially in fields well covered by them, might be isolated from mainstream academic discourse, though whether it is appropriate to use will depend on the context. The number of citations may be misleading if an author cites [[Self-citation|themselves]] often.
+* '''Isolated studies''' – Isolated studies are usually considered tentative and may change in the light of further academic research. If the isolated study is a primary source, it should generally not be used if there are secondary sources that cover the same content. The reliability of a single study depends on the field. Avoid [[WP:UNDUE|undue weight]] when using single studies in such fields. Studies relating to complex and [[wikt:abstruse|abstruse]] fields, such as [[medicine]], are less definitive and should be avoided. Secondary sources, such as [[meta-analysis|meta-analyses]], textbooks, and scholarly [[review articles]] are preferred when available, so as to provide proper context.
+* <span id="QUESTIONABLEJOURNAL"></span>'''POV and peer review in journals''' – Care should be taken with journals that exist mainly to promote a particular point of view. A claim of peer review is not an indication that the journal is respected, or that any meaningful peer review occurs. Journals that are not peer reviewed by the wider academic community should not be considered reliable, except to show the views of the groups represented by those journals.{{NoteTag|Examples include ''The Creation Research Society Quarterly'' and ''Journal of Frontier Science'' (the latter uses [http://jfspeerreview.blogspot.com blog comments as peer review]). {{Webarchive|url=https://web.archive.org/web/20190420060736/http://jfspeerreview.blogspot.com/|date=April 20, 2019}}).}}
+* {{anchor|Predatory journals}}'''Predatory journals''' – [[Predatory journal]]s are of very low quality and have only token peer-review, if any. These journals publish whatever is submitted if the author is willing to pay a fee. Some go so far as to mimic the names of established journals ([[Journal hijacking]]).<ref>{{cite web |last=Beall |first=Jeffrey |authorlink=Jeffrey Beall |date=January 1, 2015 |title=Criteria for Determining Predatory Open-Access Publishers |edition=3rd |publisher=Scholarly Open Access |url=http://scholarlyoa.com/2012/11/30/criteria-for-determining-predatory-open-access-publishers-2nd-edition/ |archive-url=https://web.archive.org/web/20170105195017/https://scholarlyoa.files.wordpress.com/2015/01/criteria-2015.pdf| archive-date=January 5, 2017}}</ref><ref name=NYT4713>{{cite news |last=Kolata |first=Gina |authorlink=Gina Kolata |date=April 7, 2013 |title=Scientific Articles Accepted (Personal Checks, Too) |newspaper=[[The New York Times]] |url=http://www.nytimes.com/2013/04/08/health/for-scientists-an-exploding-world-of-pseudo-academia.html |access-date=April 11, 2013 |archive-url=https://web.archive.org/web/20130411001403/http://www.nytimes.com/2013/04/08/health/for-scientists-an-exploding-world-of-pseudo-academia.html |archive-date=April 11, 2013 |url-status=live |df=mdy-all |url-access=limited }}</ref><ref name=Nature032713>{{cite journal |last=Butler |first=Declan |date=March 28, 2013 |title=Sham journals scam authors: Con artists are stealing the identities of real journals to cheat scientists out of publishing fees |journal=Nature |volume=495 |issue=7442 |pages=421–422 |doi=10.1038/495421a |pmid=23538804 |s2cid=242583 |url=http://www.nature.com/news/sham-journals-scam-authors-1.12681 |access-date=April 11, 2013 |archive-url=https://web.archive.org/web/20130413064730/http://www.nature.com/news/sham-journals-scam-authors-1.12681 |archive-date=April 13, 2013 |url-status=live |df=mdy-all }}</ref><ref>{{cite journal |last=Bohannon |first=John |authorlink=John Bohannon |date=October 4, 2013 |title=Who's afraid of peer review? |journal=Science |doi=10.1126/science.342.6154.60 |pmid=24092725 |volume=342 |issue=6154 |pages=60–65}}</ref><ref>{{cite news|url=https://www.nytimes.com/2017/10/30/science/predatory-journals-academics.html|title=Many Academics Are Eager to Publish in Worthless Journals|first=Gina|last=Kolata|date=October 30, 2017|access-date=November 2, 2017|newspaper=[[The New York Times]]|archive-url=https://web.archive.org/web/20171108014011/https://www.nytimes.com/2017/10/30/science/predatory-journals-academics.html|archive-date=November 8, 2017|url-status=live|df=mdy-all|url-access=limited}}</ref> The lack of reliable peer review implies that articles in such journals should ''at best'' be treated similarly to [[WP:SPS|self-published sources]].{{NoteTag|Many submissions to these predatory journals will be by scholars that a) cannot get their theories published in legitimate journals, b) were looking to quickly publish something to boost their academic resumes, or c) were honestly looking for a legitimate peer-review process to validate new ideas, but were denied the feedback by fraudulent publishers.}} If you are unsure about the quality of a journal, check that the editorial board is based in a respected [[Higher education accreditation|accredited university]], and that it is included in the relevant high-quality [[citation index]]—be wary of indexes that merely list almost all publications, and do not vet the journals they list. ({{crossref|See also {{slink|Wikipedia:Identifying reliable sources (medicine)#Predatory journals}}.}})
+* {{anchor|Preprints}}{{shortcut|WP:PREPRINT|WP:PREPRINTS}}'''Preprints''' – Repositories like [[arXiv]], [[medRxiv]], [[bioRxiv]], and [[Zenodo]] host non-peer-reviewed [[WP:SPS|self-published sources]]. These include [[Preprint|preprints]], which are preliminary versions of articles intended for later publication in peer-reviewed journals, as well as other materials like lecture notes and informal expository writing. These materials are seldom reliable sources, and they are [[Wikipedia:Identifying reliable sources (medicine)|not permitted for medical content]]. However, they sometimes meet the criteria for acceptable use of self-published sources, and links to such repositories can be used as open-access links for papers which have subsequently been published reliably.
+
+===News organizations===
+{{shortcut|WP:NEWSORG}}
+
+News sources often contain both factual content and opinion content. News reporting from well-established news outlets is generally considered to be reliable for statements of fact (though even the most reputable reporting sometimes contains errors). News reporting from less-established outlets is generally considered less reliable for statements of fact. Most newspapers also reprint items from [[News agency|news agencies]] (a.k.a. wire services) such as [[Reuters]], [[Interfax]], [[Agence France-Presse]], [[United Press International]] or the [[Associated Press]], which are responsible for accuracy. The agency should be cited in addition to the newspaper that reprinted it.   A published news story may include historical information - such information can be considered reliable, but not as reliable as published academic histories.
+
+* Scholarly sources and high-quality non-scholarly sources are generally better than news reports for academic topics {{see above|{{slink||Scholarship}}, above}}. Press releases from organizations or journals are often used by newspapers with minimal change; such sources are [[churnalism]] and should not be treated differently than the underlying press release. Occasionally, some newspapers still have specialist reporters who are citable by name. ({{crossref|For topics relating to health or medicine, see {{slink||Medical claims}}, below}}.)
+* Otherwise reliable news sources—for example, the website of a major news organization—that publish in a blog-style format for some or all of their content may be as reliable as if published in standard news article format ({{crossref|See also {{slink|Wikipedia:Verifiability|Newspaper and magazine blogs}} }}).
+* Signals that a news organization engages in fact-checking and has a reputation for accuracy are the publication of [[correction (newspaper)|corrections]] and disclosures of [[conflict of interest|conflicts of interest]] (COI).
+* [[Human interest story|Human interest reporting]] is generally not as reliable as news reporting, and may not be subject to the same rigorous standards of fact-checking and accuracy (see [[Junk food news]]).<ref>{{cite news |last=Miller |first=Laura |date=October 16, 2011 |title='Sybil Exposed': Memory, lies and therapy |work=[[Salon (website)|Salon]] |publisher=Salon Media Group |url=https://www.salon.com/2011/10/16/sybil_exposed_memory_lies_and_therapy/ |access-date=October 17, 2011 |quote=[[Debbie Nathan]] also documents a connection between Schreiber and Terry Morris, a 'pioneer' of this [human interest] genre who freely admitted to taking 'considerable license with the facts that are given to me.' |archive-url=https://web.archive.org/web/20111016222231/http://www.salon.com/2011/10/16/sybil_exposed_memory_lies_and_therapy/ |archive-date=October 16, 2011 |url-status=live |df=mdy-all }}</ref>
+* The reporting of rumors has a limited encyclopedic value, although in some instances verifiable information ''about'' rumors may be appropriate (i.e. if the rumors themselves are noteworthy, regardless of whether or not they are true). [[WP:NOTGOSSIP|Wikipedia is not the place]] for passing along [[gossip]] and [[rumor]]s.
+* Some news organizations have used Wikipedia articles as a source for their work. Editors should therefore beware of [[WP:CIRCULAR|circular sourcing]].{{NoteTag|A variety of these incidents have been documented by ''[[Private Eye]]'' and others and discussed on Wikipedia, where incorrect details from articles added as [[Wikipedia:Vandalism|vandalism]] or otherwise have appeared in newspapers.}}
+* Whether a {{em|specific}} news story is reliable for a fact or statement should be examined on a case-by-case basis.
+* Multiple sources should not be asserted for any [[List of wire services|wire service]] article. Such sources are essentially a single source.
+* Unless reported by a reliable source, leaks should not normally be used or cited directly in articles.
+
+==== Editorial and opinion commentary ====
+{{shortcut|WP:NEWSOPED|WP:RSEDITORIAL}}
+
+Editorial commentary, analysis and [[opinion piece]]s, whether written by the editors of the publication ([[editorial]]s) or outside authors (invited [[op-ed]]s and [[letters to the editor]] from notable figures) are reliable primary sources for [[WP:INTEXT|statements attributed to that editor or author]], but are rarely reliable for statements of fact {{See below|also {{slink||Statements of opinion}}, below}}.
+
+When taking information from opinion content, the identity of the author may help determine reliability. The opinions of specialists and recognized experts are more likely to be reliable and to reflect a significant viewpoint.{{NoteTag|An exceptional claim requires [[WP:EXCEPTIONAL|multiple high-quality sources]].}} If the statement is not authoritative, [[WP:ATTRIBUTEPOV|attribute the opinion to the author]] in the text of the article but do not represent it as fact. Reviews for books, movies, art, etc. can be opinion, summary, or scholarly pieces.<ref name="Princeton">{{cite web |year=2011 |title=Book reviews |publisher=Princeton |work=Scholarly definition document |url=http://wordnetweb.princeton.edu/perl/webwn?s=book%20review |access-date=September 22, 2011 |archive-url=https://web.archive.org/web/20111105055403/http://wordnetweb.princeton.edu/perl/webwn?s=book%20review |archive-date=November 5, 2011 |url-status=live |df=mdy-all }}</ref><ref name="VirginiaTech">{{cite web |year=2011 |title=Book reviews |publisher=Virginia Polytechnic Institute and State University |work=Scholarly definition document |url=http://www.lib.vt.edu/find/byformat/bookreviews.html |access-date=September 22, 2011 |archive-url=https://web.archive.org/web/20110910082750/http://www.lib.vt.edu/find/byformat/bookreviews.html |archive-date=September 10, 2011 |url-status=dead |df=mdy-all }}</ref> 
+
+Some news organizations do not publish their editorial policies.
+
+==== News aggregators ====
+{{shortcut|WP:NEWSAGG|WP:USEORIGINALSOURCE}}
+Some websites function partly or entirely as aggregators, reprinting items from websites of news agencies, blogs, websites, or even Wikipedia itself. These may constitute a curated feed or an AI-generated feed. Examples include the main pages of [[MSN]] and [[Yahoo News]]. As with newspaper reprints, the original content creator is responsible for accuracy and '''reliability should be judged based on the original source'''. Direct links to the original source should be preferred over the aggregator's link.
+
+===<span id="E-commerce sources"></span>Vendor and e-commerce sources===
+{{Shortcut|WP:VENDOR|WP:AFFILIATE}}
+Although the content guidelines for [[WP:EL|external links]] prohibit linking to "Individual web pages that primarily exist to sell products or services", inline citations may be allowed to e-commerce pages such as that of a book on a bookseller's page or an album on its streaming-music page, in order to [[WP:VERIFY|verify]] such things as titles and running times. Journalistic and academic sources are preferable, however, and e-commerce links should be replaced with reliable non-commercial sources if available.
+
+Rankings proposed by vendors (such as bestseller lists at Amazon) usually have at least one of the following problems:
+# It may be impossible to provide a stable source for the alleged ranking.
+# When only self-published by the vendor, i.e. no reliable independent source confirming the ranking as being relevant, the ranking would usually carry insufficient weight to be mentioned in any article.
+For such reasons, such rankings are usually avoided as Wikipedia content.
+
+===Biased or opinionated sources===
+{{shortcut|WP:BIASED|WP:PARTISAN|WP:BIASEDSOURCES|WP:ACCORDINGTO|WP:RSBIAS}}
+{{See also|Wikipedia:Neutral point of view#Bias in sources}}
+Wikipedia articles are required to present a [[Wikipedia:Neutral point of view|neutral point of view]]. However, reliable sources are not required to be neutral, unbiased, or objective. Sometimes non-neutral sources are the best possible sources for supporting information about the different viewpoints held on a subject.
+
+Common sources of bias include political, financial, religious, philosophical, or other beliefs. Although a source may be biased, it may be reliable in the specific [[#Context matters|context]]. When dealing with a potentially biased source, editors should consider whether the source meets the normal requirements for reliable sources, such as editorial control, a reputation for fact-checking, and the level of independence from the topic the source is covering. Bias may make [[WP:INTEXT|in-text attribution]] appropriate, as in "The feminist [[Betty Friedan]] wrote that..."; "According to the Marxist commentator [[Harry Magdoff]]..."; or "The conservative Republican presidential candidate [[Barry Goldwater]] believed that...".
+
+== <span class="anchor" id="Self-published and questionable sources"></span>Questionable and self-published sources ==
+{{see also|Wikipedia:Verifiability#Reliable sources}}
+===Questionable sources===
+{{Shortcut|WP:QUESTIONABLE|WP:QUESTIONED}}
+
+Questionable sources are those that have a poor reputation for checking the facts, lack meaningful editorial oversight, or [[WP:COISOURCE|have an apparent conflict of interest]]. Such sources include [[content farm]]s, websites and publications expressing views that are widely acknowledged as extremist, that are promotional in nature, or that rely heavily on rumors and personal opinions.<ref>{{cite web|url=http://nymag.com/selectall/2016/11/fake-facebook-news-sites-to-avoid.html|work=[[New York Magazine]]|title=Fake Facebook News Sites to Avoid|first=Madison|last=Malone Kircher|date=November 15, 2016|access-date=November 15, 2016|archive-url=https://web.archive.org/web/20161116153727/http://nymag.com/selectall/2016/11/fake-facebook-news-sites-to-avoid.html|archive-date=November 16, 2016|url-status=live|df=mdy-all|url-access=limited}}</ref> Questionable sources are generally unsuitable for citing contentious claims about third parties, which includes claims against institutions, persons living or dead, as well as more ill-defined entities. The proper uses of a questionable source are very limited.
+
+Beware of sources that sound reliable but do not have the [[WP:SOURCE|reputation for fact-checking and accuracy]] that this guideline requires.<ref name=DM>An example is the ''[[Daily Mail]]'', which is broadly considered a questionable and prohibited source, per [[Wikipedia:Reliable sources/Noticeboard/Archive 220#Daily Mail RfC|this RfC]].</ref> The ''Journal of 100% Reliable Factual Information'' might have a reputation for "[[predatory publishing|predatory]]" behavior, which includes questionable business practices and/or peer-review processes that raise concerns about the reliability of their journal articles.<ref name=Beall1>{{cite journal |last=Beall |first=Jeffrey |authorlink=Jeffrey Beall |date=February 25, 2015 |title='Predatory' Open-Access Scholarly Publishers |journal=[[The Charleston Advisor]] |url=http://eprints.rclis.org/25046/1/Rahman%20and%20Engels_%202015_Predatory%20open%20access%20journals.pdf |access-date=January 7, 2016 |archive-url=https://web.archive.org/web/20160304201837/http://eprints.rclis.org/25046/1/Rahman%20and%20Engels_%202015_Predatory%20open%20access%20journals.pdf |archive-date=March 4, 2016 |url-status=live |df=mdy-all }}</ref><ref name="Beall2">{{cite web|last1=Beall|first1=Jeffrey|title=Potential, possible, or probable predatory scholarly open-access publishers|url=https://scholarlyoa.com/publishers/|archive-url=https://web.archive.org/web/20170111172306/https://scholarlyoa.com/publishers/|archive-date=January 11, 2017|website=[[Scholarly Open Access]]}}</ref>
+
+==== Sponsored content ====
+{{Shortcut|WP:SPONSOR|WP:SPONSORED}}
+{{see also|Wikipedia:Conflict of interest#Covert advertising}}
+[[Sponsored content]] is a paid advertisement that is formatted to look like an article or other piece of typical content for that outlet. The content may be directly controlled by the sponsor, or the advertiser may pay an author to create the content (e.g., [[influencer marketing]]). Advertisements can be cited, but they are [[Wikipedia:Independent sources|non-independent]] and should be treated as [[WP:SPS|self-published]] and [[WP:PRIMARY|primary]] sources in articles. Reliable publications clearly indicate sponsored articles in the [[byline]] or with a [[disclaimer]] at the top of the article. Sources that do not clearly distinguish staff-written articles from sponsored content are also questionable.
+
+[[Conflicts of interest in academic publishing#Sponsored supplements|Symposia and supplements to academic journals]] are often (but far from always) unacceptable sources. They are commonly sponsored by industry groups with a financial interest in the outcome of the research reported. They may lack independent editorial oversight and [[peer review]], with no supervision of content by the parent journal.<ref name=ICMJE_recommendations_2015>{{Citation| last = Fees| first = F.| title = Recommendations for the conduct, reporting, editing, and publication of scholarly work in medical journals| url = http://www.icmje.org/icmje-recommendations.pdf| date = 2016| access-date = January 12, 2019| archive-url = https://web.archive.org/web/20140305222129/http://www.icmje.org/icmje-recommendations.pdf| archive-date = March 5, 2014| url-status = live}} [http://www.icmje.org/recommendations/browse/roles-and-responsibilities/author-responsibilities--conflicts-of-interest.html Conflicts-of-interest section] {{Webarchive|url=https://web.archive.org/web/20181230102758/http://www.icmje.org/recommendations/browse/roles-and-responsibilities/author-responsibilities--conflicts-of-interest.html |date=December 30, 2018 }}, [Last update on 2015 Dec].</ref> Such articles do not share the reliability of their parent journal,<ref name="supp_quality">{{cite journal |last1=Rochon |first1=PA |last2=Gurwitz |first2=JH |last3=Cheung |first3=CM |last4=Hayes |first4=JA |last5=Chalmers |first5=TC |title=Evaluating the quality of articles published in journal supplements compared with the quality of those published in the parent journal. |journal=JAMA |date=July 13, 1994 |volume=272 |issue=2 |pages=108–13 |pmid=8015117 |doi=10.1001/jama.1994.03520020034009 }}</ref> being essentially paid [[native advertising|ads disguised]] as academic articles. Such supplements, and those that do not clearly declare their editorial policy and conflicts of interest, should not be cited.
+
+Indications that an article was published in a supplement may be fairly subtle; for instance, a letter "S" added to a page number,<ref>{{cite journal |last1=Nestle |first1=Marion |title=Food company sponsorship of nutrition research and professional activities: a conflict of interest? |journal=Public Health Nutrition |date=January 2, 2007 |volume=4 |issue=5 |pages=1015–1022 |doi=10.1079/PHN2001253 |pmid=11784415 |s2cid=17781732 |url=https://www.cambridge.org/core/services/aop-cambridge-core/content/view/0DC05EE7794D352882D2F089111A0449/S1368980001001069a.pdf/food_company_sponsorship_of_nutrition_research_and_professional_activities_a_conflict_of_interest.pdf |access-date=January 12, 2019 |archive-url=https://web.archive.org/web/20181117105015/https://www.cambridge.org/core/services/aop-cambridge-core/content/view/0DC05EE7794D352882D2F089111A0449/S1368980001001069a.pdf/food_company_sponsorship_of_nutrition_research_and_professional_activities_a_conflict_of_interest.pdf |archive-date=November 17, 2018 |url-status=live |df=mdy-all }}</ref> or "Suppl." in a reference.<ref>See [[Wikipedia talk:WikiProject Medicine/Archive 109#Sponsored supplement?|this discussion]] of how to identify shill academic articles cited in Wikipedia.</ref> However, merely being published in {{em|a}} supplement is not ''[[prima facie]]'' evidence of being published in a {{em|sponsored}} supplement. Many, if not most, supplements are perfectly legitimate sources, such as the ''[[Astronomy & Astrophysics Supplement Series]]'', ''[[Nuclear Physics B: Proceedings Supplements]]'', ''[[Supplement to the London Gazette]]'', or ''[[The Times Higher Education Supplement]]''. A sponsored supplement also does not necessarily involve a COI; for instance, public health agencies may also sponsor supplements. However, groups that do have a COI may hide behind layers of front organizations with innocuous names, so the ultimate funding sources should always be ascertained.
+
+===Self-published sources (online and paper)===
+{{anchor|Self-published sources|Self-published|SELF}}{{shortcut|WP:RSSELF|WP:RS/SPS}}
+{{main|Wikipedia:Verifiability#Self-published sources}}
+
+Anyone can create a [[personal web page]] or [[self-publishing|publish their own book]] and claim to be an expert in a certain field. For that reason, self-published sources are largely not acceptable. Self-published books and newsletters, personal pages on social networking sites, [[Twitter|tweets]], and posts on [[Internet forum]]s are all examples of self-published media. Self-published expert sources may be considered reliable when produced by an established expert on the subject matter, whose work in the relevant field has previously been published by reliable, independent publications. {{strong|Never}} use self-published sources as [[Wikipedia:Independent sources|third-party sources]] about living people, even if the author is an expert, well-known professional researcher, or writer.
+
+====User-generated content====
+{{anchor|User-generated|USERG|UGC|WP:ABLUELINKISNOTASOURCE}}{{shortcut|WP:UGC|WP:USERG|WP:USERGENERATED}}
+Websites whose content is largely [[User-generated content|user-generated]] are generally unacceptable as sources. Sites with user-generated content include personal websites, personal and [[group blog|group]] blogs (excluding [[Wikipedia:Verifiability#Newspaper and magazine blogs|newspaper and magazine blogs]]), [[Internet forum]]s, [[Social networking service|social media sites]], [[fansite]]s, [[Online video platform|video]] and [[Image hosting service|image]] hosting services, most [[wiki]]s, and other collaboratively created websites.
+
+Examples of unacceptable user-generated sources include [[Ancestry.com]], [[Discogs]], [[Facebook]], [[Famous Birthdays]], [[Fandom (website)|Fandom]], [[Find a Grave]], [[Goodreads]], [[IMDb]], [[Instagram]], [[Know Your Meme]], [[Reddit]], [[Snapchat]], [[Substack]],<ref>{{Cite web |last=Maldonado |first=Diamante |date=2026-03-24 |title=Substack: Doom to Bloomscrolling |url=https://www.trillmag.com/culture/substack-doom-to-bloom-scrolling/ |access-date=2026-06-16 |website=Trill |language=en-US |quote=Substack is essentially an email-centered blogging platform in which you write a newsletter to your followers.}}</ref> [[TikTok]], [[Tumblr]], [[TV Tropes]], [[Twitter|X (Twitter)]], [[WhoSampled]], [[WordPress]], and [[Wikipedia]], or any other Wikimedia project ([[WP:CIRCULAR|self referencing]]). For information from verified official accounts on social media from celebrities and organizations, please refer to the section on self-published sources below.
+
+Although [[review aggregator]]s (such as [[Rotten Tomatoes]] and [[Metacritic]]) may be reliable when summarizing experts, the ratings and opinions of their users (including the reported rating averages) are not.
+
+In particular, a [[Help:Link#Wikilinks|wikilink]] is not a reliable source.
+
+===Self-published and questionable sources as sources on themselves===
+{{shortcut|WP:SELFSOURCE}}
+{{See also|Wikipedia:Verifiability#Self-published or questionable sources as sources on themselves}}
+Self-published or questionable sources may be used as sources of information {{strong|about themselves}}, especially in articles about themselves, without the requirement that they be published experts in the field, so long as the following criteria are met:
+# The material is neither unduly self-serving nor an [[Wikipedia:Verifiability#Exceptional claims require exceptional sources|exceptional claim]].
+# It does not involve claims about third parties (such as people, organizations, or other entities).
+# It does not involve claims about events not directly related to the subject.
+# There is no reasonable doubt as to its authenticity.
+# The Wikipedia article is not based primarily on such sources.
+
+These requirements also apply to pages from social networking websites such as [[Twitter|X]], [[Tumblr]], and [[Facebook]]. Use of self-sourced material should be minimal; the great majority of any article must be drawn from independent sources.
+
+===Sources produced by machine learning===
+<!--Wikipedia:RSAI and Wikipedia:RSLLM redirect to this section -->
+{{See also|Wikipedia:Reliable sources/Perennial sources#Large language models}}
+{{Shortcut|WP:RSML|WP:RSCHATGPT}}
+
+[[Generative artificial intelligence]] ("generative AI" or "GenAI"), specifically [[large language model]]s (LLMs), have become a common tool to generate and publish material using [[machine learning]] (ML). It may not be known or detectable that ML was used to produce a given piece of text.
+
+Content produced by LLMs, such as [[AI chatbot]]s (eg. [[ChatGPT]]) and [[Grokipedia]], is generally unreliable. LLMs are trained using text scraped from the internet (including Wikipedia) and suffer from many of the same problems as self-published and user-generated content {{see above|{{slink||User-generated content}}, above}}.
+
+LLMs also have a tendency to "[[Hallucination (artificial intelligence)|hallucinate]]" false information, including source citations that look as if they are from reputable publications but do not actually exist.{{NoteTag|In one case, ''[[Mata v. Avianca, Inc.]]'', a lawyer used [[ChatGPT]] to generate and file a legal brief that he did not check; the judge upon reviewing the case stated, "six of the submitted cases appear to be bogus judicial decisions with bogus quotes and bogus internal citations", although ChatGPT had assured the author that they were real and could "be found in reputable legal databases such as [[LexisNexis]] and [[Westlaw]]".<ref>{{cite web | last=Moran | first=Lyle | title=Lawyer cites fake cases generated by ChatGPT in legal brief | website=Legal Dive | date=May 30, 2023 | url=https://www.legaldive.com/news/chatgpt-fake-legal-cases-generative-ai-hallucinations/651557/ | url-status=live | archive-date=18 February 2026 | archive-url=https://web.archive.org/web/20260218150340/https://www.legaldive.com/news/chatgpt-fake-legal-cases-generative-ai-hallucinations/651557/}}</ref> Citations have been published to newspaper articles that do not exist, attributed to named reporters.<ref>{{cite web | last=Tangermann | first=Victor | title=Newspaper Alarmed When ChatGPT References Article It Never Published | website=Futurism | date=April 6, 2023 | url=https://futurism.com/newspaper-alarmed-chatgpt-references-article-never-published | url-status=live | archive-date=16 February 2026 | archive-url=https://web.archive.org/web/20260216003802/https://futurism.com/newspaper-alarmed-chatgpt-references-article-never-published}}</ref>}} Such spurious material may be reproduced unintentionally by writers, reporters, scientists, medical researchers, and lawyers using search engines that link the content or chatbots to help produce reports, or maliciously by individuals and companies publishing "[[fake news]]".
+
+==Reliability in specific contexts==
+===Biographies of living persons===
+{{main|Wikipedia:Biographies of living persons#Reliable sources}}
+
+Editors must take particular care when writing biographical material about living persons. Contentious material about a living person that is unsourced or poorly sourced should be removed immediately; do not move it to the talk page. This applies to [[Wikipedia:Biographies of living persons#Applicability|any material]] related to living persons on {{em|any}} page in {{em|any}} [[Wikipedia:Namespace|namespace]], not just article space.
+
+===Primary, secondary, and tertiary sources===
+{{shortcut|WP:RSPRIMARY|WP:WPNOTRS}}
+{{main|Wikipedia:No original research#Primary, secondary and tertiary sources}}
+
+Wikipedia articles should be based mainly on reliable [[WP:SECONDARY|secondary sources]], i.e., a document or recording that relates to or discusses information originally presented elsewhere.
+
+Reputable [[WP:TERTIARY|tertiary sources]], such as introductory-level university textbooks, almanacs, and encyclopedias, may be cited. {{anchor|Wikipedia is not a reliable source}}However, although Wikipedia articles are tertiary sources, Wikipedia employs no systematic mechanism for fact-checking or accuracy. Thus, {{strong|Wikipedia articles (and Wikipedia mirrors) in themselves are not reliable sources for any purpose}} (except as sources on themselves per [[WP:SELFSOURCE]]).
+
+[[WP:PRIMARY|Primary sources]] are often difficult to use appropriately. Although they can be both reliable and useful in certain situations, they must be used with caution in order to avoid [[Wikipedia:No original research|original research]]. Although specific facts may be taken from primary sources, secondary sources that present the same material are preferred. Large blocks of material based purely on primary sources should be avoided. All interpretive claims, analyses, or synthetic claims about primary sources must be referenced to a secondary source, rather than original analysis of the primary-source material by Wikipedia editors.
+
+When editing articles in which the use of primary sources is a concern, in-line templates, such as {{tl|primary source-inline}} and {{tl|better source}}, or article templates, such as {{tl|primary sources}} and {{tl|refimprove science}}, may be used to mark areas of concern.
+
+===Medical claims===
+{{shortcut|WP:RS/MC}}
+{{main|Wikipedia:Identifying reliable sources (medicine)}}
+Ideal sources for [[biomedical]] information include [[literature review|general]] or [[systematic review]]s in reliable, independent, published sources, such as reputable [[medical journal]]s, widely recognised standard textbooks written by experts in a field, or [[medical guideline]]s and position statements from nationally or internationally reputable expert bodies. It is {{em|vital}} that the biomedical information in all types of articles be based on reliable, independent, published sources and accurately reflect current medical knowledge.
+
+===Fringe theories===
+{{seealso|Wikipedia:Fringe theories#Parity of sources}}
+Inclusion and exclusion of content related to fringe theories and criticism of fringe theories may be done by means of a rough parity of sources. If an article is written about a well-known topic about which many peer-reviewed articles are written, it should not include fringe theories that may seem relevant but are only sourced to obscure texts that lack peer review. Parity of sources may mean that certain fringe theories are only reliably and verifiably reported on, or criticized, in alternative venues from those that are typically considered reliable sources for scientific topics on Wikipedia.
+
+In an article on a fringe topic, if a notable fringe theory is primarily described by amateurs and self-published texts, verifiable and reliable criticism of the fringe theory need not be published in a peer-reviewed journal. For example, the [[Moon landing conspiracy theories]] article may include material from reliable websites, movies, television specials, and books that are not peer-reviewed. By ''parity of sources'', critiques of that material can likewise be gleaned from reliable websites and books that are not peer-reviewed. Of course, for any viewpoint described in an article, only reliable sources should be used; Wikipedia's verifiability and [[WP:BLP|biographies of living persons]] policies are not suspended simply because the topic is a fringe theory.
+
+===Quotations===
+{{shortcut|WP:RS/QUOTE}}
+{{further|Wikipedia:Manual of Style#Quotations}}
+The accuracy of quoted material is paramount and the accuracy of quotations from living persons is especially sensitive. To ensure accuracy, the text of quoted material is best taken from (and cited to) the original source being quoted. If this is not possible, then the text may be taken from a reliable secondary source (ideally one that includes a citation to the original). No matter where you take the quoted text from, it is important to [[WP:SAYWHEREYOUGOTIT|make clear the actual source of the text, as it appears in the article]].
+
+Partisan secondary sources should be viewed with suspicion as they may misquote or quote out of context. In such cases, look for neutral corroboration from another source.
+
+Any analysis or interpretation of the quoted material, however, should rely on a secondary source ({{crossref|see [[Wikipedia:No original research]]}}).
+
+===Academic consensus===
+{{Shortcut|WP:RS/AC|WP:ACADEMICCONSENSUS}}
+A statement that all or most scientists or scholars hold a certain view, such as:  {{xt|"There is an academic consensus that climate change is caused by human activity"}} requires reliable sourcing that directly says that all or most scientists or scholars hold that view, e.g.,:
+ 
+{{Quote box
+| bgcolor = #FFFFF0
+| width = 90%
+| align = center
+| salign = right
+| quote = 
+* {{Cite journal |last={{tick}}Wang |first=M. H. |date=January 2025 |title=Researchers agreed that climate change is real and caused by humans |url=https://www.example.com |journal=Journal of Important Things |volume=28 |pages=123 |quote=Methodologically sound surveys of researchers in relevant fields have demonstrated that virtually all (>99%; ''p''=0.013) current academic, government, and industry research scientists in developed and middle-income countries agree that climate change is real and caused by environmental pollution created by humans.}}
+* {{Cite book |last={{tick}} Devi |first=D. S. |date=June 2024 |title=The Academic Consensus Related to Climate Change |chapter=How we determine academic consensus |url=https://www.example.com |publisher=Eurasian University Press |pages=234–235 |quote=A review of the literature across fields demonstrates that widespread agreement among academics that climate change is real, and that the cause of climate change is human activities.}}
+}}
+
+However, this source:
+
+{{Quote box
+| bgcolor = #FFFFF0
+| width = 90%
+| align = center
+| salign = right
+| quote = 
+* {{Cite journal |last={{cross}}Liu |first=H. W. |date=October 2023 |title=Climate change is real |url=https://www.example.com |journal=Journal of Change Research |volume=42 |pages=67 |quote=Climate change is real and caused by environmental pollution created by humans.}}
+}}
+
+can support only a claim that {{xt|"climate change is caused by human activity"}}.  It cannot support a claim that {{!xt|"there is an academic consensus"}}, because the source does not [[Wikipedia:Directly supports|directly]] say anything about an academic consensus.
+
+Otherwise, individual opinions should be identified as those of particular, named sources. Editors should avoid original research especially with regard to making blanket statements based on [[WP:SYNTH|novel syntheses of disparate material]]. Stated simply, any statement in Wikipedia that academic consensus exists on a topic must be sourced rather than being based on the opinion or assessment of editors. [[Review article]]s, especially those printed in academic review journals that survey the literature, can help clarify academic consensus.
+
+===Statements of opinion===
+{{Shortcut|WP:RSOPINION|WP:NEWSOPINION}}
+Some sources may be considered reliable for statements as to their author's opinion, but not for statements asserted as fact. For example, an inline qualifier might say "[Author XYZ] says....". A prime example of this is [[opinion piece]]s in mainstream newspapers. When using them, it is best to clearly attribute the opinions in the text to the author and make it clear to the readers that they are reading an opinion {{See above|also {{slink||Editorial and opinion commentary}}, above}}.
+
+There is an important exception to sourcing statements of fact {{em|or}} opinion: {{strong|Never use [[Self-publishing|self-published]] books, [[zine]]s, websites, webforums, [[blog]]s and [[twitter|tweets]] as a source for material about a living person}}, unless written or published by the subject of the biographical material. "Self-published blogs" in this context refers to personal and group blogs; see {{section link|Wikipedia:Biographies of living persons|Reliable sources}} and {{section link|Wikipedia:Biographies of living persons|Using the subject as a self-published source}}.
+
+The exception for statements ABOUTSELF is covered at {{Section link|Wikipedia:Verifiability#Self-published or questionable sources as sources on themselves}}.
+
+===Breaking news===
+{{Shortcut|WP:RSBREAKING}}
+{{Further|Wikipedia:Biographies of living persons#Avoid gossip and feedback loops}}
+{{See also|Wikipedia:Notability (events)#Breaking news}}
+Breaking-news reports often contain serious inaccuracies. As an electronic publication, Wikipedia can and should be up to date, but [[Wikipedia:NOTNEWS|Wikipedia is not a newspaper]] and it does not need to go into all details of a current event in real time. It is better to wait a day or two after an event before adding details to the encyclopedia, than to help spread potentially false rumors. This gives journalists time to collect more information and verify claims, and for investigative authorities to make official announcements. The ''[[On the Media]]'' ''Breaking News Consumer's Handbook''<ref>{{Cite web|url=https://www.wnyc.org/story/breaking-news-consumers-handbook-pdf/|title=The Breaking News Consumer's Handbook {{!}} On the Media|website=WNYC|language=en|access-date=March 14, 2019|archive-url=https://web.archive.org/web/20190228030728/https://www.wnyc.org/story/breaking-news-consumers-handbook-pdf/|archive-date=February 28, 2019|url-status=live}}</ref> contains several suggestions to avoid spreading unreliable and false information. These include: distrust anonymous sources, unconfirmed reports, and reports attributed to other news media; seek multiple independent sources which independently verify; seek verified eyewitness reports; and be wary of potential hoaxes. With mass shootings, remain skeptical of early reports of additional attackers, coordinated plans, and bomb threats.
+
+When editing a current-event article, avoid the tendency towards [[Wikipedia:Recentism|recentism bias]]. Claims sourced to initial news reports should be immediately replaced with better-researched and verified sources as soon as such articles are published, especially if original reports contained inaccuracies. All breaking news stories, without exception, are primary sources, and must be treated with caution: see ''{{Section link|Wikipedia:No original research|Primary, secondary and tertiary sources}}'', ''{{Section link|Wikipedia:Identifying_and_using_primary_sources|Examples of news reports as primary sources}}''.
+
+The {{tl|current}}, {{tl|recent death}}, or another [[Wikipedia:Current event templates|current-event-related template]] may be added to the top of articles related to a breaking-news event to alert readers that some information in the article may be inaccurate and to draw attention to the need to add improved sources as they become available. These templates should not be used, however, to mark articles on subjects or persons in the news. If they were, hundreds of thousands of articles would have such a template, without any significant advantage ({{crossref|see also [[Wikipedia:No disclaimers in articles]]}}).
+
+For health- and science-related breaking-news, Wikipedia has specific sourcing standards to prevent inaccuracies: see ''{{slink|Wikipedia:Identifying reliable sources (medicine)|Respect secondary sources}}'' and ''{{slink|Wikipedia:Reliable sources|Scholarship}}''. ''On the Media'' cautions consumers to be wary of news reports describing early science and medical breakthroughs,<ref name="OTMHealthBNCH">{{cite news |last=Gladstone |first=Brooke |title=Breaking News Consumer's Handbook: Health News Edition {{!}} On the Media |url=https://www.wnycstudios.org/podcasts/otm/segments/breaking-news-consumers-handbook-health-news-edition |publisher=WNYC|access-date=November 23, 2022 |work=WNYC Studios |date=December 25, 2015 |language=en |url-status=live |archive-date=March 27, 2026 |archive-url=https://web.archive.org/web/20260327100951/https://www.wnycstudios.org/podcasts/otm/segments/breaking-news-consumers-handbook-health-news-edition}}</ref> especially those which do not interview independent experts (often solely based on unreliable [[WP:PRSOURCE|press releases]]), to prefer reports which avoid hyperbolic language and describe both benefits and costs of a new treatment (all treatments have trade-offs), to be wary of [[disease mongering]] (exaggerating risks, symptoms, or anecdotes of a disease which leads to unnecessary worry, panic, or spending), and to be skeptical of treatments which are "{{tq|awaiting FDA approval}}" or {{xt|in pre-clinical testing}}" as more than 90% of all treatments fail during these stages and,<ref name="Sun202290percent">{{cite journal |last1=Sun |first1=Duxin |last2=Gao |first2=Wei |last3=Hu |first3=Hongxiang |last4=Zhou |first4=Simon |title=Why 90% of clinical drug development fails and how to improve it? |journal=Acta Pharmaceutica Sinica B |date=July 1, 2022 |volume=12 |issue=7 |pages=3049–3062 |doi=10.1016/j.apsb.2022.02.002 |doi-access=free|pmid=35865092 |pmc=9293739 |language=en |issn=2211-3835}}</ref> even if efficacious, may be 10 to 15 years or more from reaching the consumer market.<ref name="CancerResearchUK">{{cite web |title=How long a new drug takes to go through clinical trials |url=https://www.cancerresearchuk.org/about-cancer/find-a-clinical-trial/how-clinical-trials-are-planned-and-organised/how-long-it-takes-for-a-new-drug-to-go-through-clinical-trials |website=Cancer Research UK |access-date=November 23, 2022 |language=en |date=October 21, 2014 |url-status=dead |archive-date=June 20, 2016 |archive-url=https://web.archive.org/web/20160620090537/https://www.cancerresearchuk.org/about-cancer/find-a-clinical-trial/how-clinical-trials-are-planned-and-organised/how-long-it-takes-for-a-new-drug-to-go-through-clinical-trials}}</ref>
+
+===Headlines===
+{{Shortcut|WP:HEADLINES|WP:RSHEADLINES}}
+News [[headlines]]—including [[subheading|subheadlines]]—are not a reliable source. If the information is supported by the body of the source, then cite it from the body. Headlines are written to grab readers' attention quickly and briefly; they may be overstated or lack context, and sometimes contain exaggerations or sensationalized claims with the intention of attracting readers to an otherwise reliable article. They are often written by copy editors instead of the researchers and journalists who wrote the articles.
+
+== Deprecated sources ==
+{{Shortcut|WP:RSDEPRECATED}}
+
+{{main|Wikipedia:Deprecated sources}}
+{{see also|Wikipedia:Reliable sources/Perennial sources|Wikipedia:Spam blacklist}}
+A number of sources are deprecated on Wikipedia. That means they should not be used, unless there is a specific consensus to do so. Deprecation happens through a [[WP:RFC|request for comment]], usually at the [[WP:RSN|reliable sources noticeboard]]. It is reserved for sources that have a substantial history of fabrication or other serious factual accuracy issues (e.g. promoting unfounded [[conspiracy theory|conspiracy theories]]), usually when there are large numbers of references to the source giving rise to concerns about the integrity of information in the encyclopedia.
+
+A deprecated source should not be used to support factual claims. While there are exceptions for [[WP:ABOUTSELF|discussion of the source's own view on something]], these are rarely appropriate outside articles on the source itself. In general articles, commentary on a deprecated source's opinion should be drawn from independent secondary sources. Including a claim or statement by a deprecated source that is not covered by reliable sources risks giving [[WP:UNDUE|undue weight]] to a [[WP:FRINGE|fringe view]].
+
+Some sources are blacklisted, and can not be used at all. Blacklisting is generally reserved for sources which are added abusively, such as state-sponsored fake news sites with a history of addition by [[troll farm]]s. Specific blacklisted sources can be locally whitelisted; see [[Wikipedia:Blacklist]] for other details about blacklisting.
+
+== See also ==
+=== Templates ===
+[[Wikipedia:Template messages/Cleanup/Verifiability and sources]] lists many templates, including
+* {{tl|notability}} 
+* {{tl|citation needed}} 
+* {{tl|unreliable source?}}
+
+=== Policies and guidelines ===
+{{div col}}
+* [[Wikipedia:Citing sources|Citing sources]]
+* [[Wikipedia:Identifying reliable sources (medicine)|Identifying reliable sources (medicine)]]
+* [[Wikipedia:Fringe theories|Fringe theories]]
+* [[Wikipedia:No original research|No original research]]
+* [[Wikipedia:Verifiability#Non-English sources|Non-English sources]]
+{{div col end}}
+
+=== Information pages ===
+{{div col}}
+* [[Wikipedia:Common knowledge|Common knowledge]]
+* [[Wikipedia:External links/Perennial websites|External links/Perennial websites]]
+* [[Help:How to mine a source|How to mine a source]]
+* [[Wikipedia:Inaccuracy#Appendix: Reliability in the context|Inaccuracy § Appendix: Reliability in the context]]
+* [[Wikipedia:Identifying and using independent sources|Identifying and using independent sources]]
+* [[Wikipedia:Identifying and using primary sources|Identifying and using primary sources]]
+* [[Wikipedia:Offline sources|Offline sources]]
+* [[Wikipedia:Reliable sources/Cost|Reliable sources/Cost]]
+* [[Wikipedia:Video links|Video links]]
+{{div col end}}
+
+=== Locating reliable sources ===
+{{also|Help:Find sources|Wikipedia:Advanced source searching}}
+{{div col}}
+* [[Wikipedia:Free English newspaper sources|Free English newspaper sources]]
+* [[Wikipedia:Reliable sources/Perennial sources|Reliable sources/Perennial sources]], a list of frequently discussed sources
+* [[List of academic databases and search engines]]
+* [[List of digital library projects]]
+* [[Wikipedia:List of online newspaper archives|List of online newspaper archives]]
+* [[Wikipedia:The Wikipedia Library|The Wikipedia Library]], a program for accessing paywalled resources free of charge
+* [[Wikipedia:WikiProject Resource Exchange/Shared Resources|WikiProject Resource Exchange/Shared Resources]]
+* [[Wikipedia:WikiProject Resource Exchange/Resource Request|WikiProject Resource Exchange/Resource Request]]
+{{div col end}}
+
+=== Essays ===
+{{Main|Wikipedia:Essay directory#Verifiability and sources}}
+{{div col}}
+* [[Wikipedia:Articles on sources|Articles on sources]]
+* [[Wikipedia:Applying reliability guidelines|Applying reliability guidelines]]
+* [[Wikipedia:Cherrypicking|Cherrypicking]]
+* [[Wikipedia:Children's, adult new reader, and large print sources questionable on reliability|Children's, adult new reader, and large print sources]]
+* [[Wikipedia:Dictionaries as sources|Dictionaries as sources]]
+* [[Wikipedia:Don't "teach the controversy"|Don't "teach the controversy"]] (phrase doesn't mean what you think it does)
+* [[Wikipedia:Frequently misinterpreted sourcing policy|Frequently misinterpreted sourcing policy]]
+* [[Wikipedia:Identifying reliable sources (history)|Identifying reliable sources (history)]]
+* [[Wikipedia:Identifying reliable sources (law)|Identifying reliable sources (law)]]
+* [[Wikipedia:Identifying reliable sources (science)|Identifying reliable sources (science)]]
+* [[Wikipedia:Identifying and using tertiary sources|Identifying and using tertiary sources]]
+* [[Wikipedia:Identifying and using style guides|Identifying and using style guides]]
+* [[Wikipedia:The Man Built His House upon a Rock|The Man Built His House upon a Rock]]
+* [[Wikipedia:NPOV means neutral editing, not neutral content|NPOV means neutral editing, not neutral content]]
+* [[Wikipedia:Otto Middleton (or why newspapers are dubious sources)|Otto Middleton (or why newspapers are dubious sources)]]
+* [[Wikipedia:Reliable source examples|Reliable source examples]]
+* [[Wikipedia:Reliable sources checklist|Reliable sources checklist]] (provides a ref-vetting method)
+* [[Wikipedia:Potentially unreliable sources|Potentially unreliable sources]]
+* [[Wikipedia:Tertiary-source fallacy|Tertiary-source fallacy]]
+* [[Wikipedia:Tiers of reliability|Tiers of reliability]]
+* [[Wikipedia:Vanity and predatory publishing|Vanity and predatory publishing]]
+* [[Wikipedia:Wikipedia clones|Wikipedia clones]]
+* [[Wikipedia:Wikipedia is not a reliable source|Wikipedia is not a reliable source]]
+* [[Wikipedia:Ye shall know them by their sources|Ye shall know them by their sources]]
+* [[Wikipedia:You are not a reliable source|You are not a reliable source]]
+{{div col end}}
+
+=== Other ===
+{{div col}}
+* [[Wikipedia:Current science and technology sources|Current science and technology sources]]
+* [[Wikipedia:News sources|News sources]]
+* [[Wikipedia:Reliable sources/Noticeboard|Reliable sources/Noticeboard]] – obtain community input on whether or not a source meets our reliability standards for a particular use
+* [[Help:Introduction to referencing/reliable sources quiz|Reliable sources quiz]]
+* [[Source criticism]]
+* [[Wikipedia:Wikipedia Signpost/2008-06-26/Dispatches|Wikipedia Signpost/2008-06-26/Dispatches]] – ''Signpost'' article
+* [[Wikipedia:WikiProject Reliability|WikiProject Reliability]]
+{{div col end}}
+
+==Notes==
+{{NoteFoot}}
+
+==References==
+{{Reflist}}
+
+==External links==
+* [https://www.bowdoin.edu/writing-guides/primaries.htm How to Read a Primary Source], ''Reading, Writing, and Researching for History: A Guide for College Students'', Patrick Rael, 2004. (Also [https://www.bowdoin.edu/writing-guides/primaries.pdf pdf version])
+* [https://courses.bowdoin.edu/writing-guides/how-to-read-a-secondary-source/ How to Read a Secondary Source], ''Reading, Writing, and Researching for History: A Guide for College Students'', Patrick Rael, 2004. (Also [https://www.bowdoin.edu/writing-guides/secondary.pdf pdf version])
+* [http://xkcd.com/978/ Citogenesis (Where citations come from)], xkcd comic by [[Randall Munroe]]
+* [https://web.archive.org/web/20160527135026/https://geek.com/news/how-i-used-lies-about-a-cartoon-to-prove-history-is-meaningless-on-the-internet-1656188/ "How I used lies about a cartoon to prove history is meaningless on the internet"], [[Geek.com]]. How a troll used user-generated content to spread misinformation to TV.com, the IMDb, and Wikipedia.
+* [https://www.lawfaremedia.org/how-read-news-story-about-investigation-eight-tips-who-saying-what How to Read a News Story About an Investigation: Eight Tips on Who Is Saying What], [[Benjamin Wittes]], ''[[Lawfare (website)|Lawfare]]''
+
+{{Wikipedia policies and guidelines}}
+{{Wikipedia referencing}}
+
+[[Category:Wikipedia reliable sources| ]]
+[[Category:Wikipedia verifiability]]
+[[Category:Wikipedia and artificial intelligence]]

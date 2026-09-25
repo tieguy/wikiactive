@@ -1,0 +1,242 @@
+{{Short description|Wikipedia policy on verifiability of information}}
+{{Redirect-multi|2|WP:V|WP:PROOF|discussing particular sources|Wikipedia:Reliable sources/Noticeboard|the policy on vandalism|Wikipedia:Vandalism|advice on the use of mathematical proofs|Wikipedia:WikiProject Mathematics/Proofs}}
+{{pp|small=yes}}
+{{policy|WP:V}}
+{{nutshell|People must be able to check that facts and claims in Wikipedia articles are not just made up. This means each fact or claim must be attributable to reliable, published sources. Additionally, quotations and any facts or claims challenged or likely to be challenged must be supported by [[WP:INCITE|inline citations]].}}
+{{Content policy list}}
+
+In the [[English Wikipedia]], '''verifiability''' means that people can check that facts or claims correspond to [[Wikipedia:Reliable sources|reliable source]]s. Wikipedia's content is determined by published information rather than editors' beliefs, experiences, or [[Wikipedia:No original research|previously unpublished ideas or information]]. Even if you are sure something is true, it must have been published in a reliable source before you can add it.{{efn|This principle was historically expressed as "the threshold for inclusion is '''verifiability, not truth'''". See the essay, [[Wikipedia:Verifiability, not truth]].}} If reliable sources disagree with each other, then maintain a [[Wikipedia:Neutral point of view|neutral point of view]] and present what the various sources say, giving each side its [[Wikipedia:Neutral point of view#Undue weight|due weight]].
+
+Each fact or claim in an article must be verifiable. All quotations, and any material whose verifiability has been challenged or is likely to be challenged, must include an [[WP:INCITE|inline citation]] to a reliable source that directly supports{{efn|name="directly supports"}} the material. Any material that needs an inline citation but does not have one may be removed. Please immediately remove contentious material [[Wikipedia:Biographies of living persons|about living people]] that is unsourced or poorly sourced.
+
+<section begin=TwoArticles />When material that needs an inline citation appears in two or more articles, an inline citation is needed in each.<section end=TwoArticles />
+
+For how to write citations, see [[Wikipedia:Citing sources|citing sources]]. Verifiability, [[Wikipedia:No original research|no original research]], and [[Wikipedia:Neutral point of view|neutral point of view]] are Wikipedia's [[Wikipedia:Core content policies|core content policies]]. They work together to determine content, so editors should understand the key points of all three. Articles must also comply with the [[Wikipedia:Copyrights|copyright policy]].
+
+{{toc limit|3}}
+
+== <span class="anchor" id="Burden"></span><span class="anchor" id="Burden of evidence"></span>Responsibility for providing citations ==
+{{shortcut|WP:BURDEN}}
+{{Redirect|WP:PROVEIT|the editing tool|Wikipedia:ProveIt}}
+{{Redirect|WP:CHALLENGE|challenging closes|Wikipedia:Closing discussions#Challenging a closure|Bilorv's Challenges|Wikipedia:Bilorv's Challenges}}
+{{Redirect|WP:UNSOURCED|argument|Wikipedia:Arguments to avoid in deletion discussions#It's unsourced}}
+{{See also|Wikipedia:Editing policy#Try to fix problems}}
+All content must be verifiable.  A fact or claim is "verifiable" if a [[Wikipedia:Reliable sources|reliable source]] that supports it could be cited, even if there is no citation for it in the article at the moment. '''The burden to demonstrate verifiability lies with the editor who adds or restores material''', and it is satisfied by providing one [[Wikipedia:Inline citation|inline citation]] to a reliable source that directly supports{{efn|name="directly supports"|A source "directly supports" a given piece of material if the information is present {{em|explicitly}} in the source, so that using this source to support the material is not a violation of [[Wikipedia:No original research]]. The location of any citation—including whether one is present in the article at all—is unrelated to whether a source directly supports the material. For questions about where and how to place citations, see [[Wikipedia:Citing sources]], {{section link|Wikipedia:Manual of Style/Lead section|Citations}}, etc.}} the contribution.{{efn|Once an editor has provided any source they believe, in good faith, to be sufficient, then any editor who later removes the material must articulate specific problems that would justify its exclusion from Wikipedia (e.g., why the source is unreliable; the source does not support the claim; [[WP:DUE|undue emphasis]]; [[WP:NOT|unencyclopedic content]]; etc.). If necessary, all editors are then expected to help achieve [[Wikipedia:Consensus|consensus]], and any problems with the text or sourcing should be fixed before the material is added back.}}
+
+<section begin=ClearlySupport />The cited source must clearly support the material as presented in the article. Cite the source clearly, ideally giving page number(s)&mdash;though sometimes a section, chapter, or other division is appropriate instead; see [[Wikipedia:Citing sources]] for details of how to do this.<section end=ClearlySupport />
+
+{{va|Challenge|text=Facts or claims without an inline citation to a reliable source that directly supports{{efn|name="directly supports"}} them may be removed. They should not be restored without an inline citation to a reliable source.}}
+
+{{shortcut|WP:BURDENWAIT}}
+{{va|BURDENWAIT|text=Whether or how quickly material should be removed for lacking an inline citation to a reliable source depends on the material and the overall state of the article. Consider adding a [[Wikipedia:Citation needed|citation needed]] tag as an interim step to removing unsourced material, to allow references to be added.{{efn|When an article contains a lot of [[Wikipedia:Glossary#uncited|uncited]] information, it may be impractical to add specific {{tl|citation needed}} tags. Consider then [[WP:TAG|tagging]] a section with {{tl|unreferenced section}}, or the article with the applicable of either {{tl|unreferenced}} or {{tl|more citations needed}}. For a disputed category, you may use {{tl|unreferenced category}}. For a disambiguation page, consider asking for a citation on the talk page.}} When tagging or removing material for lacking an inline citation, state your concern that it may not be possible to find a published reliable source, and the material therefore may not be verifiable.{{efn|When tagging or removing such material, please communicate your reasons why. Some editors object to others making frequent and large-scale deletions of unsourced information, especially if unaccompanied by other efforts to improve the material. Do not concentrate only on material of a particular point of view, as that may appear to be a contravention of [[Wikipedia:Neutral point of view]]. Also, check to see whether the material is sourced to a citation elsewhere on the page. For all these reasons, it is advisable to clearly communicate that you have a considered reason to believe the material in question cannot be verified.}} If you think the material is verifiable, [[WP:PRESERVE|you are encouraged to provide an inline citation yourself]] before removing or tagging it.}}
+
+Do {{em|not}} leave unsourced or poorly sourced material in an article if it might damage the reputation of living people or existing groups, and do not move it to the talk page, per Wikipedia's [[Wikipedia:Biographies of living persons|biographies of living persons policy]] (common shortcut: [[WP:BLP]]). The latter policy also [[Wikipedia:Biographies of living persons#Legal persons and groups|applies to some groups]].
+
+==<span id="WP:SOURCES"></span> Reliable sources==
+<!-- This Anchor tag provides a permanent target for incoming section links. Please do not move it out of the section heading, even though it disrupts edit summary generation (you can manually fix the edit summary before saving your changes). Please do not modify it, even if you modify the section title. See [[Template:Anchor]] for details. (This text: [[Template:Anchor comment]]) -->
+{{shortcut|WP:SOURCE}}
+{{Redirect|WP:SOURCE|how to reference sources|Help:Referencing for beginners}}
+
+===What counts as a reliable source===
+{{further|Wikipedia:Reliable sources}}
+A {{em|cited source on Wikipedia}} is often a specific portion of text (such as a short article or a page in a book). But when editors discuss sources (for example, to debate their appropriateness or reliability) they are usually talking about one or more related characteristics:
+
+* '''The work itself''' (the article, book) and works like it ("An obituary can be a useful biographical source", "A recent source is better than an old one")
+* '''The creator of the work''' (the writer, journalist: "What do we know about that source's reputation?") and people like them ("A medical researcher is a better source than a journalist for medical claims").
+* '''The publication''' (for example, the newspaper, journal, magazine: "That source covers the arts.") and publications like them ("A newspaper is not a reliable source for medical claims").
+* '''The publisher of the work''' (for example, [[Cambridge University Press]]: "That source publishes reference works.") and publishers like them ("An academic publisher is a good source of reference works").
+
+All four can affect reliability.
+
+Base articles on reliable, [[Wikipedia:Independent sources|independent]], published sources with a reputation for fact-checking and accuracy. Source material must be '''published''', on Wikipedia meaning ''made available to the public in some form''.{{efn|This includes material such as documents in publicly accessible archives as well as inscriptions in plain sight, e.g. tombstones.}} '''Unpublished''' material is not considered reliable. Use sources that directly support the material presented in an article and are appropriate to the claims made. The appropriateness of any source depends on the context. Be especially careful when sourcing [[Wikipedia:Biographies of living persons|content related to living people]] or [[Wikipedia:Identifying reliable sources (medicine)|medicine]].
+
+If available, academic and [[peer-reviewed]] publications are usually the most reliable sources on topics such as history, medicine, and science.
+
+Editors may also use material from reliable non-academic sources, particularly if it appears in respected [[WP:MAINSTREAM|mainstream]] publications. Other reliable sources include:
+* University-level textbooks
+* Books published by respected [[publishing houses]]
+* Mainstream ([[WP:FRINGE|non-fringe]]) magazines, including specialty ones
+* Reputable newspapers
+
+Editors may also use electronic media, subject to the same criteria (see details in ''[[Wikipedia:Identifying reliable sources]]'').
+
+====Best sources====
+The [[WP:BESTSOURCES|best sources]] have a professional structure for checking or analyzing facts, legal issues, evidence, and arguments. The greater the degree of scrutiny given to these issues, the more reliable the source.
+
+===Newspaper and magazine blogs===
+{{shortcut|WP:NEWSBLOG}}
+{{redirect|WP:CONTRIBUTORS|Wikipedia contributors|Wikipedia:Wikipedians}}
+Some newspapers, magazines, and other news organizations host online [[WP:PRIMARY|pages or columns]] they call [[blog]]s. These may be acceptable sources if the writers are professionals, but use them with caution because blogs may not be subject to the news organization's normal fact-checking process.{{efn|name="EXCEPTIONAL"|Note that any exceptional claim would require [[#Exceptional claims require exceptional sources|exceptional sources]].}} If a news organization publishes an [[WP:PRIMARY|opinion piece]] in a blog, attribute the statement to the writer, e.g. "Jane Smith wrote{{nbsp}}..." Never use the blog comments that are left by the readers as sources. For personal or group blogs that are {{em|not}} reliable sources, see {{section link||Self-published sources}} below.
+
+===Reliable sources noticeboard and guideline<span id="Reliable sources noticeboard and WP:IRS guideline"></span>===
+{{further|Wikipedia:Reliable sources|Wikipedia:Reliable sources/Noticeboard}}
+To discuss the reliability of a specific source for a particular statement, consult [[Wikipedia:Reliable sources/Noticeboard]], which seeks to apply this policy to particular cases. For a guideline discussing the reliability of particular {{em|types}} of sources, see [[Wikipedia:Reliable sources]]. In case of conflict between this policy and the [[Wikipedia:Reliable sources]] guideline, or any other guideline related to sourcing, this policy has priority.
+
+==Sources that are usually not reliable==
+{{shortcut|WP:NOTRS}}{{redirect|WP:NOTRELIABLE|Wikipedia's own reliability|Wikipedia:Don't cite Wikipedia on Wikipedia}}
+{{see also|Wikipedia:Reliable sources#Questionable and self-published sources|Wikipedia:Reliable sources/Perennial sources}}
+===Questionable sources===
+Questionable sources are those that have a poor reputation for checking the facts, lack meaningful editorial oversight, or [[WP:COISOURCE|have an apparent conflict of interest]].
+
+Such sources include websites and publications expressing views widely considered by other sources to be promotional, extremist, or that rely heavily on unsubstantiated gossip, rumor, or personal opinion. Questionable sources should be used only as sources for material on {{em|themselves}}, such as in articles about themselves; see [[#Self-published and questionable sources as sources on themselves|below]]. They are not suitable sources for contentious claims.
+
+[[Predatory open access]] journals are questionable due to the absence of quality control in the peer-review process.
+
+===<span id="Self-published sources (online and paper)"></span><span id="SELF"></span>Self-published sources===
+<!-- Be aware, when editing the section title, that there is a policy shortcut to this. -->
+<!-- This Anchor tag serves to provide a permanent target for incoming section links. Please do not move it out of the section heading, even though it disrupts edit summary generation (you can manually fix the edit summary before saving your changes). Please do not modify it, even if you modify the section title. It is always best to anchor an old section header that has been changed so that links to it won't break. See [[Template:Anchor]] for details. (This text: [[Template:Anchor comment]]) -->
+{{shortcut|WP:SELFPUBLISH|WP:SPS|WP:SELFPUB}}
+{{further|Wikipedia:Biographies of living persons#Avoid self-published sources|Wikipedia:List of companies engaged in the self-publishing business|Wikipedia:Identifying and using self-published works}}
+{{redirect|WP:BLOG|using someone's blog as a source for themselves|WP:Biographies of living persons#Using the subject as a self-published source|linking someone's blog in their article|WP:External links#Official links}}
+{{redirect|WP:WORDPRESS|the use of Wordpress as a source|Wikipedia:Reliable sources/Perennial sources#WordPress.com}}
+
+Anyone can create a [[personal web page]], [[self-publishing|self-publish]] a book, or [[WP:Expert editors|claim to be an expert]]. Self-published material, such as books, newsletters, personal websites, open [[wiki]]s, personal or [[group blog|group]] blogs (as distinguished from [[#Newspaper and magazine blogs|newsblogs]]), [[content farm]]s, [[podcast]]s, [[Internet forum]] posts, and [[social media]] posts, are largely not acceptable as sources. Patents, despite undergoing a patent review process, are treated as self-published.
+
+Self-published sources may be considered reliable if published by an established [[subject-matter expert]], whose work {{strong|in the relevant field}} has previously been published by [[WP:RS|reliable]], independent publications.{{efn|name="EXCEPTIONAL"}} Be careful when using such sources: if the information in question is suitable for inclusion, someone else will likely have published it in independent, reliable sources.<ref>Self-published material is characterized by the ''lack of independent reviewers'' (those without a conflict of interest) validating the reliability of the content. Further examples of self-published sources include press releases, the material contained within company websites, advertising campaigns, material published in media by the owner(s)/publisher(s) of the media group, self-released music albums, and electoral [[manifesto]]s:
+* The [https://web.archive.org/web/20160510203400/https://www.lib.berkeley.edu/TeachingLib/Guides/Internet/Evaluate.html University of California, Berkeley, library] states: "Most pages found in general search engines for the web are self-published or published by businesses small and large with motives to get you to buy something or believe a point of view. Even within university and library web sites, there can be many pages that the institution does not try to oversee."
+* [https://web.archive.org/web/20111005165358/http://www.princeton.edu/pr/pub/integrity/pages/other/ Princeton University] offers this understanding in its publication, ''Academic Integrity at Princeton (2011)'': "Unlike most books and journal articles, which undergo strict editorial review before publication, much of the information on the Web is self-published. To be sure, there are many websites in which you can have confidence: mainstream newspapers, refereed electronic journals, and university, library, and government collections of data. But for vast amounts of Web-based information, no impartial reviewers have evaluated the accuracy or fairness of such material before it's made instantly available across the globe."
+* The [https://web.archive.org/web/20060907142339/http://library.stkate.edu/pdf/citeChicago.pdf "College of St. Catherine Libraries Guide to Chicago Manual of Style"] (DEKloiber, December 1, 2003) states, "Any site that does not have a specific publisher or sponsoring body should be treated as unpublished or self-published work."</ref> {{strong|Never}} use a self-published source as a [[Wikipedia:Independent sources|third-party source]] about living people, even if the author is an expert, well-known professional researcher, or writer.
+
+===Self-published or questionable sources as sources on themselves<span id="Self-published and questionable sources as sources on themselves"></span>===
+<!-- This span tag serves to provide a permanent target for incoming section links. Please do not move it out of the section heading. Please do not modify it, even if you modify the section title. It is always best to anchor an old section header that has been changed so that links to it won't break. See [[Template:Anchor]] for details. (this text is produced by {{subst:Anchor comment}}) -->
+{{shortcut|WP:ABOUTSELF}}
+{{redirect|WP:SOCIALMEDIA|the policy|Wikipedia:What Wikipedia is not#Wikipedia is not a blog, web hosting service, social networking service, or memorial site}}
+{{redirect|WP:TWITTER|the external links essay|Wikipedia:External links/Perennial websites#X (formerly Twitter)|a template used for citing tweets|Template:Cite tweet|community evaluation of X (formerly Twitter) as a source|Wikipedia:Reliable sources/Perennial sources#X}}
+{{seealso|Wikipedia:Reliable sources#Statements of opinion}}
+Self-published and questionable sources may be used as sources of information {{strong|about themselves}}, usually in articles about themselves or their activities, without the self-published source requirement that they are established experts in the field, so long as:
+# The material is neither unduly self-serving nor an [[Wikipedia:Verifiability#Exceptional claims require exceptional sources|exceptional claim]];
+# It does not involve claims about third parties;
+# It does not involve claims about events not directly related to the source;
+# There is no reasonable doubt as to its authenticity; and
+# The article is not based primarily on such sources.
+
+This policy also applies to material made public by the source on social networking websites such as [[X (social network)|X]] (formerly Twitter), [[Tumblr]], [[LinkedIn]], [[Reddit]], [[Instagram]] and [[Facebook]].
+
+===Wikipedia and sources that mirror or use it===
+{{shortcut|WP:CIRCULAR|WP:CIRC}}
+{{Redirect|WP:CIRCULAR|links on a page that redirect back to the same page|Wikipedia:Manual of Style/Linking#Circular}}
+{{See also|Wikipedia:List of citogenesis incidents|3=Wikipedia:Citing Wikipedia|4=Wikipedia:Don't cite Wikipedia on Wikipedia}}
+
+Do not use articles from Wikipedia (whether English Wikipedia or Wikipedias in other languages) as sources, since Wikipedia is a [[WP:UGC|user-generated source]]. Do not use websites [[Wikipedia:Mirrors and forks|mirroring Wikipedia content]] or publications relying on material from Wikipedia as sources. Content from a Wikipedia article is not considered reliable unless it is backed up by citing [[Wikipedia:Identifying reliable sources|reliable sources]]. Confirm that these sources support the content, then use them directly.<ref>{{cite journal|first1=Ole Bjørn|last1=Rekdal|title=Academic urban legends|journal=[[Social Studies of Science]]|date=1 August 2014|issn=0306-3127|pages=638–654|volume=44|issue=4|doi=10.1177/0306312714535679|pmid=25272616|pmc=4232290}}</ref>
+
+An exception is allowed when Wikipedia itself is being discussed in the article. These may cite content from Wikipedia or a sister project to support a statement about Wikipedia. Wikipedia or the sister project is a [[primary source]] in this case and may be used following the [[wp:PRIMARY|policy for primary sources]]. Any such use should avoid [[WP:OR|original research]], [[WP:UNDUE|undue emphasis]] on Wikipedia's role or views, and [[Wikipedia:Manual of Style/Self-references to avoid|inappropriate self-reference]]. The article text should say that the material is sourced from Wikipedia.
+
+==Accessibility==
+===Access to sources===
+{{shortcut|WP:PAYWALL}}
+{{see also|Wikipedia:Offline sources|Wikipedia:Reliable sources/Cost}}
+Do not reject reliable sources just because they are difficult or costly to access. Some reliable sources are not easily accessible. For example, an online source may require payment or otherwise be hidden behind a [[paywall]], and a print-only source may be available only through libraries. Rare historical sources may even be available only in special museum collections and archives. If you have trouble accessing a source, others might do so for you (see [[Wikipedia:WikiProject Resource Exchange/Resource Request|WikiProject Resource Exchange]]).{{efn|name=Courtesy}} (See [[Template:Request quotation]].)
+
+===Non-English sources===
+{{shortcut|WP:NONENG}}
+{{see also|Wikipedia:Translators available|Wikipedia:No original research#Translations and transcriptions}}
+
+====<span class="anchor" id="Non-English sources → Citing"></span>Citing====
+[[WP:Citing sources|Citations]] to non-English reliable sources are allowed on the [[English Wikipedia]]. However, because this project is in English, English-language sources are preferred over non-English ones when available, relevant, and of equal quality. In a dispute about a citation to a non-English source, editors can ask for a quotation of relevant portions of the source, either in text, in a footnote, or on the article talk page.{{efn|name=Courtesy}} (See [[Template:Request quotation]].)
+
+====<span class="anchor" id="Non-English sources → Quoting"></span>Quoting====
+If you quote a non-English reliable source (whether in the main text or in a footnote), [[MOS:FOREIGNQUOTE|a translation into English should accompany the quote]]. Translations published by reliable sources are preferred over translations by Wikipedians, but translations by Wikipedians are preferred over machine translations. When using a machine translation of source material, editors should be reasonably certain that the translation is accurate and the source is appropriate. Editors should not rely upon machine translations of non-English sources in contentious articles or biographies of living people. If needed, ask [[Wikipedia:Translators available|an editor who can translate it]] for you.
+
+The original text is usually included with the translated text in articles when translated by Wikipedians, and the translating editor is usually not cited. When quoting any material, whether in English or in some other language, be careful not to [[Wikipedia:Copyright violations|violate copyright]]; see the [[Wikipedia:Fair use#Text|fair-use guideline]].
+
+==Other issues==
+===Verifiability does not guarantee inclusion===
+{{shortcut|WP:VNOT}}
+{{main|Wikipedia:What Wikipedia is not#Encyclopedic content}}
+
+{{See also|Wikipedia:Neutral point of view|Wikipedia:Notability#Whether to create standalone pages|Wikipedia:Summary style|Wikipedia:What Wikipedia is not#Wikipedia is not an indiscriminate collection of information}}
+
+While information must be verifiable for inclusion in an [[WP:ARTICLE|article]], not all verifiable information must be included. Through the [[WP:Consensus|consensus]] process, editors may determine that inclusion of a verifiable fact or claim does not improve an article, and other policies may indicate that the material is inappropriate. Such information should be omitted or [[WP:PRESERVE|used instead in a different article]].
+
+===Build consensus===
+{{shortcut|WP:ONUS}}
+{{redirect|WP:ONUS|demonstrating verifiability|Wikipedia:Verifiability#Responsibility for providing citations|a history of this section|Wikipedia:Verifiability/Onus}}
+{{For|an explanatory essay about apparent conflicts with this subsection|Wikipedia:What ONUS means}}
+
+The responsibility for achieving consensus for inclusion is on editors seeking to include disputed content.
+
+===Tagging a sentence, section, or article===
+{{further|Wikipedia:Citation needed|Wikipedia:Template index/Sources of articles}}
+If you want to request an inline citation for an unsourced statement, you can tag a sentence with the {{tl|citation needed}} template. You can also ask for a source on the [[Help:Talk page|talk page]]. To request verification that a reference supports the text, tag it with {{tl|verification needed}}. Material that fails verification may be tagged with {{tl|failed verification}} or removed. Please explain why you added the template in your edit summary or on the talk page.
+
+Take special care with contentious [[Wikipedia:Biographies of living persons|material about living and recently deceased people]]. Unsourced or poorly sourced material that is contentious, especially text that is negative, derogatory, or potentially damaging, should be removed immediately rather than tagged or moved to the talk page.
+
+===<span class="anchor" id="Exceptional claims require exceptional sources"></span>Exceptional claims require exceptional sourcing===
+{{shortcut|WP:ECREE|WP:REDFLAG|WP:EXCEPTIONAL}}
+{{see also|Wikipedia:Fringe theories}}
+Any exceptional claim requires {{em|multiple}} high-quality sources.<ref>See [[Extraordinary claims require extraordinary evidence]]</ref> Warnings (red flags) that should prompt extra caution include:
+* Surprising or apparently important claims not covered by multiple mainstream sources;
+* Challenged claims that are supported purely by [[WP:Primary|primary]] or self-published sources or those with an apparent conflict of interest;
+* Reports of a statement by someone that seems out of character or against an interest they had previously defended;
+* Claims contradicted by the prevailing view within the relevant community or that would significantly alter mainstream assumptions—especially in science, medicine, history, politics, and biographies of living and recently deceased people. This is especially true when proponents say there is a [[conspiracy theory|conspiracy]] to silence them.
+
+==Verifiability and other principles==
+===Copyright and plagiarism===
+{{shortcut|WP:OWNWORDS}}
+{{further|Wikipedia:Copyright|Wikipedia:Plagiarism|Wikipedia:Copying within Wikipedia|Wikipedia:Manual of Style#Attribution|Wikipedia:Citing sources#In-text attribution}}
+Do not plagiarize or breach copyright when using sources. Summarize source material in your own words.  Avoid [[WP:CLOP|close paraphrasing]].  When you [[Wikipedia:Close_paraphrasing#When_is_close_paraphrasing_permitted?|can't avoid close paraphrasing]], or when quoting, use an [[WP:INCITE|inline citation]] and consider [[WP:INTEXT|in-text attribution]].
+
+[[WP:LINKVIO|Never link to any source that violates the copyrights of others]]. You can link to websites that display copyrighted works as long as the website has licensed the work or uses the work in a way compliant with fair use. Knowingly directing others to material that violates copyright may be considered [[contributory copyright infringement]]. If there is reason to think a source violates copyright, do not cite it. ''This is particularly relevant when linking to sites such as [[Scribd]] or [[YouTube]], where due care should be taken to avoid linking to material violating copyright.''
+
+===Neutrality===
+{{shortcut|WP:SOURCESDIFFER}}
+{{further|Wikipedia:Neutral point of view}}
+Even when information is cited to [[WP:RS|reliable sources]], you must present it with a [[WP:NPOV|neutral point of view]] (NPOV). Articles should be based on [[WP:BESTSOURCES|thorough research of sources]]. All articles must adhere to NPOV, fairly representing all majority and significant-minority viewpoints published by reliable sources, in [[WP:UNDUE|rough proportion]] to the prominence of each view. Tiny-minority views need not be included, except in articles devoted to them. If there is a disagreement between sources, use [[WP:INTEXT|in-text attribution]]: "John Smith argues X, while Paul Jones maintains Y," followed by an [[WP:INCITE|inline citation]]. Sources themselves do not need to maintain a neutral point of view. Indeed, many reliable sources are {{em|not}} neutral. Our job as editors is simply to summarize what reliable sources say.
+
+===Notability===
+{{further|Wikipedia:Notability}}
+If no [[WP:Reliable sources|reliable]], [[WP:Independent sources|independent]] sources can be found on a topic, Wikipedia should not have an article on it (i.e., the topic is not [[WP:Notability|notable]]).
+However, notability is [[WP:Notability#Notability is based on the existence of suitable sources, not on the state of sourcing in an article|based on the {{em|existence}} of suitable sources]], not on the state of sourcing in an article.
+
+===Original research===
+{{further|Wikipedia:No original research}}
+The [[WP:NOR|no original research]] policy (NOR) is closely related to the Verifiability policy. Among its requirements are:
+# All material in Wikipedia articles must be verifiable in a reliable published source. This means a reliable published source must exist for it, whether or not it is cited in the article.
+# Sources must support the material clearly and directly: [[WP:SYN|drawing inferences from multiple sources to advance a novel position]] is prohibited by the NOR policy.{{efn|name=Courtesy|When there is a dispute as to whether a piece of text is fully supported by a given source, direct quotes and other relevant details from the source should be provided to other editors as a courtesy. Do not violate the source's copyright when doing so.}}
+# Base articles largely on reliable [[secondary source]]s. While [[primary source]]s are appropriate in some cases, relying on them can be problematic. For more information, see the [[Wikipedia:No original research#Primary, secondary and tertiary sources|Primary, secondary, and tertiary sources]] section of the NOR policy, and the [[Wikipedia:BLP#Misuse of primary sources|Misuse of primary sources]] section of the BLP policy.
+
+==See also==
+<!-- {{Spoken Wikipedia|Wikipedia Verifiability.ogg|2006-12-04}} -->
+
+===Guidelines===
+* [[Wikipedia:Reliable sources|Reliable sources]]
+* [[Wikipedia:Identifying reliable sources (medicine)|Identifying reliable sources (medicine)]]
+
+===Information pages===
+{{div col|colwidth=20em}}
+* [[Wikipedia:Don't cite Wikipedia on Wikipedia|Don't cite Wikipedia on Wikipedia]]
+* [[Help:How to mine a source|How to mine a source]]
+* [[Wikipedia:Independent sources|Independent sources]]
+* [[Wikipedia:Identifying and using primary sources|Identifying and using primary sources]]
+* [[Wikipedia:Identifying and using self-published works|Identifying and using self-published works]]
+* [[Wikipedia:Video links|Video links]]
+* [[Wikipedia:When to cite|When to cite]]
+{{div col end}}
+
+===Resources===
+* [[Wikipedia:Backlog#Lacking references|Backlog]] – links to articles that need citations added
+* [[Wikipedia:Template index/Sources of articles|Template index/Sources of articles]] – maintenance templates for articles with sourcing problems
+* [[Wikipedia:The Wikipedia Library|The Wikipedia Library]] – free access to newspapers, journals, and magazines for experienced editors
+* [[Wikipedia:WikiProject Resource Exchange|WikiProject Resource Exchange]] – where you can ask for help with checking an individual source
+
+===Essays===
+{{div col}}
+* [[Wikipedia:Citation overkill|Citation overkill]]
+* [[Wikipedia:Identifying and using tertiary sources|Identifying and using tertiary sources]]
+* [[Wikipedia:Verifiability does not guarantee inclusion|Verifiability does not guarantee inclusion]]
+* [[Wikipedia:Verifiability, not truth|Verifiability, not truth]]
+* [[Wikipedia:You are not a reliable source|You are not a reliable source]]
+{{div col end}}
+
+==Notes==
+{{notelist}}
+==References==
+{{Reflist}}
+
+==Further reading==
+* Wales, Jimmy. [http://lists.wikimedia.org/pipermail/wikien-l/2006-July/050773.html "Insist on sources"], WikiEN-l, July 19, 2006: "I really want to encourage a much stronger culture which says: it is better to have no information, than to have information like this, with no sources."—referring to a rather unlikely statement about the founders of Google throwing pies at each other.
+
+{{Wikipedia referencing|state=expanded}}
+{{Wikipedia policies and guidelines}}
+
+[[Category:Wikipedia verifiability| ]]

@@ -1,0 +1,79 @@
+<noinclude>{{short description|List of requirements for good articles}}
+{{pp-protected|small=yes}}
+{{Wikipedia:Good article nominations/Tab header}}
+{{shortcut|WP:GA?|WP:GACR|WP:WIAGA}}
+<!--{{redirect|WP:GAC|"good article candidates"|Wikipedia:Good article nominations}}-->
+[[Image:Symbol support vote.svg|40px|left|Good article nominations]]
+The '''good article criteria''' are the six standards by which a [[Wikipedia:Good article nominations|good article nomination]] (GAN) may be compared and judged to be a [[Wikipedia:Good articles|good article]] (GA). A good article does not have to meet the more demanding [[Wikipedia:Featured article criteria|featured article criteria]].
+
+==Criteria==
+
+The six good article criteria are the only aspects that should be considered when assessing whether to pass or fail a GAN. Other comments designed to improve the article are encouraged during the review process but should not be mandated as part of the assessment.
+
+===Immediate failures===
+{{shortcut|WP:GAFAIL|WP:QF}}
+An article may fail without further review (known as a quick fail) if, prior to the review:
+<ol>
+<li>{{Wikipedia:Good article criteria/GAC|0a}}.</li>
+<li>{{Wikipedia:Good article criteria/GAC|0b}}. (Note: False positives arise [[Template:Backwards copy|when sites copy Wikipedia]].)</li>
+<li>{{Wikipedia:Good article criteria/GAC|0c}}.</li>
+<li>{{Wikipedia:Good article criteria/GAC|0d}}.</li>
+<li>{{Wikipedia:Good article criteria/GAC|0e}}.</li>
+</ol>
+In all other cases, the nomination deserves a full review against the six criteria. For most reviews, the nominator is given a chance to address any issues raised by the reviewer before the article is failed. Often the nomination is brought up to standard during the review.
+
+===The six good article criteria===
+{{shortcut|WP:GACR6}}
+[[File:Symbol support vote.svg|75px|right]]</noinclude>
+A [[Wikipedia:Good articles|good article]] is:
+<ol>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|1}}:|1}}
+<ol style="list-style-type: lower-alpha">
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|1a}};|1a}}<noinclude><ref>Prose at the good article level is not expected to be at a professional level like it is for [[WP:FA|featured articles]]. Minor grammatical or style issues that do not impact clarity are not prohibitive of GA status.</ref></noinclude> and</li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|1b}}.|1b}}<noinclude><ref>Compliance with other aspects of the [[Wikipedia:Manual of Style|Manual of Style]] or its subpages is ''not'' required for good articles.</ref></noinclude></li>
+</ol></li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|2}}:|2}}<noinclude><ref>''{{Section link|Wikipedia:Good article instructions#Step 3: Reviewing the article}}'' says, "This must include a spot-check of a sample of the sources in the article to verify that each source supports the text in the article that it covers, and that no copyrighted material has been added to the article from the source." ''[[Wikipedia:Reviewing good articles]]'' says, "Ideally, a reviewer will have access to all of the source material, and sufficient expertise to verify that the article reflects the content of the sources; this ideal is not often attained. At a minimum, check that the sources used are reliable (for example, blogs are not usually reliable sources) and that those you can access support the content of the article (for example, inline citations lead to sources that agree with what the article says) and are not plagiarized (for example, close paraphrasing of source material should only be used where appropriate, with in-text attribution if necessary)."</ref></noinclude>
+<ol style="list-style-type: lower-alpha">
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|2a}};|2a}}<noinclude><ref>Dead links are considered verifiable only if the link is not a [[Wikipedia:Bare URLs|bare URL]]. Using consistent formatting or including every element of the bibliographic material is ''not'' required, although, in practice, enough information must be supplied so that the reviewer is able to identify the source.</ref></noinclude></li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|2b}};|2b}}</li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|2c}};|2c}} and</li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|2d}}.|2d}}</li>
+</ol></li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|3}}:|3}}
+<ol style="list-style-type: lower-alpha">
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|3a}};|3a}}<noinclude><ref>The "broad in its coverage" criterion is significantly weaker than the "comprehensiveness" required of [[Wikipedia:Featured articles|featured articles]]. It allows shorter articles, articles that do not cover every major fact or detail, and overviews of large topics.</ref></noinclude> and</li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|3b}}.|3b}}</li>
+</ol></li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|4}}.|4}}</li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|5}}.|5}}<noinclude><ref>Edits that do not apply to the "stable" criterion include reverting vandalism, proposals to split or merge content, good faith improvements to the page (such as [[copy editing]]), and changes based on reviewers' suggestions. Nominations for articles that are unstable because of disruptive editing may be failed or placed on hold. Stability is based on the article's current state, not any potential for instability in the future.</ref></noinclude></li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|6}}:|6}}<noinclude><ref>The presence of media is ''not'' an absolute requirement. If illustrating the article by media is impossible, the article may still be a good article. However, if media with acceptable copyright status is appropriate and readily available, then such media should be provided.</ref></noinclude>
+<ol style="list-style-type: lower-alpha">
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|6a}};|6a}} and</li>
+<li>{{visible anchor|{{Wikipedia:Good article criteria/GAC|6b}}.|6b}}</li>
+</ol></li>
+</ol><noinclude>
+
+==What cannot be a good article?==
+* '''[[Wikipedia:Stand-alone lists|Stand-alone lists]], [[Wikipedia:Portal|portals]], [[Wikipedia:Creation and usage of media files#Audio|sounds]], and [[Wikipedia:Images|images]]''': these items should be nominated for [[Wikipedia:Featured lists|featured list]] and [[Wikipedia:Featured pictures|featured picture]] status, if applicable.
+* '''[[Wikipedia:Disambiguation|Disambiguation]] pages and [[Wikipedia:Stub|stubs]]''': a disambiguation page is not an article. A stub falls under {{slink|#Immediate failures}}.
+* '''[[Wikipedia:Featured articles|Featured articles]]''': a good article is granted a higher status when promoted to a featured article. Demoted featured articles are not automatically granted good article status and must be reassessed for quality to be promoted.
+
+==See also==
+
+* [[Wikipedia:Good article instructions]]—step-by-step instructions on how to handle the GA process
+* [[Wikipedia:Nominating good articles]]—advice for nominating an article for GA status
+* [[Wikipedia:Good article reviewing guide]]—new "how-to" guide for reviewing an article for GA
+* [[Wikipedia:WikiProject Physics/Quality Control/Reviewing Cheatsheet]]—useful suggestions for GA review
+* [[Wikipedia:What the Good article criteria are not]]—GA reviews should be concluded ''only'' in accordance with the GA criteria, not personal preferences
+* [[Wikipedia:Compare criteria Good v. Featured article]]
+* [[Wikipedia:Did you know#Eligibility criteria|Wikipedia:''Did you know'' eligibility criteria]]—within 7 days of promotion, a GA article may be nominated for a DYK hook review
+* [[Wikipedia:Featured article criteria]]—setting your sights on FA criteria may help with the GA review process
+
+==Notes==
+{{Reflist|2}}
+
+{{Good article navbox}}
+
+[[Category:WikiProject Good articles|{{PAGENAME}}]]
+[[Category:Wikipedia content assessment|Good]]
+</noinclude>

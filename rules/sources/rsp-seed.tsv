@@ -1,0 +1,34 @@
+# rsp-seed.tsv — seed source-tier table from the operator's archaeology hit list.
+# Columns: source_id <TAB> tier <TAB> note
+# tier ∈ {deny, caution, complement-only, ok}
+# deny            never anchors content
+# caution         only for attributed opinion or self-description
+# complement-only supports nothing alone; needs a tier-1 corroborator
+# ok              general reliability, subject to RSP nuance
+grokipedia	deny	LLM-generated wiki clone; no editorial layer
+buzzfeed-news-before-2023	caution	see RSP history; post-2023 successor org treated separately
+predatory-journals	deny	standalone predatory publisher list (Beall-style); no peer review integrity
+ted-talks	caution	lecture platform, not fact-checked journalism; attributed speaker opinion only
+personal-blogs	caution	self-published; opinion/self-description only
+extension-blogs	caution	vendor/extension blogs are promotional for their own product
+press-releases	caution	PRNewswire/BusinessWire et al.; primary promotional material
+find-a-grave	complement-only	cemetery records; useful leads, never sole support
+facebook-x-instagram	deny	social media; not RS except for self-description of the account owner
+imdb	complement-only	user-editable; film database basics need corroboration
+goodreads	complement-only	user-generated; never sole support
+tripadvisor	deny	user reviews; not RS
+wikipedia-mirrors	deny	circular sourcing
+dbpedia	deny	derived from Wikipedia; circular
+familysearch	complement-only	genealogy aggregates; corroborate
+ancestry-genealogy	complement-only	user-contributed trees unreliable; records ok
+books-google	caution	scanned primary texts fine; snippets decontextualized
+archive-org	complement-only	hosting, not authorship; evaluate the hosted source
+nytimes	ok	news of record
+theguardian	ok	news of record
+wsj	ok	news of record (paywalled; quote what ledger fetched)
+bbc	ok	news of record
+reuters	ok	news of record
+ap-news	ok	news of record
+the-economist	ok	news of record
+jstor-scholarly	ok	peer-reviewed literature
+cambridge-oup-academic-presses	ok	scholarly monographs

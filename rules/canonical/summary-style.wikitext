@@ -1,0 +1,144 @@
+{{Short description|Wikipedia editing guideline}}
+{{redirect-several|dab=no|Wikipedia:Simplified Manual of Style|WP:Summary (disambiguation)|WP:SS (disambiguation)}}
+{{Subcat guideline|editing guideline|Summary style|WP:SS|WP:SUMMARY}}
+{{nutshell|Sections of long articles should be spun off into their own articles, leaving summaries in their place. Summary sections link to the detailed article with a {{tl|Main}} template.}}
+
+<div role="complementary" aria-label="Example" style="margin:1em;max-width:390px;float:right">
+<div class="center">[[World War II]] article in summary style</div>
+<div style="border:1px solid;padding:1em;">
+{{fake heading|sub=1|World War II}}
+'''World War&nbsp;II''' ... was a global [[war]] that was underway by 1939 and ended in 1945 ....
+
+{{fake heading|sub=2|Chronology}}
+{{Main|Timeline of World War II}}
+The start of the war is generally held to be 1&nbsp;September 1939 ....
+
+{{fake heading|sub=2|Background}}
+{{Main|Causes of World War II}}
+[[World War&nbsp;I]] radically altered the political map, with the defeat of the [[Central Powers]] ....
+
+{{fake heading|sub=2|Pre-war events}}
+{{fake heading|sub=3|Italian invasion of Ethiopia (1935)}}
+{{Main|Second Italo-Ethiopian War}}
+The Second Italo-Ethiopian War was a [[war of aggression]] that began in October 1935 and ended in May 1936 ....
+
+{{fake heading|sub=3|Spanish Civil War (1936–1939)}}
+{{main|Spanish Civil War}}
+Germany and Italy lent support to the [[Nationalist faction (Spanish Civil War)|Nationalist rebels]] led by general [[Francisco Franco]] in Spain ....
+</div>
+</div>
+
+Wikipedia articles cover topics at several levels of detail: the [[WP:LEAD|lead]] contains a quick summary of the topic's most important points, and each major subtopic is detailed in its own section of the article. The length of a given Wikipedia article tends to grow as people add information to it. Wikipedia articles cannot be of indefinite length as [[WP:SIZE|very long articles]] would cause problems and should be [[WP:SPLIT|split]].
+
+A fuller treatment of any major subtopic should go in a separate article of its own. Each subtopic or ''child'' article is a complete encyclopedic article in its own right and contains its own [[Wikipedia:Manual of Style/Lead section|lead section]] that is quite similar to the summary in its ''parent'' article. It also contains a link back to the ''parent'' article and enough information about the broader ''parent'' subject to place the subject in context for the reader, even if this produces some duplication between the ''parent'' and ''child'' articles. The original article should contain a section with a summary of the subtopic's article as well as a link to it, or an [[Template:Excerpt|excerpt]] of it. This type of organization is made possible because Wikipedia is an online encyclopedia: unlike traditional paper encyclopedias, it only takes a click for readers to switch between articles, and there is no need to conserve paper by preventing duplication of content.
+
+It is advisable to develop new material in a subtopic article before summarizing it in the parent article. (An exception to this is when the subtopic is non-notable; see below.) For copyright purposes, the first edit summary of a subtopic article formed by cutting text out of a parent article [[Wikipedia:Copying within Wikipedia|should link back to the original]]. [[#Templates|Templates are available]] to link to subtopics and to tag synchronization problems between a summary section and the article it summarizes.
+
+==Rationale==
+===Article size===
+{{Main|Wikipedia:Article size}}
+Articles over a certain size might not cover their topic in a way that is easy to find or read. Opinions vary as to what counts as an ideal length; judging the appropriate size depends on the topic and whether it easily lends itself to being split up. Size guidelines apply somewhat less to [[Wikipedia:Disambiguation|disambiguation]] pages and to [[Wikipedia:List guideline|list]] articles, especially if splitting them would require breaking up a [[WP:SORT|sortable]] table. This style of organizing articles is somewhat related to [[news style]] except that it focuses on {{em|topics}} instead of articles.
+
+This is more helpful to the reader than a very long article that just keeps growing, eventually reaching book length. Summary style keeps the reader from being overwhelmed by too much information up front, by summarizing main points and going into more details on particular points (subtopics) in separate articles. What constitutes "too long" varies by situation, but generally [[WP:SIZERULE|50 kilobytes of readable prose]] (8,000 words) is the starting point at which articles may be considered too long. Articles that go above this have a burden of proof that extra text is needed to efficiently cover their topics and that the extra reading time is justified.
+
+===Levels of detail===
+{{Shortcut|WP:DETAIL}}
+{{See|Wikipedia:Writing better articles#Be concise}}
+{{seealso| Wikipedia:Neutral point of view#Due and undue weight}}
+Since Wikipedia is not divided into macro and micro versions{{Mdash}}unlike the {{lang|la|[[Encyclopaedia Britannica]]}}'s {{lang|la|[[Macropædia]]}} and {{lang|la|[[Micropædia]]}}{{Mdash}}we must serve both reader types in the same encyclopedia. Summary style is based on the premise that information about a topic need not all be contained in a single article since different readers have different needs:
+* Many readers need just a quick summary of the topic's most important points (lead section).
+* Others need a moderate amount of information on the topic's more important points (a set of multiparagraph sections).
+* Some readers need a lot of details on one or more aspects of the topic (links to full-sized separate child articles).
+{{Glossary term|Parent article|parent article}}
+{{Glossary term|Child article|child article}}
+The parent article should have general summary information like a lead, and child articles should expand in more detail on subtopics summarized in the parent article. The child article in turn can also serve as a parent article for its own sections and subsections on the topic, and so on, until a topic is {{em|very}} thoroughly covered. The idea is to summarize and distribute information across related articles in a way that can serve readers who want varying amounts of details. Breakout methods should anticipate the various levels of detail that typical readers will look for. See {{Section link|Wikipedia:Manual of Style/Lead section#Length}} for recommendations on the size of an article summary.
+
+This can be thought of as layering [[inverted pyramid (journalism)|inverted pyramid]]s where the reader is first shown the lead section for a topic, and within its article any section may have a {{nowrap|{{tlx|Main|{{var|Child article name}}}}}} hatnote or similar link to a full article about the subtopic summarized in that section. For example, [[Yosemite National Park#History]] and [[History of the Yosemite area]] are two such related [[Wikipedia:Featured articles|featured articles]]. Thus, by navigational choices, several different types of readers each get the amount of detail they want.
+
+==Technique==
+{{Main|Wikipedia:Splitting}}
+Longer articles are split into [[Help:Section|sections]], each usually several good-sized paragraphs long. Subsectioning can increase this amount. Ideally, many of these sections will eventually provide summaries of separate articles on the subtopics covered in those sections. Each subtopic article is a complete encyclopedic article in its own right and contains its own [[Wikipedia:Manual of Style/Lead section|lead section]] that is quite similar to the summary in the parent article. It also contains a link back to the parent article, and enough information about the broader parent subject to place the subject in context for the reader, even if this produces some duplication between the parent and child articles.
+
+Sections that are less important for understanding the topic will tend to be lower in the article, while more important sections will tend to be higher, except for articles on history or that are otherwise chronologically based, unless there is some type of analysis section. Ordering sections in this way is important because many readers will not finish reading the article.
+
+{{shortcut|WP:SUMMARYHATNOTE}}
+{{va|Hatnote|text=In the parent article, the location of the detailed article for each subtopic is indicated at the top of the section by a hatnote link such as [[Wikipedia:Manual of Style/Layout#Section templates and summary style|"''Main article''"]], generated by the template {{tlx|Main|{{var|Child article name}}}}. Other template links include {{tlx|Further}} and {{tlx|Broader}}. Avoid link clutter of multiple child articles in a hierarchical setup as hatnotes. For example, [[Canada#Economy]] is a summary section with a hatnote to [[Economy of Canada]] that summarizes the history with a hatnote to [[Economic history of Canada]]. For article pairs with a less hierarchical parent/child relationship, {{tl|See also}} may apply. {{xref|See {{Section link|Wikipedia:Hatnote#Rules|Linking to articles that are related to the topic}} for more information.}}}}
+
+Whenever you break up a page, note the split (including the subtopic page names between double square brackets) in the [[Wikipedia:Edit summary|edit summary]]. If possible, content should be split into logically separate articles. [[Wikipedia:Naming conventions (long lists)|Long stand-alone lists]] may be split alphanumerically or chronologically or in another way that simplifies maintenance without regard to individual notability of the subsections (common selection criteria: lists created explicitly because most or all of the listed items do not warrant independent articles; short, complete lists of every item that is verifiably a member of the group). However, a split by subtopic is preferable. Judging the appropriate size depends on the topic, although there are [[Wikipedia:Article size#Size guideline|rules of thumb]] that can be applied. In some cases, to improve the understanding of readers, complex subjects may be split into more technical and less technical articles, such as in [[Evolution]] and [[Introduction to evolution]].
+
+Each article on Wikipedia must be able to stand alone as a self-contained unit (exceptions noted herein). For example, every article must follow the [[Wikipedia:Verifiability|verifiability policy]], which requires that all quotations and any material challenged or [[Wikipedia:Likely to be challenged|likely to be challenged]] be attributed to a reliable, published source in the form of an [[Wikipedia:Citing sources#Inline citations|inline citation]]. This applies whether in a parent article or in a summary-style child article.
+
+For sufficiently wide topics, consider using a [[Wikipedia:Navigation templates|navigational template]] to connect the child articles both among themselves and along with the summary-style parent article.  (For very wide topics, there's no need to include every single article; instead, the template can include key top-level articles.)
+
+==When to avoid splits==
+{{Shortcut|WP:AVOIDSPLIT}}
+===Non-notable topics and relocating material===
+{{main|Wikipedia:Notability#Whether to create standalone pages}}
+Article and list topics must be notable, or "worthy of notice". Editors are cautioned not to immediately split articles if the new article would meet neither the [[WP:GNG|general notability criteria]] nor the specific notability criteria for their topic. In this case, editors are encouraged to work on further developing the parent article first, locating coverage that applies to both the main topic and the subtopic. Through this process, it may become evident that subtopics or groups of subtopics can demonstrate their own notability and thus can be split off into their own article. Also consider whether a concept can be cleanly trimmed, removed, or merged elsewhere on Wikipedia instead of creating a new article. [[WP:NOPAGE|Some topics are notable, but do not need their own article]]. 
+
+If only a few sentences could be written and supported by sources about the subject, that subject does not qualify for a separate article, but should instead be [[Wikipedia:Merging|merged]] into an article about a larger topic or relevant list. It is not uncommon for editors to suggest that [[Wikipedia:Articles for deletion|articles nominated for deletion]] instead be merged into a parent article. Note that notability guidelines only outline how suitable a {{em|topic}} is for {{em|its own article or list}}. They {{em|do not}} limit the {{em|content}} of an article or list because [[WP:NOTEWORTHY|notability guidelines do not apply to article content]].
+
+===POV forks===
+{{See|Wikipedia:Content forks#Article spinoffs: "Summary style" meta-articles and summary sections}}
+In applying summary style to articles, care must be taken to avoid a [[Wikipedia:Content forks|point of view  fork]] (that is, a split that results in either the original article or the spinoff violating [[Wikipedia:Neutral point of view|Neutral point of view policy]]), a difference in approach between the summary section and the spinoff article, etc. Note that this doesn't mean that an article treating one point of view is automatically considered a POV fork. A good example is [[Assassination of John F. Kennedy]], which has a split or spinoff to [[John F. Kennedy assassination conspiracy theories]]. However, certain types of content can be difficult to write neutrally in independent articles, such as "Criticism of..." articles (see {{Section link|Wikipedia:Criticism#Avoid sections and articles focusing on criticisms or controversies}}), and if the subject is controversial it may also increase editors' maintenance burden.
+
+Where an article has lots of subtopics with their own articles, remember that the sections of the parent article need to be appropriately balanced. Do not put [[Wikipedia:Neutral point of view#Due and undue weight|undue weight]] into one part of an article at the cost of other parts. If one subtopic has much more text than another subtopic, that may be an indication that that subtopic should have its own page, with only a summary section left on the main page.
+
+==<span class="anchor" id="SYNC"></span><span class="anchor" id="Keeping summary articles and detailed articles synchronised"></span><span class="anchor" id="Keeping summary sections and detailed articles synchronized"></span>Synchronization==
+{{Shortcut|WP:SYNC}}
+
+Sometimes editors will add details to a parent article without adding those facts to the more detailed child article. To keep articles synchronized, editors should first add any new material to the appropriate places in the child article, and, if appropriate, summarize the material in the parent article. If the child article changes considerably without updating the parent article, the summary of the child article in the parent article will need to be rewritten to do it justice. These problems may be tagged with {{tl|Sync}}.{{refn|group=n|To eliminate this maintenance burden, editors can use partial transclusion as explained at [[Wikipedia:Transclusion#Partial transclusion]].<br />However, [[Wikipedia talk:Summary style/Archive 2#Problems with partial transclusions and page histories|discussions in 2010]] highlighted issues with viewing historical renditions of the main page (the partial transclusion will be from the current subpage, which may even have been deleted). Therefore, it seems to be recommended to use this process only with consensus and when articles are rapidly evolving.<br />In circumstances where there is consensus to delete a sub-article that has been transcluded to a parent article, the sub-article's edit history can be preserved by moving it to a sub-page of the parent article's talk page and deleting the redirect in the mainspace.}}
+
+Since the [[WP:LEAD|lead]] of any article should be the best summary of the article, it can be convenient to use the child article's lead as the content in the summary section, with a {{tl|main}} hatnote pointing to the child article. High-level or conceptual articles (such as [[Philosophy]]) are often composed mostly or entirely of summary sections, other than their own leads. Whether a detail is important enough to include in the lead of the detailed article is a good rule of thumb for whether it is important enough to be placed in the summary.
+
+===Using excerpts for article synchronization===
+{{further|Help:Transclusion#Selective transclusion|Help:Transclusion#Drawbacks}}
+[[Wikipedia:Excerpts|Excerpts]] (a.k.a. selective transclusion) can be used to ensure that the content in the lead of a child article is perpetually synchronized with a summary-style section in its parent article.
+
+To transclude the lead of a child article into a section of the parent article, replace all of the content in the relevant section of the parent article with the following wikitext markup:
+:{{tlx|Excerpt|{{var|Child article name}}}}
+
+==Other specifics==
+
+===Lead section===
+{{See|Wikipedia:Lead section|Wikipedia:Manual of Style/Lead section#Length}}
+{{See also|Wikipedia:Infobox too large}}
+
+The lead section of an article is itself a summary of the article's content. When [[User:Jimbo Wales/Pushing To 1.0|Wikipedia 1.0]] was being discussed, one idea was that the [[Wikipedia:Manual of Style/Lead section|lead section]] of the web version could be used as the paper version of the article. Summary style and news style can help make a concise introduction that works as a standalone article.
+
+===Further reading/external links===
+{{See|Wikipedia:Manual of Style/Layout#"See also" section|Wikipedia:Manual of Style/Embedded lists#Related topics (navigational lists)}}
+
+Summary style is a good way to give more structure to a long bibliography or list of external links. For example, the [[World War II]] summary-style article portrayed above could have a "Further reading" or "External links" section that treats the history of World War II as a whole, while a child article on the [[Pacific War]] could have "External links" containing works that deal with World War II in the Pacific region.
+
+==Templates==
+* {{T|Broader}}, a hatnote to another article that discusses a subject more broadly, but is not a main article
+* {{T|Further}}, a hatnote used at the top of a section, when the topic of that section is covered in more detail by another page
+* {{T|Main}}, a hatnote used at the start of a summary section to point to the detailed article
+* {{T|Excerpt}}, used to transclude the lead section of the detailed article, instead of writing a summary that is essentially a duplicate
+* {{T|Major topic editnotice}}, an [[WP:Editnotice|editnotice]] for articles on topics with many subtopic articles and that are at high risk of summary style violations
+* {{T|See also}}, a hatnote used at the top of article sections to create hatnotes to point to a small number of other related titles
+* {{T|Split section}}, a cleanup message box suggesting a split
+* {{T|Summary in}}, a template placed on the talk page of the summarized article to make the relationship explicit to editors
+* {{T|Summarize}}, a template to be used when the {{tl|Main}} template is being used without actually providing a summary of the child article
+* {{T|Subarticle}}, a template that should be placed on the spinout article's talk page when {{tl|Main}} is used on an article to add a link to a spinout article
+* {{T|Sync}} a template placed on the child article and the summary section when one has changed considerably without the other being changed. This is discussed more at [[#Synchronization]].
+
+==See also==
+* [[Wikipedia:Article series]]
+* [[Wikipedia:Article size]]
+* [[Wikipedia:Broad-concept article]]
+* [[Wikipedia:Content forks]]
+* [[Wikipedia:Guide to writing better articles]]
+* [[Wikipedia:Main article fixation]] (essay)
+* [[Wikipedia:Merging]]
+* [[Wikipedia:Naming conventions (long lists)]]
+* [[Wikipedia:Naming conventions (common names)]]
+* [[Wikipedia:Overcategorization]]
+* [[Wikipedia:Splitting]]
+* [[Special:Longpages]]
+
+==Notes==
+{{reflist|group=n}}
+{{Wikipedia policies and guidelines|state=collapsed}}
+[[Category:Wikipedia editing guidelines]]

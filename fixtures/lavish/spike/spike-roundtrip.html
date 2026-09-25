@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wa spike — anchor round-trip</title>
+<script type="application/json" data-lavish-revisions>
+[{ "id": "r1", "label": "Spike round 1", "timestamp": "2026-09-24T18:30:00Z", "summary": "Initial spike artifact for anchor round-trip verification" }]
+</script>
+<style>
+  :root { --ink:#1a1a1a; --muted:#667; --paper:#faf9f7; --line:#ddd8d0; --add:#e6f4e6; --del:#fde8e8; --accent:#7c5cbf; }
+  * { box-sizing: border-box; }
+  body { font: 15px/1.6 Georgia, 'Times New Roman', serif; color: var(--ink); background: var(--paper); margin: 0; padding: 2rem; }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+  .meta { color: var(--muted); font-family: ui-monospace, monospace; font-size: .8rem; }
+  .pane-pair { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1rem; }
+  .pane { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 1rem; overflow: auto; max-height: 30rem; }
+  .pane h3 { margin: 0 0 .5rem; font-size: .8rem; font-family: ui-monospace, monospace; color: var(--muted); font-weight: 600; }
+  .block { border: 1px solid var(--line); border-radius: 6px; padding: .75rem; margin: .5rem 0; position: relative; }
+  .block .anchor-tag { display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }
+  .del-block { background: var(--del); } .add-block { background: var(--add); }
+  del { background: #f6c8c8; text-decoration: line-through; padding: 0 .1em; }
+  ins { background: #bfe8bf; text-decoration: none; padding: 0 .1em; }
+  .evidence { border: 1px solid var(--accent); border-radius: 6px; margin: 1rem 0; padding: .75rem; background: #f6f2fc; }
+  .evidence blockquote { margin: .5rem 0; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: #fff; }
+  .evidence .src { font-size: .8rem; color: var(--muted); }
+  .note { background: #fff8e6; border: 1px solid #e8d9a0; border-radius: 6px; padding: .75rem; font-family: system-ui, sans-serif; font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>wikiloop spike — anchor round-trip (Phase 0)</h1>
+  <p class="meta">article: User:LuisVilla · base revid 709414140 · spike only, nothing publishes</p>
+  <div class="note">
+    <strong>Operator instructions:</strong> please annotate exactly three things, then press <em>Send</em>:
+    (1) click anywhere in the <em>proposed</em> block and comment on the whole element;
+    (2) select the words <em>&ldquo;several hundred grammar edits&rdquo;</em> in the old text and comment on that selection;
+    (3) click the evidence quote and comment on it. Any comment text is fine.
+  </div>
+
+  <h2>Proposed edit — one logical edit, L3 mine-existing-sources</h2>
+  <div class="pane-pair">
+    <section class="pane" id="pane-old">
+      <h3>old (base revid 709414140)</h3>
+      <div class="block del-block" id="wa-1" data-wiki-anchor="L3:C0-L3:C410">
+        <span class="anchor-tag">wa-1 · L3:C0-L3:C410</span>
+        I contribute mainly to EnWiki, but also contribute <a href="https://commons.wikimedia.org/wiki/Special:Contributions/LuisVilla">on Commons</a>, Wikidata, and elsewhere. I probably have several hundred grammar/nitpicking edits from before this account, and am looking forward to the day when grammar nitpicking is easier to do on mobile so I can do even more of it. :) I&rsquo;m also a member of the Association of Stroopwafel Addicts.
+      </div>
+    </section>
+    <section class="pane" id="pane-new">
+      <h3>new (proposed)</h3>
+      <div class="block add-block" id="wa-2" data-wiki-anchor="L3:C0-L3:C433">
+        <span class="anchor-tag">wa-2 · L3:C0-L3:C433</span>
+        I contribute mainly to <ins>the English-language Wikipedia</ins>, but also contribute <a href="https://commons.wikimedia.org/wiki/Special:Contributions/LuisVilla">on Commons</a>, Wikidata, and elsewhere. I probably have <del>several hundred</del><ins>a few hundred</ins> grammar/nitpicking edits from before this account, and am looking forward to the day when grammar nitpicking is easier to do on mobile so I can do even more of it. :) I&rsquo;m also a member of the Association of Stroopwafel Addicts.
+      </div>
+    </section>
+  </div>
+
+  <h2>Evidence rail</h2>
+  <div class="evidence" id="ev-1" data-wiki-anchor="ledger:Q1">
+    <span class="anchor-tag">ev-1 · ledger:Q1</span>
+    Source: <span class="src">lu.is contact page (fetched 2026-09-24) · archive: https://web.archive.org/web/2026/https://lu.is/contact/</span>
+    <blockquote>I probably have several hundred grammar/nitpicking edits from before this account, and am looking forward to the day when grammar nitpicking is easier to do on mobile&hellip;</blockquote>
+    <p class="src">Quote Q1 (verbatim, ellipsis-elided) supports the count claim in the proposed edit above. <em>Demo quote for the anchor spike — this session is not a real edit session.</em></p>
+  </div>
+
+  <p class="meta">end of spike artifact</p>
+</main>
+</body>
+</html>

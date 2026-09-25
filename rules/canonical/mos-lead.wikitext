@@ -1,0 +1,488 @@
+{{short description|Wikipedia project page}}
+{{pp-semi-indef}}
+{{style-guideline|MOS:LEAD|WP:LEAD}}<!--Do not add "LEDE" spellings here. See footnote on this page for why.-->
+{{nutshell|The lead should identify the topic and summarize the body of the article with appropriate weight.}}
+{{style}}
+
+In Wikipedia, the '''lead section'''<!--"Lede" is omitted here by consensus --> is an introduction to an article and a summary of its most important contents<!--First and second sentence of the lead as they are on 18:37, 26 December 2022 written per 22 December 2022 discussion in thread "First sentence of this guidance"-->. It is located at the beginning of the article, before the first [[Wikipedia:Manual of Style#Section headings|heading]]. [[#Comparison to the news-style lead|It is {{em|not}}]] a news-style [[News style#Lead (lede)|lead or "lede" paragraph]].
+
+The typical Wikipedia visit is a few minutes long (for all pages combined during that reading session).{{efn-ua|{{As of|2022|04|25|alt=As of April 2022}}, [[Alexa Internet|Alexa]]'s entry for wikipedia.org reported that the average Wikipedia user spent 4 minutes and 6 seconds on the site per day.<ref>{{cite web|title=wikipedia.org Competitive Analysis, Marketing Mix and Traffic |url=https://www.alexa.com/siteinfo/wikipedia.org#card_metrics |url-status=dead |archive-url=https://web.archive.org/web/20220425221519/http://www.alexa.com/siteinfo/wikipedia.org#card_metrics |archive-date=25 April 2022}}</ref>}} The lead is the first thing most people read upon arriving at an article, and may be the only portion of the article that they read.{{efn-ua|See [[meta:Research:Which parts of an article do readers read|Which parts of an article do readers read?]] for an analysis of reader behavior.}} It gives the basics in a nutshell, introduces the article, and cultivates interest in reading on, though not by teasing the reader or hinting at what follows. It should be written in a clear, accessible style with a [[Wikipedia:Neutral point of view|neutral point of view]].
+
+The lead should stand on its own as a concise overview of the article's topic. It should identify the topic, establish context, explain why the topic is [[Wikipedia:Notability|notable]], and summarize the most important points, including any prominent<!-- a good example or two, and counterexamples should be provided as guidance..--> controversies.{{efn-ua|Do not violate the [[Wikipedia:Neutral point of view|neutral point of view]] by giving undue attention to less important controversies in the lead section.}} The notability of the article's subject is usually established in the first few sentences. As in the [[MOS:BODY|body of the article]] itself, the emphasis given to material in the lead should roughly [[WP:DUE|reflect its importance to the topic]], according to [[Wikipedia:Verifiability#Reliable sources|reliable, published sources]]. Apart from basic facts, significant information should not appear in the lead if it is not covered in the remainder of the article.
+
+A lead section should be carefully sourced as appropriate, although it is common for citations to appear only in the body and not the lead.
+
+==<span class="anchor" id="Elements"></span><span class="anchor" id="Order"></span>Elements and order ==
+{{shortcut|MOS:LEADELEMENTS|MOS:LEADORDER|MOS:INTHELEAD}}
+{{see also|Wikipedia:Manual of Style/Layout#Order of article elements}}
+The lead section may contain optional elements presented in the following order: short description, disambiguation links (dablinks/hatnotes), maintenance tags, infoboxes, special character warning box, images, navigational boxes ([[Wikipedia:Navigation template|navigational templates]]), introductory text, and table of contents (in older [[Wikipedia:Skin|skins]]), moving to the heading of the first section.
+
+'''Structure of lead section:'''
+<syntaxhighlight lang="wikitext">
+{{Short description}}
+{{Hatnote}}
+
+{{Article for deletion}}
+{{Copy edit}}
+
+{{Use American English}}
+{{Use mdy dates}}
+
+{{Infobox rocket|name=...}}
+
+{{Contains special characters}}
+
+[[File:TypicalRocket.gif|...|A typical rocket]]
+{{Rocket navigation sidebar}}
+
+A '''rocket''' is a ...
+
+==First section==
+</syntaxhighlight>
+
+*''Short description'' is a brief phrase intended to complement and clarify the page title. See [[Wikipedia:Short description]] for more information.
+*''[[Wikipedia:Template index/General#Disambiguation and redirection|Disambiguation links]]'' should be the first visible elements of the page, before any maintenance tags, infobox, or image; if a reader has reached the wrong page, they would want to know that first. Text-only browsers and [[screen reader]]s present the page sequentially. A "for topics of the same name ..." disambiguation link is sometimes put at the beginning of an article to link to another article discussing another meaning of the article title. In such cases, the line should be italicized and indented using [[Wikipedia:Hatnote#Hatnote templates|hatnote templates]]. Do not make this initial link a section. {{crossref|See also [[WP:Hatnote]].}}
+*''Deletion tags'' ([[Wikipedia:Criteria for speedy deletion|speedy deletion]], [[Wikipedia:Proposed deletion|proposed deletion]], and [[Wikipedia:Articles for deletion|articles for deletion]] notices).
+*''[[Wikipedia:Template index/Maintenance|Maintenance tags]]'' should be below the disambiguation links. These tags inform the reader about the general quality of the article and should be presented to the user before the article itself.
+*''[[WP:ENGVAR|English variety]]'' and ''[[Wikipedia:Overview of date formatting guidelines|date style]]'' tags help editors maintain consistency in articles as they are developed.
+*''[[Wikipedia:Manual of Style/Infoboxes|Infoboxes]]'' contain summary information or an overview relating to the subject of the article, and therefore should be put before any text (though, in actuality, they generally appear to the side of the text of the lead). The primary difference between an infobox and a [[Wikipedia:Navigation template|navigational box]] is the presence of parameters: a navigational box is exactly the same in all articles of the same topic, while an infobox has different contents in each article.
+*''{{[[:Template:Contains special characters|Contains special characters]]}}'' alerts readers that the article contains special characters which may not be supported by their platform. If required, the warning should be sufficiently near any text using the special characters that scrolling is not required to see the warning. This is generally after short infoboxes, but before long ones.
+*''[[Wikipedia:Images|Images]].'' As with all images, but particularly the lead, the image used should be relevant and technically well-produced. It is also common for the lead image to be representative because it provides a visual association for the topic and allows readers to quickly assess if they have arrived at the right page. Image captions are part of the article text. If the article has disambiguation links (dablinks), then the introductory image should appear just before the introductory text. Otherwise a screen reader would first read the image's caption, which is part of the article's contents, then "jump" outside the article to read the dablink, and then return to the lead section, which is an illogical sequence. ''See also'' {{slink|Wikipedia:Manual of Style/Images|Images for the lead}}.
+*{{va|''[[Wikipedia:Categories, lists, and navigation templates#Navigation templates|Sidebars]]'' are a cohesive collection of links used in multiple related articles to facilitate navigation between those articles. {{shortcut|WP:LEADSIDEBAR}}The placement of a sidebar in the lead is generally discouraged;<ref>[[Special:Permalink/991238102#Sidebars (navboxes) should NOT be used in the lead|November 2020 RfC]]</ref> it may be included on a case-by-case basis, placed preferably {{em|after}} the lead-section image and infobox. Outside the lead, sidebars are often placed at the top of an article section.<!--For the purposes of complying with accessibility.-->|Sidebars|LEADSIDEBAR}}
+*All but the shortest articles should start with ''[[#First sentence|introductory text]]'' (the "lead"), which establishes significance, includes mention of significant criticism or controversies, and makes readers want to learn more. {{va|LEADNOHEADING|text=The lead has no heading.}} ''See also {{slink|Wikipedia:Writing better articles|Lead section}}''.
+*On older [[Wikipedia:Skin|skins]] ([https://en.wikipedia.org/wiki/Chestnut_sparrow?useskin=monobook example]), the ''[[Help:Section#Table of contents (TOC)|table of contents]]'' (TOC) automatically appears on pages with at least four headings. Avoid [[Help:Section #Floating the TOC|floating the ToC]]. If you must use a floated TOC, put it below the lead section in the wiki markup for consistency. Users of [[screen reader]]s expect the table of contents to follow the introductory text; they also miss text placed between the TOC and the first heading.
+
+==Citations==
+{{shortcut|MOS:LEADCITE|MOS:CITELEAD}}
+{{see|Wikipedia:Verifiability|Wikipedia:Citing sources}}
+{{For|instructions on how to "bundle" citations|Help:Citation merging}}
+{{seealso| Help:Transclusion#Drawbacks}}
+The lead section must conform to our policies on [[Wikipedia:Verifiability|verifiability]], [[Wikipedia:Biographies of living persons|biographies of living persons]], and other policies. The verifiability policy states that "[a]ll quotations, and any material whose verifiability has been challenged or is likely to be challenged, must include an [[Wikipedia:Inline citation|inline citation]] to a reliable source that [[Wikipedia:Directly supports|directly supports]] [it]".
+
+Because the lead usually repeats information that is in the body, editors should balance the desire to avoid redundant citations in the lead with the desire to aid readers in locating sources for such material. Although the presence of citations in the lead is neither required in every article nor prohibited in any article, there is no exception to citation requirements specific to leads. The necessity for citations in a lead should be determined on a case-by-case basis by editorial [[Wikipedia:Consensus|consensus]]. Complex, current, or controversial subjects may require many citations; others, few or none.
+
+{{shortcut|MOS:SCROLLDOWN}}
+Since the lead summarizes the body, citations supporting claims in the lead can usually be found in the body. Before adding the {{t|Citation needed}} tag to the lead, editors should check the body of the article to see if the claim is already cited. If the claim is unsourced in the body as well, it is better to add the tag to the relevant sentence in the body rather than in the lead. As editors are often unaware of this guideline, [[WP:Assume good faith|good faith should be assumed]] when {{t|Citation needed}} tags are erroneously added to lead sections; {{tls|Leadcite comment}} can be added to article leads that attract unwarranted {{t|Citation needed}} tags.
+
+==<span class="anchor" id="Intro"></span>Content==
+{{shortcut|MOS:INTRO}}
+
+===<span class="anchor" id="summarize"></span>Provide an accessible overview===
+{{see also|Wikipedia:Summary style}}
+The lead section should briefly summarize the most important points covered in an article, in such a way that it can stand on its own as a concise version of the article. The reason for a topic's noteworthiness should be established, or at least introduced, in the lead (but not by using subjective [[Wikipedia:Manual of Style/Words to watch#Puffery|peacock terms]] such as "acclaimed" or "award-winning" or "hit"). 
+
+The body is allowed to repeat points from the lead, since the lead summarizes the points of the body and the body provides elaboration on those points, which are usually reiterated. Consideration should be given to creating interest in the article, but [[#Comparison to the news-style lead|do not hint]] at startling facts without describing them.
+
+It is even more important here than in the rest of the article that the text be accessible. Make the lead section [[Wikipedia:Make technical articles understandable|accessible to as broad an audience as possible]].
+
+Editors should avoid lengthy paragraphs and overly specific descriptions{{snd}}greater detail is saved for the [[MOS:BODY|body of the article]]. Where possible, avoid difficult-to-understand [[terminology]], symbols, mathematical equations and formulas.
+
+Where uncommon terms are essential, they should be placed in context, linked, and briefly defined. The subject should be placed in a context familiar to a normal reader. For example, it is better to describe the location of a town with reference to an area or larger place than with coordinates. Readers should not be dropped into the middle of the subject from the first word; they should be eased into it.
+
+===<span class="anchor" id="Rel"></span>Relative emphasis===
+{{shortcut|MOS:LEADREL|MOS:LEADNO|MOS:LEADNOTUNIQUE|MOS:LEADPROPORTION}}
+{{See also|Wikipedia:Neutral point of view#Balancing aspects}}
+According to [[Wikipedia:Neutral point of view#Due and undue weight|the policy on due weight]], emphasis given to material should reflect its relative importance to the subject, according to published [[Wikipedia:Reliable sources|reliable sources]]. This is true for both the lead section and the body of the article. If there is a difference in emphasis between the two, editors should seek to resolve the discrepancy.
+
+Significant information should not appear in the lead, apart from basic facts, if it is not covered in the remainder of the article, although not everything in the lead must be repeated in the body of the text. Exceptions include specific facts such as [[quotation]]s, examples, birth dates, [[taxonomic]] names and [[typology|typological classifications]], [[case number]]s, and [[title]]s. This admonition should not be taken as a reason to exclude information from the lead, but rather to harmonize coverage in the lead with material in the body of the article.
+
+===<span class="anchor" id="Establish context"></span>Opening paragraph===
+
+{{shortcut|MOS:OPEN|MOS:BEGIN}}
+The first paragraph should [[Wikipedia:Wikipedia is not a dictionary#Good definitions|define]] or identify the topic with a [[Wikipedia:Neutral point of view|neutral point of view]], but without being too specific. It should establish the context in which the topic is being considered by supplying the set of circumstances or facts that surround it. If appropriate, it should give the location and time. It should also establish the boundaries of the topic; for example, the lead for the article [[List of environmental issues]] succinctly states that the list covers "harmful aspects of human activity on the biophysical environment".
+
+===<span class="anchor" id="First sentence format"></span><span class="anchor" id="Clutter"></span>First sentence===
+
+{{shortcut|MOS:FIRST|MOS:LEADSENTENCE}}
+{{redirect|MOS:FIRST|the guideline on ordinals|Wikipedia:Manual of Style/Dates and numbers#Ordinals}}
+{{see also|Wikipedia:Writing better articles#Use of "refers to"|Wikipedia:Wikipedia is not a dictionary#Fixing the introductory sentence: removing "refers to"|Wikipedia:Manual of Style/Biography#Post-nominal letters}}
+The first sentence should introduce the topic, and tell [[WP:GENAUD|the nonspecialist reader]] <em>what</em> or <em>who</em> the subject is, and often <em>when</em> or <em>where</em>. It should be in [[plain English]]. 
+
+If its subject is definable, then the first sentence should give a concise definition: where possible, one that puts the article in context for the nonspecialist. Similarly, if the title is a [[technical terminology|specialized term]], provide the context as early as possible.{{efn-ua|For example, instead of: {{block indent|A '''trusted third party''' is an entity that facilitates interactions between two parties who both trust the third party.}} write: {{block indent|In [[cryptography]], a '''trusted third party''' is an entity that facilitates interactions between two parties who both trust the third party.}}}}
+
+For topics [[Wikipedia:Notability|notable]] for only one reason, this reason should usually be given in the first sentence.{{efn-ua|For example:
+{{block indent|'''Amalie Emmy Noether''' {{IPA|de|ˈnøːtɐ|}} (23 March 1882&nbsp;– 14 April 1935) was a German [[mathematician]] known for her groundbreaking contributions to [[abstract algebra]] and her contributions to [[theoretical physics]].}}
+
+This example not only tells the reader that the subject was a mathematician, but it also indicates her field of expertise and the work she did outside of it. The years of her birth and death provide time context. The reader who goes no further in this article already knows when she lived, what work she did, and why she is notable. ([[Wikipedia:Manual of Style/Biographies]] has more on the specific format for biography articles.)}}
+
+{{shortcut|MOS:LEADCLUTTER}}
+{{va|Lead clutter|text=Do not overload the first sentence by describing everything notable about the subject. Instead, spread the relevant information out over the entire lead. Avoid cluttering the first sentence with an [[Wikipedia:Manual of Style/Linking#What generally should not be linked| excessive number of links]] or with a long parenthetical containing items like alternative spellings and pronunciations; these can make the sentence difficult to read. Such information should instead be placed elsewhere, such as in an "Etymology" section, in the infobox (using the {{Parameter|pronunciation}} or {{Parameter|native_name}} parametera), or in an [[Help:Footnotes|explanatory footnote]].}}{{efn-ua|For example:
+{{block indent|'''Sweden''',{{efn|{{langx|sv|Sverige}} {{IPA|sv|ˈsvæ̌rjɛ||Sv-Sverige.ogg}}; {{langx|fi|Ruotsi}}; {{langx|fit|Ruotti}}; {{langx|se|Ruoŧŧa}}; {{langx|smj|Svierik}}; {{langx|sje|Sverji}}; {{langx|sju|Sverje}}; {{langx|sma|Sveerje}} or {{lang|sma|Svöörje}}; {{langx|yi|שוועדן|Shvedn}}; {{langx|rmu|Svedikko}}; {{langx|rmf|Sveittiko}}.}} formally the '''Kingdom of Sweden''',{{efn|{{langx|sv|links=no|Konungariket Sverige}} {{IPA|sv|ˈkôːnɵŋaˌriːkɛt ˈsvæ̌rjɛ||Sv-Konungariket Sverige.ogg}}}} is a Nordic country located on the Scandinavian Peninsula in Northern Europe.}}
+versus 
+{{block indent|'''Sweden''' ({{langx|sv|Sverige}} {{IPA|sv|ˈsvæ̌rjɛ||Sv-Sverige.ogg}}), formally the '''Kingdom of Sweden''' ({{langx|sv|links=no|Konungariket Sverige}} {{IPA|sv|ˈkôːnɵŋaˌriːkɛt ˈsvæ̌rjɛ||Sv-Konungariket Sverige.ogg}}), is a Nordic country located on the Scandinavian Peninsula in Northern Europe.}}}}
+
+==== Using the article title as subject ====
+{{Shortcut|MOS:LEADTITLE|MOS:LEADSUBJECT}}
+If possible, the [[Wikipedia:Manual of Style#Article titles|page title]] should be the [[subject (grammar)|subject]] of the first sentence.{{efn-ua|For example, use:
+{{block indent|This '''Manual of Style''' is a [[style guide]] containing&nbsp;...}}
+not:
+{{block indent|This [[style guide]], known as the '''Manual of Style''', contains&nbsp;...}}
+}} In this case, it may include variations, including plural forms (particularly if they are unusual or confusing) or [[synonym]]s.{{efn-ua|For example, in the article "[[Matrix (mathematics)]]":
+{{block indent|In mathematics, a '''matrix '''(plural '''matrices''') is a rectangular array of numbers, symbols, or expressions, arranged in rows and columns.}}}} The page title may also appear in a slightly different form{{efn-ua|For example, in the article "[[United Kingdom]]":
+{{block indent|The '''United Kingdom of Great Britain and Northern Ireland''', commonly known as the '''United Kingdom''', the '''UK''', or '''Britain''', is a sovereign [[island country]] located off the north-western coast of [[continental Europe]].}}
+}} and should omit any [[Wikipedia:Consistency in article titles#Use consistent disambiguators for similar kinds of topics|parenthetical disambiguator]].{{efn-ua|
+For example, use:
+{{block indent|'''Mercury''' is the first planet from the Sun&nbsp;...}}
+not:
+{{block indent|'''Mercury (planet)''' is the first planet from the Sun&nbsp;...}}}} 
+
+If an [[Wikipedia:Article titles|article title]] is a formal or widely accepted name for the subject, display it as early as possible in the first sentence:
+{{block indent|The '''electron''' is a [[subatomic particle]] with a negative [[elementary charge|elementary]] [[electric charge]]. ([[Electron]])}}
+
+However, there are exceptions in which the page title should not be used as the subject, see {{slink|#Alternative biographical names}} and {{slink|#Other types of articles}}. Similarly, if the article title is merely descriptive—such as [[Electrical characteristics of dynamic loudspeakers]]—it does not need to appear verbatim in the first sentence.
+
+It is nevertheless preferable to include the title if this can be accommodated in a natural way:
+{{block indent|The '''United States presidential line of succession''' is the order in which officials of the United States{{nbsp}}... ([[United States presidential line of succession]])}}
+
+=====Avoid redundancy=====
+{{shortcut|MOS:REDUNDANCY}}
+{{redirect|WP:REDUNDANCY|redundant articles|Wikipedia:Avoiding common mistakes#Redundant|redundancy in section headings|Wikipedia:Manual of Style#SECTIONSTYLE}}
+
+Keep [[Redundancy (linguistics)|redundancy]] to a minimum in the first sentence. Use the first sentence of the article to provide relevant information that is {{strong|not}} already given by the title of the article.
+
+For example:
+{{block indent|[[File:Red x.svg|15px|link=|alt=Bad:]] '''Iraq–Pakistan relations''' are the relations between [[Iraq]] and [[Pakistan]]. }}
+{{block indent|[[File:Yes check.svg|15px|link=|alt=Good:]] [[Iraq]] and [[Pakistan]] established [[diplomatic relations]] in 1947.  }}
+
+The statement ''relations are the relations'' does not help a reader who does not know the meaning of ''diplomatic relations''. The second version sensibly includes new information (that relations were established in 1947) in the first sentence, rather than repeating the title.
+
+{{shortcut|MOS:AVOIDBOLD|MOS:!LEADBOLD}}
+{{va|Avoid boldface|text=If the article title does not lend itself to being used easily and naturally in the first sentence, the wording should not be distorted in an effort to include it. Instead, simply describe the subject in normal English, avoiding unnecessary redundancy.}}
+{{block indent|[[File:Red x.svg|15px|link=|alt=Bad:]] The '''2011 Mississippi River floods''' were a series of [[flood]]s affecting the [[Mississippi River]] in April and May 2011, which were among the largest and most damaging recorded along the [[U.S.]] waterway in the past century.}}
+{{block indent|[[File:Green check.svg|15px|link=|alt=Good:]] Major [[flood]]s along the [[Mississippi River]] in April and May 2011 were among the largest and most damaging recorded along the [[U.S.]] waterway in the past century.}}
+
+Sometimes a little redundancy is unavoidable. For example, the ''[[Oxford English Dictionary]]'' (OED) has to be called by its proper name in its article, and cannot be called anything other than a ''dictionary'' in the first sentence. Even in these cases, the first sentence should provide information not given in the title. But try to rephrase whenever possible. Instead of:
+{{block indent|[[File:Red x.svg|15px|link=|alt=Bad:]] The '''''Oxford English Dictionary''''' is a [[dictionary]] of the [[English language]].}}
+consider:
+{{block indent|[[File:Green check.svg|15px|link=|alt=Good:]] The '''''Oxford English Dictionary''''' is the principal historical [[dictionary]] of the [[English language]].}} 
+Both contain some redundancy, but the second is better because it tells us that the OED is the world's ''most respected'' dictionary of English.
+
+====<span class="anchor" id="Bold title"></span>Format of the first sentence====
+
+{{Shortcut|MOS:BOLDLEAD|MOS:BOLDTITLE}}
+{{See also|Wikipedia:Manual of Style/Text formatting#Boldface|Wikipedia:Superfluous bolding explained}}
+When the article title appears verbatim in the first sentence, it should be in bold. In articles where the article title does not appear verbatim in the first sentence, boldface is not used.
+
+=====<span class="anchor" id="BOLDSYN"></span><span class="anchor" id="MOSBOLDSYN"></span><span class="anchor" id="Abbreviations and synonyms"></span>Bolding of title and alternative names=====
+
+{{Shortcut|MOS:BOLDALTNAMES|MOS:BOLDSYN}}
+{{see also|Wikipedia:Manual of Style/Biography#Text formatting }}
+Only the first occurrence of the title and {{em|significant}} [[#Alternative names|alternative names]] (which should usually also [[Wikipedia:Redirect|redirect]] to the article){{efn-ua|"Usually" here can account for cases like "'''Foo''', also known as '''Bar''', '''Baz''', or '''Quux'''", where the "Baz" item is actually not a redirect from "Baz", but maybe "Baz (chemistry)", and so it wouldn't fit an absolute redirect requirement, but would be visually confusing if de-boldfaced between the other two. "Usually" isn't blanket license to [[Wikipedia:Manual of Style/Text formatting#When not to use boldface|boldface things for emphasis]].}} are placed in bold:
+
+{{block indent|'''Mumbai''', also known as '''Bombay''', is the capital of the [[India]]n state of [[Maharashtra]]. ([[Mumbai]])}}
+Common abbreviations (in parentheses after the corresponding title) are considered significant alternative names in this sense:
+{{block indent|The '''International Music Score Library Project''' ('''IMSLP'''), also known as the '''Petrucci Music Library''' after publisher [[Ottaviano Petrucci]], is a&nbsp;... ([[International Music Score Library Project]])}}
+
+For a [[Wikipedia:Manual of Style/Biography|biographical article]] beginning with the subject's full name, put the full name in bold. {{Crossreference|text=(See {{slink|#Alternative_biographical_names}}.)}}
+
+If an article is about an event involving a subject about which there is no main article, especially if the article is the [[Wikipedia:Redirect#What needs to be done on pages that are targets of redirects?|target of a redirect]], the subject should be in bold:
+{{block indent| '''Azaria Chantel Loren Chamberlain''' (11 June – 17 August 1980) was an Australian baby girl who was killed by a dingo on the night of 17 August 1980{{nbsp}}... ([[Death of Azaria Chamberlain]], redirected from Azaria Chamberlain)}}
+
+Do not boldface non-English names not normally used in English. {{Crossreference|text=(See {{slink|#Other_languages}}.)}}
+{{block indent|'''Milan''' ({{langx|it|Milano}}) is a city in northern Italy.}}
+
+Do not boldface alternative names on the [[Main Page]].
+
+=====Inclusion of foreign equivalents=====
+{{shortcut|MOS:FOREIGNEQUIV}}
+
+If the subject of the article is closely associated with a non-English language, a single equivalent name in another language may be included in the lead sentence, usually in parentheses. For example, an article about a location in a non-English-speaking country typically includes the local-language equivalent:
+{{block indent|'''Chernivtsi Oblast''' ({{langx|uk|Чернівецька область}}, {{lang|uk-Latn|Chernivetska oblast}}) is an [[administrative divisions of Ukraine|oblast]] (province) in western [[Ukraine]], bordering on [[Romania]] and [[Moldova]].}}
+
+Do not include non-English equivalents in the text of the lead sentence for alternative names or for particularly lengthy names, as this clutters the lead sentence and impairs readability. Do not include non-English equivalents in the lead sentence just to show etymology. Non-English names should be moved to a footnote, the infobox, or [[#Separate section usage|elsewhere]] in the article if they would otherwise clutter the first sentence.{{efn-ua|name="Khan"}}
+
+When the subject is closely associated with more than one non-English language, the lead sentence should normally not single out one of them. In such cases, all non-English equivalents should be placed together in a single explanatory footnote (or in a "Names" section or similar), rather than in the text of the first sentence, in order to avoid clutter and disputes over which language to feature. Separate languages should be divided by [[semicolon]]s; [[romanization]]s of non-Latin scripts, by [[comma]]s. Do not boldface non-English names not normally used in English. Some non-English terms should be italicized. These cases are described in the [[Wikipedia:Manual of Style/Text formatting#Foreign terms|Manual of Style for text formatting]].
+{{block indent|The '''Inuit''' ({{IPAc-en|ˈ|ɪ|nj|u|ɪ|t}}, singular '''Inuk'''; [[Inuktitut language|Inuktitut]]: {{lang|iu|{{linktext|ᐃᓄᐃᑦ}}}} {{gloss|the people}}) are a group of culturally similar [[indigenous peoples]] inhabiting the [[Arctic]] regions of [[Greenland]], Canada and [[Alaska]]&nbsp;...}}
+
+=====Other details or phrases to include or exclude=====
+* Dates and locations should be included in the first sentence if they help the reader to quickly determine if they're reading the right article. For instance, in the article [[Spanish–American War]], the text of the lead begins: {{block indent|The '''Spanish–American War'''{{efn|{{langx|es|Guerra hispano-estadounidense}} or {{lang|es|Guerra hispano-americana}}; {{langx|fil|Digmaang Espanyol–Amerikano}}). Some historians prefer alternative titles, e.g.:
+*{{citation|author=Louis A. Pérez|title=The war of 1898: the United States and Cuba in history and historiography|url=https://books.google.com/books?id=OVFV4qclY-YC|year=1998|publisher=UNC Press Books|isbn=978-0-807-84742-8|access-date=October 31, 2015}}
+*{{citation|author=Benjamin R. Beede|title=The War of 1898, and US interventions, 1898–1934: an encyclopedia|url=https://books.google.com/books?id=48g116X9IIwC|year=1994|publisher=Taylor & Francis|isbn=978-0-824-05624-7|access-date=October 31, 2015}}
+*{{citation|author1=Thomas David Schoonover|author2=Walter LaFeber|title=Uncle Sam's War of 1898 and the Origins of Globalization|url=https://books.google.com/books?id=3u3ctVjVNPsC|year=2005|publisher=University Press of Kentucky|isbn=978-0-813-19122-5|access-date=October 31, 2015|url-status=live}}
+*{{citation|author=Virginia Marie Bouvier|title=Whose America?: the war of 1898 and the battles to define the nation|url=https://books.google.com/books?id=dwp3AAAAMAAJ|year=2001|publisher=Praeger|isbn=978-0-275-96794-9|access-date=October 31, 2015}}
+}} (April 21 – August 13, 1898) was an [[armed conflict]] between [[Spain under the Restoration|Spain]] and the [[United States]].}}
+*{{shortcut|MOS:REFERS}} Avoid constructions like "[Subject] [[WP:REFERS|refers to]]&nbsp;..." or "...&nbsp;[[WP:ISAWORDFOR|is a word for]]&nbsp;..."{{snd}} the article is about the subject, not a term <em>for</em> the subject.{{efn-ua|For example:
+{{block indent|'''Camping''' is an [[outdoor activity]] involving overnight stays away from home in a shelter&nbsp;...}}not
+{{block indent|'''Camping''' refers to an [[outdoor activity]] involving overnight stays&nbsp;...}}
+}} For articles that are actually about terms, [[WP:WORDSASWORDS|italicize the term]] to indicate the [[use–mention distinction]].{{efn-ua|For example:
+{{block indent|'''''Irregardless''''' is a word sometimes used in place of ''regardless'' or ''irrespective''&nbsp;...}}
+not
+{{block indent|'''Irregardless''' is a word sometimes used&nbsp;...}}
+}}
+
+=====<span id="Avoid these common mistakes"></span>Avoid these other common mistakes=====
+{{shortcut|MOS:BOLDLINK|MOS:BOLDLINKAVOID}}
+Links should not be placed in the [[emphasis (typography)#Methods and use|boldface]] reiteration of the title in the first sentence of a lead:{{efn-ua|Many, but not all, articles repeat the article title in bold face in the first line of the article. Linking the article to itself produces '''boldface text'''; this practice is discouraged because a page move results in a useless circular link through a redirect. Linking {{em|part}} of the bolded text is also discouraged because it changes the visual effect of bolding; some readers may miss the visual cue which is the purpose of using bold face in the first place.}}{{efn-ua|Disambiguation pages are navigational aides rather than articles and where there is a primary topic for a term, the introductory line for that term's disambiguation page does typically have that term both linked and bolded; see [[MOS:DABPRIMARY]]}}
+
+{{block indent|[[File:Red x.svg|15px|link=|alt=Bad:]] The '''[[Babe Ruth]] Award''' is given annually to the [[Major League Baseball]] (MLB) player with the best performance in the [[Major League Baseball postseason|postseason]]. }}
+{{block indent|[[File:Yes check.svg|15px|link=|alt=Good:]] The '''Babe Ruth Award''' is given annually to the [[Major League Baseball]] (MLB) player with the best performance in the [[Major League Baseball postseason|postseason]]. The award, created in honor of [[Babe Ruth]], was first awarded in 1949 to the MVP of the [[World Series]], one year after Ruth's death.}}
+
+As an exception, disambiguation pages may use bolding for [[MOS:DABPRIMARY|the link to the primary topic]], if there is one.
+
+{{anchor|MOSTITLEABSENT|MOSTITLEABSENTBOLD|MOSBEATLESINUS|BEATLES}}
+{{Shortcut|MOS:TITLEABSENT|MOS:TITLEABSENTBOLD}}
+In general, if the article title (or a significant alternative title) is absent from the first sentence, do not apply the bold style to related text that {{em|does}} appear (example from [[1999 Nepalese general election]]):
+{{block indent|[[File:Red x.svg|15px|link=|alt=Bad:]] '''General elections''' were held in [[Nepal]] on May 3 and May 17, 1999.}}
+{{block indent|[[File:Yes check.svg|15px|link=|alt=Good:]] General elections were held in [[Nepal]] on May 3 and May 17, 1999.}}
+
+=====Proper names and titles=====
+If the title of the page is normally [[Wikipedia:ITALICS|italicized]] (for example, a work of art, literature, album, or ship) then its first mention should be both bold and italic text:
+{{block indent|'''''Las Meninas''''' (Spanish for '''''The Maids of Honour''''') is a 1656 painting by [[Diego Velázquez]],&nbsp;...
+{{pb}}
+'''''The Good, the Bad and the Ugly''''' ({{langx|it|link=no|Il buono, il brutto, il cattivo}}) is a 1966 Italian epic [[spaghetti Western]] film&nbsp;...}}
+{{anchor|NOBOLDQUOT}}
+{{shortcut|MOS:NOBOLDQUOT}}
+If the mention of the article title is surrounded by quotation marks, the title should be bold but the quotation marks should not be:
+{{block indent|"'''Yesterday'''" is a song originally recorded by [[the Beatles]] for their 1965 album ''[[Help!]]''}}
+
+=====Pronunciation=====
+{{shortcut|MOS:LEADPRON}}
+{{details|topic=the formatting of pronunciation in the first sentence|Wikipedia:Manual of Style/Pronunciation}}
+
+Do not include pronunciation guides in the lead sentence for words where the correct pronunciation is intuitive from how it is spelled, or for common English-language words—even those with pronunciations that are counterintuitive for those learning the language ([[laughter]], [[sword]]) or those closely related to words in other languages ([[Paris]], [[Poland]]). Including pronunciations may be useful for unusual English-language words ([[synecdoche]], [[atlatl]]).
+
+If the name of the article has a pronunciation that is not apparent from its spelling, include its [[Help:IPA|pronunciation]]  after the first occurrence of the name, using either parentheses or a footnote. Such terms are often loanwords or loanphrases from other languages (''[[Mate (drink)|mate]]'', ''[[coup d'état]]''), or proper names ([[Ralph Fiennes]], [[Tuolumne River]], [[Tao Te Ching]]). Limit the pronunciation guide included for a multiword phrase only to those words that require it (e.g., for the entirety of [[Jean van Heijenoort]], but only for ''Cholmondeley'' in [[Thomas P. G. Cholmondeley]]).
+
+It is preferable to move pronunciation guides to a footnote or elsewhere in the article if they would otherwise clutter the first sentence.{{efn-ua|name="Khan"|For example, an excessive lead at [[Genghis Khan]] at one time read:
+{{block indent|1='''Genghis Khan''' (English pronunciation: {{IPAc-en|ˈ|ɡ|ɛ|ŋ|ɡ|ɪ|s|_|ˈ|k|ɑː|n}} or {{IPAc-en|ˈ|dʒ|ɛ|ŋ|ɡ|ɪ|s|_|ˈ|k|ɑː|n}};<sup>[[Genghis Khan#cite_note-6|[1]]]</sup><sup>[[Genghis Khan#cite_note-7|[2]]]</sup> [[Mongolian Cyrillic alphabet|Cyrillic]]: Чингис Хаан, ''Chingis Khaan'', {{IPA|mn|tʃiŋɡɪs xaːŋ|IPA|GenghisKhan01.ogg}}; [[Mongol script]]: [[File:Cinggis qagan.svg|18px]], ''Činggis Qaɣan''; {{zh|t=成吉思汗|s=成吉思汗|p=Chéng Jí Sī Hán|first=t}}; probably May 31, 1162<sup>[[Genghis Khan##cite_note-birth-4|[3]]]</sup> – August 25, 1227), born '''Temujin''' (English pronunciation: {{IPAc-en|t|ə|ˈ|m|uː|dʒ|ɪ|n}}; {{langx|mn|Тэмүжин}}, ''Temüjin'' {{IPA|mn|tʰemutʃiŋ|IPA|Temujin.ogg}}; ''{{langx|xng|Temüjin}}'';<sup>[[Genghis Khan#cite_note-3|[4]]]</sup> {{zh|t=鐵木真|s=铁木真|p=Tiě mù zhēn|first=t}}) and also known by the [[temple name]] '''Taizu''' ({{zh|t=元太祖|s=元太祖|p=Yuán Tàizǔ|w=T'ai-Tsu|first=t}}), was the founder and [[Khagan|Great Khan]] (emperor) of the [[Mongol Empire]], which became the [[World's largest empires|largest]] contiguous empire in history after his death.}}
+
+This was later reduced to:
+{{block indent|1='''Genghis Khan''' (born '''Temüjin'''; {{circa|1162}}{{snd}}August 1227), also known as '''Chinggis Khan''',{{efn|See ''[[Genghis Khan#Name and title|§ Name and title]]''}} was the founder and first [[khan (title)|khan]] of the [[Mongol Empire]].}}
+}}
+A fuller discussion of pronunciation can come later in the article. Do not include pronunciation guides for non-English translations of the article title in the text of the lead sentence, as this clutters the lead sentence and impairs readability.
+
+=====Contextual links=====
+{{shortcut|MOS:CONTEXTLINK}}
+The first sentence should provide links to the broader or more elementary topics that are important to the article's topic or place it into the [[context (language use)|context]] where it is [[Wikipedia:Notability|notable]].
+
+For example, an article about a building or location should include a link to the broader geographical area of which it is a part.
+{{block indent|'''Arugam Bay''' is a [[bay]] on the [[Indian Ocean]] in the dry zone of [[Sri Lanka]]'s southeast coast.}}
+
+{{shortcut|MOS:FIRSTTERM}}
+In an article about a technical or jargon term, the first sentence or paragraph should normally contain a link to the [[field of study]] that the term comes from.
+{{block indent|In [[heraldry]], '''tinctures''' are the colours used to [[blazon|emblazon]] a [[coat of arms]].}}
+
+The [[Wikipedia:Manual of Style/Biographies#Opening paragraph|first sentence of an article about a person]] should link to the page or pages about the topic where the person achieved prominence.
+{{block indent|'''Harvey Lavan''' "'''Van'''" '''Cliburn Jr.''' (July 12, 1934 – February 27, 2013) was an American [[pianist]] who achieved worldwide recognition in 1958 at age 23, when he won the first quadrennial [[International Tchaikovsky Competition|International Tchaikovsky Piano Competition]] in Moscow, at the height of the [[Cold War]].}}
+
+Exactly what provides the context needed to understand a given topic varies greatly from topic to topic.
+{{block indent|The '''Gemara''' is the component of the [[Talmud]] comprising rabbinical analysis of and commentary on the [[Mishnah]].}}
+
+Do not, however, add contextual links that don't relate directly to the topic's definition or reason for notability. For example, [[Van Cliburn|Van Cliburn's]] first sentence links to [[Cold War]] because his fame came partly from his Tchaikovsky Competition victory being used as a Cold War symbol. The first sentence of a page about someone who rose to fame in the 1950s for reasons unrelated to the Cold War should not mention the Cold War at all, even though the Cold War is part of the broader historical context of that person's life. By the same token, [[Wikipedia:Manual_of_Style/Linking#Linking month-and-day or year|do not link to years]] unless the year has some special salience to the topic.
+
+Most Featured Articles contain about 12 to 25 links in the lead, with an average of about 1.5 links per sentence or one link for every 16 words.
+
+Links appearing ahead of the bolded term distract from the topic if not necessary to establish context, and should be omitted even if they might be appropriate elsewhere in the text. For example, a person's title or office, such as colonel, naturally appears ahead of their name, but the word "Colonel" should not have a link, since it doesn't establish context. (Do not, however, reword a sentence awkwardly just to keep a needed contextual link from getting ahead of the bolded term.)
+{{block indent|Colonel '''Charles Hotham''' (died 1738) was a special [[Her Majesty's Diplomatic Service|British envoy]] entrusted by [[George II of Great Britain|George II]] with the task of negotiating a double marriage between the [[House of Hanover|Hanover]] and [[Hohenzollern]] dynasties.}}
+
+==== Format for specific types of articles ====
+=====Physical location=====
+{{shortcut|MOS:FIRSTLOCATION|MOS:LOCATION|MOS:FL}}
+For articles on buildings, venues, monuments, and other physical structures, state the location in the first sentence of the lead. Typically this means specifying the city, administrative region (if appropriate), and country:
+{{block indent|The '''Eiffel Tower''' is a [[wrought-iron]] [[lattice tower]] on the [[Champ de Mars]] in [[Paris]], France.}}
+
+For structures within US municipalities, the typical format is "MUNICIPALITY, STATE, United States":
+{{block indent|'''MetLife Stadium''' is a [[multi-purpose stadium]] at the [[Meadowlands Sports Complex]] in [[East Rutherford, New Jersey|East Rutherford]], New Jersey, United States.}}
+{{block indent|The '''Hollywood Bowl''' is an [[amphitheatre]] and [[Urban park|public park]] in the [[Hollywood Hills]] of [[Los Angeles]], California, United States.}}
+
+If a city or similar geographic entity is mentioned in the lead of other articles, the same format should be used.
+
+=====Organisms=====
+{{For-multi|capitalization|WP:Manual of Style#Animals, plants, and other organisms|animal article titles|WP:Naming conventions (fauna)|plant article titles|WP:Naming conventions (flora)}}
+{{Further|topic=technicalities of biological nomenclature|WP:Manual of Style/Organisms}}
+When a common (vernacular) name is used as the article title, the boldfaced common name is followed by the italic boldfaced scientific name in round parentheses in the first sentence of the lead. Alternative names should be mentioned and reliably sourced in the text where applicable, with bold type in the lead if they are in wide use, or elsewhere in the article (with or without the bold type, per editorial discretion) if they are less used. It is not necessary to include non-English common names, unless they are also commonly used in English, e.g. regionally; if included, they should be italicized as non-English.
+{{block indent|'''Thomson's gazelle''' ('''''Eudorcas thomsonii''''') is the most common gazelle of [[East Africa]]{{nbsp}}...
+}}
+
+When the article title is the scientific name, reverse the order of the scientific and common name(s) (if any of the latter are given), and boldface as well as italicize the scientific name. Avoid putting the most common name in parentheses (this suppresses its display in some views of Wikipedia, including [[Wikipedia:Pop-ups]] and [[Google Knowledge Graph]]).
+{{block indent|'''''Vitis vinifera''''', the '''common grape vine''', is a species of ''[[Vitis]]'', native to the [[Mediterranean basin|Mediterranean region]], central Europe, and southwestern Asia{{nbsp}}...
+{{pb}}
+'''''Brassica oleracea''''' is the [[species]] of plant that includes many common foods as [[cultivar]]s, including [[cabbage]], [[broccoli]], [[cauliflower]], [[kale]], [[Brussels sprouts]], [[Savoy cabbage|savoy]], and [[Chinese kale]]{{nbsp}}...
+}}
+
+===== Other types of articles =====
+* {{shortcut|MOS:THISISALIST}} If the page is a [[Wikipedia:Manual of Style/Lists|list]], do {{strong|not}} introduce the list as "This is a '''list of X'''" or "This '''list of Xs'''&nbsp;...". A clearer and more informative introduction to the list is better than verbatim repetition of the title. A good example of this is the [[List of Benet Academy alumni]]. {{Crossreference|text=(See {{slink|#Format_of_the_first_sentence}}.)}}
+
+* If the article is about a company or organization, the first sentence should start with its full legal name, regardless of page title {{Crossreference|text=(see also [[MOS:FIRSTCORP]])}}.
+
+* If the article is about a fictional character or place, make clear that it is fictional.{{efn-ua|For example:
+{{block indent|'''Donkey Kong''' is a fictional ape in the ''Donkey Kong'' and ''Mario'' video game series.}}
+}}
+
+===Scope of article===
+In some cases the definition of the article topic in the opening paragraph may be insufficient to fully constrain the scope of the article. In particular, it may be necessary to identify material that is {{em|not}} within scope. For instance, the article on [[Special:Permalink/597114436|fever]] <!--link points to intended version at the time of addition of this subsection by Spinningspark on 27 February 2014, which is different and reflects this subsection more accurately--> notes that an elevated core body temperature due to [[hyperthermia]] is not within scope. These explanations may best be done at the end of the lead section to avoid cluttering and confusing the first paragraph. This information and other meta material in the lead are not expected to appear in the body of the article.
+
+==Biographies==
+{{main|Wikipedia:Manual of Style/Biography#Lead section|Wikipedia:Biographies of living persons}}
+
+A summary of the key points in [[Wikipedia:Manual of Style/Biography#Lead section|the main guideline]] on this:
+* Reliably sourced material about encyclopedically relevant controversies is neither suppressed in the lead nor allowed to overwhelm; the lead must correctly summarize the article as a whole.
+* Recent events affecting a subject are kept in historical perspective; the most recent is not necessarily the most notable. Balance new information with old, giving all information [[Wikipedia:Neutral point of view#Undue weight|due weight]].
+* [[Wikipedia:What Wikipedia is not#Wikipedia is not a blog, web hosting service, social networking service, or memorial site|Wikipedia is not a memorial site]]; when a subject dies, the lead should not radically change, nor dwell on the death.
+* [[Wikipedia:Biographies of living persons#Privacy of personal information and using primary sources|Do not use primary sources]] for private details about living persons, including birth dates.
+
+{{crossref|For more information on biographical leads in general, see the main guideline: [[Wikipedia:Manual of Style/Biography]]}}
+
+===Biographies' first sentence===
+{{shortcut|MOS:BIOFIRSTSENTENCE}}
+{{details|Wikipedia:Manual of Style/Biography#Opening paragraph}}
+
+Under [[Wikipedia:Manual of Style/Biography#Opening paragraph|the main guideline]] on this, the opening paragraph of a biographical article should neutrally describe the person, provide context, establish [[Wikipedia:Notability|notability]] and explain why the person is notable, and reflect the balance of reliable sources.
+
+The first sentence should usually state:
+#[[Name]](s) and [[title]](s), if any {{crossref|(see also [[WP:NCNOB]])}}. Handling of the subject's name is covered under [[MOS:NAMES]].
+#Dates of birth and death (if found in [[Wikipedia:No original research#Primary, secondary and tertiary sources|secondary sources]]{{snd}}do not use [[Wikipedia:Biographies of living persons#Privacy of personal information and using primary sources|primary sources for birth dates of living persons]] or other private details about them). If specific day–month–year dates for birth/death are given elsewhere in the article, then a simple year{{ndash}}year range may be sufficient to provide context.
+#Context (location, nationality, etc.) for the activities that made the person notable.
+#One, or possibly more, [[Wikipedia:Notability#General notability guideline|noteworthy]] positions, activities, or roles that the person held, avoiding [[Wikipedia:Manual of Style/Words to watch#Puffery|subjective]] or [[Wikipedia:Manual of Style/Words to watch#Contentious labels|contentious]] terms. 
+#The main reason the person is [[Wikipedia:Notability (people)|notable]] (key accomplishment, record, etc.)
+
+However, try not to overload the first sentence by describing everything notable about the subject; instead, spread relevant information over the lead section.
+
+Examples:
+{{block indent|'''Cleopatra VII Philopator'''{{efn|{{langx|grc|Κλεοπάτρα Φιλοπάτωρ}}}} (69 – August 12, 30&nbsp;BC), was queen of the [[Ptolemaic Kingdom]] of Egypt, and its last active ruler. 
+{{pb}}
+'''Cesar Estrada Chavez''' (March 31, 1927 – April 23, 1993) was an American labor leader and civil rights activist who, with [[Dolores Huerta]], co-founded the [[National Farm Workers Association]], which later became the [[United Farm Workers]] (UFW)&nbsp;...
+{{pb}}
+'''François Maurice Adrien Marie Mitterrand''' (26 October 1916 – 8 January 1996) was [[President of France]] from 1981 to 1995,&nbsp;...
+{{pb}}
+'''Sir Lewis Carl Davidson Hamilton''' (born 7 January 1985) is a British racing driver&nbsp;...
+}}
+
+===Alternative biographical names===
+{{main|Wikipedia:Manual of Style/Biographies#Names}}
+The basic instructions for biographical names are summarized below; [[Wikipedia:Manual of Style/Biographies#Names|the main guideline]] on this provides additional detail.
+
+* While a [[Wikipedia:Remember the reader|commonly recognizable]] form of name is used as the title of a [[Wikipedia:Manual of Style/Biography|biographical article]], fuller forms of name may be used in the introduction to the lead. For instance, in the article [[Paul McCartney]], the text of the lead begins: "{{xt|'''Sir James Paul McCartney'''}} ...".
+* The name of a person is presented in full if known, including any given names that were abbreviated or omitted in the article title. For example, the article on [[Calvin Coolidge]] gives his name as {{xt|'''John Calvin Coolidge Jr.'''}}
+* If a person changed their full name at some point after birth, the birth name may be given as well, if relevant. For example, a lead may mention a woman's birth name when there are relevant matters before she became notable under her married name; also the lead of the article on [[Caitlyn Jenner]] includes her birth name {{xt|'''William Bruce Jenner'''}} because she was also notable under that name.
+* If a [[hypocorism]] (diminutive) that is common in English is often used for the subject in lieu of a given name, it is {{em|not}} inserted into the name or given after it, e.g., [[Tom Hopper]] has simply {{xt|'''Thomas Edward Hopper'''}}.
+** Also acceptable are formulations like {{xt|'''Alessandro di Mariano di Vanni Filipepi''', known as '''Sandro Botticelli'''}}, when applicable. Hypocorisms are {{em|not}} put in quotation marks.
+* If a person is commonly known by a [[nickname]] (other than a hypocorism), it is presented between quote marks following the last given name or initial, as for [[Bunny Berigan]], which has {{xt|'''Roland Bernard '''"'''Bunny'''"''' Berigan'''}}. The quotation marks are not boldfaced.
+<!--This summary should be checked periodically to ensure it accurately summarizes the relevant material at MOS:BIO.-->
+
+==<span class="anchor" id="LEADALT"></span>Alternative names==
+<!-- Wikipedia:Article_titles#Treatment_of_alternative_names links here -->
+{{shortcut|MOS:LEADALT|MOS:ALTNAME}}
+{{see also|Wikipedia:Article titles#Treatment of alternative names|Wikipedia:Naming conventions (geographic names)|Wikipedia:Manual of Style/Biography#Names}}
+
+[[File:Article title versus first sentence (new).png|300px|thumb|The [[Wikipedia:Article titles|'''article title''']] appears at the top of a reader's browser window and as a large level 1 heading above the editable text of an article, circled here in dark red. The name or names given in the first sentence do not always match the article title. This page advises on the contents of the first sentence, not the article title.]]
+
+By the design of Wikipedia's software, an article can have only one title. When this title is a name, significant alternative names for the topic should be mentioned in the article. These may include alternative spellings, longer or shorter forms, historical names, and significant names in other languages. Indeed, alternative names can be used in article text in contexts where they are more appropriate than the name used as the title of the article. For example, the city now called "[[Gdańsk]]" can be referred to as "Danzig" in suitable historical contexts. 
+
+The editor needs to balance the desire to maximize the information available to the reader with the need to maintain readability. Use this principle to decide whether to mention alternative names in the first sentence, elsewhere in the article, or not at all.{{clear}}
+
+{| class="wikitable"
+|+Ways to present multiple names
+!Option
+!Example
+!When to use
+|-
+|In the first sentence
+|A '''cookie''' ([[American English]]) or '''biscuit''' ([[British English]]) is a baked good...
+|Best when there are only one or two alternative names
+|-
+|In [[parentheses]]
+|'''Munich''' ({{IPAc-en|ˈ|m|juː|n|ɪ|k}} {{respell|MEW|nik}}; {{langx|de|München}} {{IPA|de|ˈmʏnçn̩||De-München2.ogg}}; {{langx|bar|Minga}} {{IPA|bar|ˈmɪŋ(ː)ɐ||Bar-München.ogg}}) is a city...
+|Most popular when there are one or two non-English names, and commonly used for abbreviations and former names
+|-
+|In a footnote
+|'''Gdańsk'''{{efn-lg |1=<nowiki />
+* Pronunciation: 
+** {{IPA|pl|ˈɡdãj̃sk|audio=LL-Q809 (pol)-Olaf-Gdańsk.wav|label=Polish:}} sometimes {{IPA|pl|ˈɡdaɲsk||audio=Pl-Gdańsk.ogg}}
+** {{IPA|en-GB|ɡəˈdænsk}} {{respell|gə|DANSK}}
+** {{IPA|en-US|ɡəˈdɑːnsk}} {{respell|gə|DAHNSK}}<ref>{{cite web |title=the definition of gdansk |url=http://www.dictionary.com/browse/gdansk |website=Dictionary.com}}</ref>
+* Other names:
+** {{langx|csb|Gduńsk}} {{IPA|csb|ɡduɲsk|}}<ref name="Stefan Ramułt 1893">Stefan Ramułt, ''Słownik języka pomorskiego, czyli kaszubskiego'', Kraków 1893, Gdańsk 2003, ISBN 83-87408-64-6.</ref>
+** {{langx|de|Danzig}} {{IPA|de|ˈdantsɪç||De-Danzig2.ogg}} or {{IPA|de|ˈdantsɪk||De-Danzig3.ogg}}
+** {{langx|la|Gedania}}, {{Langx|la|Gedanium|label=none}} or {{Langx|la|Dantiscum|label=none}}.<ref name="Johann Georg Theodor Grässe 1861, p. 71, 237">Johann Georg Theodor Grässe, ''Orbis latinus oder Verzeichniss der lateinischen Benennungen der bekanntesten Städte etc., Meere, Seen, Berge und Flüsse in allen Theilen der Erde nebst einem deutsch-lateinischen Register derselben''. T. Ein Supplement zu jedem lateinischen und geographischen Wörterbuche. Dresden: G. Schönfeld's Buchhandlung (C. A. Werner), 1861, p. 71, 237.</ref>}} is a city...
+{{notelist-lg}}
+|Best for complex material
+|-
+|In an infobox
+|{{Infobox medical condition
+| name = Coronavirus disease 2019<br />(COVID-19)
+| synonyms = COVID, (the) coronavirus
+| pronounce = {{ubl|{{IPAc-en|k|ə|ˈ|r|oʊ|n|ə|v|aɪ|r|ə|s}}|{{IPAc-en|ˌ|k|oʊ|v|ᵻ|d|n|aɪ|n|ˈ|t|iː|n|,_|ˌ|k|ɒ|v|ᵻ|d|-}}
+}}
+}}
+|Useful when there are a large number of alternative names and pronunciations
+|}
+
+===Separate section usage===
+If there are three or more alternative names, they should not be included in the first sentence as this creates clutter. Instead, the names may be footnoted, or moved elsewhere in the article such as in a "Names" or "Etymology" section. As an exception, a local official name different from a widely accepted English name should be retained in the lead.
+
+[[Archaism|Archaic names]], including names used before the [[English orthography#History of the English spelling system|standardization of English orthography]] should be clearly marked as such, i.e., ([[archaism|archaic:]] name), and should not be placed in the first sentence.
+
+===Other languages<span class="anchor" id="Foreign language"></span>===
+{{see also|Wikipedia:Manual of Style/Pronunciation#Non-English names}}
+{{shortcut|MOS:LEADLANG}}
+Wikipedia's naming conventions [[Wikipedia:Article titles#Foreign names and anglicization|recommend the use of English]]. However, where the subject of an article is best known in English-language sources by its non-English name (e.g., [[Taj Mahal]], [[Champs-Élysées]]), the non-English title may be appropriate for the article. {{em|Relevant}} non-English names, such as those of people who do not write their names in English, are encouraged.
+
+For use of other languages in the first sentence, see {{slink||Inclusion of foreign equivalents}} above.
+
+==<span class="anchor" id="Stubs"></span>Short articles==
+
+{{shortcut|MOS:LEADSTUB|MOS:NOLEAD}}
+{{seealso|WP:OVERSECTION}}
+Where the article is a [[Wikipedia:Stub|stub]] and has no section headings, a lead section may not be necessary. Although Wikipedia encourages expanding stubs, this may be impossible if reliably sourced information is not available. Once an article has been sufficiently expanded, generally to around 400 or 500 words, editors should consider introducing section headings and removing the stub classification. Articles that are shorter than a well-written lead usually do not need a lead.
+
+==Length==
+{{shortcut|MOS:LEADLENGTH|MOS:LONGLEAD}}
+{{See also|Wikipedia:Infobox too large}}
+The appropriate length of the lead section depends on the complexity of the subject and the development of the article. Too short leaves the reader unsatisfied; too long is intimidating, difficult to read, and may cause the reader to lose interest halfway. These suggestions may be useful:
+* The length should conform to readers' expectations of a short, but useful and complete, summary of the topic.
+* Most well-written leads will be longer than about 100 words, with most [[Wikipedia:Featured articles|featured articles]] containing about 250 to 400 words.
+
+Lead sections that reflect or expand on sections in other articles are discussed at [[Wikipedia:Summary style|Summary style]]. Journalistic conventions for lead sections are discussed in the article [[News style]].
+
+==Editing the lead section==
+All users can edit the lead by clicking the edit link of the whole article. By default, there is no edit link just for the lead section, but registered users can get it by enabling one or both of the following [[Help:Preferences|preferences]] (both require JavaScript):
+*{{myprefs|Gadgets|Appearance|check=Add an [edit] link for the lead section of a page}}
+*{{myprefs|Editing|General options|check=Enable section editing by right clicking on section titles}}
+
+A case-by-case alternative that does not require changing preferences is to click on the edit button for any of the other sections in the article, then change the last phrase of the URL to "section=0" and hit return. That will open the lead section for editing.
+
+==<span class="anchor" id="Comparison to news style"></span>Comparison to the news-style lead==
+
+{{Shortcut|MOS:NOTLEDE|MOS:DONTTEASE}}
+Wikipedia lead sections are not written in [[news style]]. Although there are some similarities, such as putting the most important information first and making it possible for any reader to understand the subject even if they only read the lead, there are some differences. The [[lead paragraph]] (sometimes spelled "[[wikt:lede#Etymology 2|lede]]"){{efn-ua|See [[WP:NOTALEDE]] for previous discussion of why "lede" is avoided in this guideline; in summary: it gives a false impression about the purpose, nature, and style of Wikipedia leads.}} of newspaper journalism is a compressed summary of only the most important facts about a story. These basic facts are sometimes referred to as the "[[five Ws]]": ''who'', ''what'', ''when'', ''where'', and ''why''. Journalistic leads normally are only one or two sentences long. By contrast, in Wikipedia articles, the first sentence is usually a definition, the lead is longer, and it ultimately provides more information, as its purpose is to summarize the article, not just introduce it.
+
+{| class="wikitable"
+|+ Comparison of journalistic and encyclopedic leads for the [[Bhopal disaster]]
+|-
+!Journalistic lead
+!Encyclopedic lead
+|-
+|width="50%" valign="top"|Toxic gas leaking from an American-owned insecticide plant in central India killed at least 410 people overnight, many as they slept, officials said today. At least 12,000 were reported injured in the disaster in the city of Bhopal, 2,000 of whom were hospitalized. <br/><small>—Hazarika, Sanjoy (3 December 1984) [http://www.nytimes.com/1984/12/04/world/gas-leak-in-india-kills-at-least-410-in-city-of-bhopal.html "Gas leak in city kills at least 410 in city of Bhopal"] ''The New York Times''</small>
+|width="50%" valign="top"|{{Transclude lead excerpt | Bhopal disaster | paragraphs= 1 | errors= | more=no}}
+|}
+
+==Cleanup==
+For a list of template messages related to the clean-up of lead sections, see [[Template:Introduction cleanup templates]]. Editors are encouraged to improve leads rather than simply tag them.
+
+==See also==
+* {{tl|section length}}, returns the length of a given section, or the article, in bytes or percent
+*[[Help:Section]]
+*[[Wikipedia:How to create and manage a good lead section]]
+*[[Wikipedia:Lead section TT first sentence content]]
+*[[Wikipedia:Lead section TT first sentence format]]
+*[[Wikipedia:Lead section TT text]]
+*[[Wikipedia:Manual of Style/Accessibility]]
+*[[Wikipedia:Wikipedia is not a dictionary#Good definitions|Wikipedia's Good definition policy]]
+*[[Wikipedia:WikiProject Lead Improvement Team]]
+*{{Section link|Wikipedia:Writing better articles|Lead section}}
+
+==Notes==
+{{notelist-ua}}
+
+===Special explanatory note===
+<!-- In order to be able to display the content of the verbatim wikicode of the source article in the example of the Spanish-American War this special section was created, to avoid changing it with the use of ref which was necessary to be displayed with reflist-->
+{{notelist}}
+
+==References==
+{{Reflist}}
+
+{{Style wide}}
+{{Wikipedia policies and guidelines}}
+
+[[Category:Wikipedia Manual of Style (layout)]]

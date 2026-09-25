@@ -1,0 +1,101 @@
+# Tier 3 — mechanical wikitext linter rules.
+#
+# Two scopes (plan Phase 2):
+#   - whole-page scan: `wa analyze` reports pre-existing defects.
+#   - added-lines gate: runs over every proposed diff; violations block render.
+#
+# Schema per rule (consumed by src/checks/linter.rs and tests/linter.rs):
+#   id            stable identifier used in findings
+#   description   one-line human summary
+#   severity      "error" (blocks render on added lines) | "warn" (reported only)
+#   applies       "added-lines" | "whole-page"
+#   sample_violation  wikitext snippet that MUST be flagged (config-derived test)
+#   sample_clean      wikitext snippet that MUST pass (config-derived test)
+
+[rules.refname_autonumber]
+id = "refname-autonumber"
+description = "Named refs must not use auto-generated ':N' names (VisualEditor/automatic); rename to a descriptive stable name"
+severity = "error"
+applies = "added-lines"
+sample_violation = 'The tower is 300 m tall.<ref name=":0">{{cite book|title=Towers}}</ref>'
+sample_clean = 'The tower is 300 m tall.<ref name="towers-book">{{cite book|title=Towers}}</ref>'
+
+[rules.sfn_usage]
+id = "sfn-usage"
+description = "House style bans {{sfn}} short-footnotes; use named refs + {{rp}} for page pinpoints"
+severity = "error"
+applies = "added-lines"
+sample_violation = "Fielding wrote extensively on travel.{{sfn|Fielding|1942|p=12}}"
+sample_clean = 'Fielding wrote extensively on travel.<ref name="fielding1942" />'
+
+[rules.page_pages_consistency]
+id = "page-pages-consistency"
+description = "Do not mix |page= and |pages= for the same citation template within an article; pick one convention"
+severity = "error"
+applies = "whole-page"
+sample_violation = '<ref name="a">{{cite book|title=X|page=12}}</ref> later <ref name="b">{{cite book|title=Y|pages=34-35}}</ref>'
+sample_clean = '<ref name="a">{{cite book|title=X|page=12}}</ref> later <ref name="b">{{cite book|title=Y|page=34}}</ref>'
+
+[rules.named_ref_with_pinpoint]
+id = "named-ref-with-pinpoint"
+description = "A named full-citation ref must not carry |page=/|pages= pinpoints; reuse the named ref and put the page in {{rp|…}} at the use site"
+severity = "error"
+applies = "added-lines"
+sample_violation = '<ref name="fielding1942">{{cite book|title=Travel|page=12}}</ref>'
+sample_clean = 'text<ref name="fielding1942" />{{rp|12}}'
+
+[rules.heading_spacing]
+id = "heading-spacing"
+description = "Level-2 headings use spaced wiki-syntax: '== Section ==', never '==Section=='"
+severity = "error"
+applies = "whole-page"
+sample_violation = "==Life==\nHe was born in 1910."
+sample_clean = "== Life ==\nHe was born in 1910."
+
+[rules.semicolon_prose]
+id = "semicolon-prose"
+description = "House rule: no semicolons in drafted prose; split the sentence or restructure"
+severity = "error"
+applies = "added-lines"
+sample_violation = "The bridge opened in 1937; it cost $35 million."
+sample_clean = "The bridge opened in 1937 and cost $35 million."
+
+[rules.tense_drift]
+id = "tense-drift"
+description = "MOS:TENSE proxy: 'is now/are now/is currently/are currently' marks tense drift for past events and people; date the claim or use past tense"
+severity = "warn"
+applies = "added-lines"
+sample_violation = "The company is currently the largest employer in the county."
+sample_clean = "As of 2026 the company is the largest employer in the county."
+
+[rules.national_variety_mix]
+id = "national-variety-mix"
+description = "MOS:US/ENGVAR: added lines must not mix -ise/-our spellings into an article consistently using -ize/-or (or vice versa)"
+severity = "error"
+applies = "whole-page"
+sample_violation = "The harbour was organised in 1901."
+sample_clean = "The harbor was organized in 1901."
+
+[rules.italic_mismatch]
+id = "italic-mismatch"
+description = "MOS:TITLES: a work's title must be consistently italicized (''Title''); the same title appearing both italicized and plain is a mismatch"
+severity = "error"
+applies = "whole-page"
+sample_violation = "''The Sun Also Rises'' sold well, but critics panned The Sun Also Rises at first."
+sample_clean = "''The Sun Also Rises'' sold well, but critics panned ''The Sun Also Rises'' at first."
+
+[rules.see_also_duplication]
+id = "see-also-duplication"
+description = "A {{See also}} target already wikilinked in the body (and not merely as the parent of a summary split) duplicates body coverage"
+severity = "warn"
+applies = "whole-page"
+sample_violation = "== See also ==\n* [[Suspension bridge]]\n\nbody text mentions the [[suspension bridge]] design."
+sample_clean = "== See also ==\n* [[Suspension bridge]]\n\nbody text never links it."
+
+[rules.lead_body_duplication]
+id = "lead-body-duplication"
+description = "MOS:LEAD mechanized: the lead summarizes; a shared 8-gram run between a lead sentence and a body sentence is duplication"
+severity = "error"
+applies = "whole-page"
+sample_violation = "The Commitment device is a psychological strategy studied in behavioral economics. The commitment device is a psychological strategy studied in behavioral economics, first described in 1985."
+sample_clean = "The Commitment device is a psychological strategy studied in behavioral economics.\n\n== Concept ==\nBehavioral economists analyze how people bind their own future choices."

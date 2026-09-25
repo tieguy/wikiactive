@@ -1,0 +1,320 @@
+{{short description|Wikipedia policy}}
+{{About||raising issues with specific articles|Wikipedia:Neutral point of view/Noticeboard|advice on applying this policy|Wikipedia:NPOV tutorial|frequent critiques and responses|Wikipedia:Neutral point of view/FAQ}}
+
+<noinclude>{{pp-move-indef}}{{pp-semi-indef}}</noinclude>
+{{policy|WP:NPOV|WP:NPV}}
+{{nutshell|Articles must not {{em|take}} sides, but should {{em|explain}} the sides, fairly and without editorial [[bias]]. This applies to both what you say and how you say it.}}
+{{Content policy list}}
+[[File:Wikipedia scale of justice.svg|150px|right|alt=A scale of justice with two Wikipedia logos being weighed]]
+
+All encyclopedic content on [[Wikipedia]] must be written from a '''neutral point of view''' ('''NPOV'''), which means representing fairly, proportionately, and, as far as possible, without editorial bias, all the significant [[Point of view (philosophy)|views]] that have been [[Wikipedia:Verifiability|published by reliable sources]] on a topic.
+
+NPOV is a [[Wikipedia:Five pillars|fundamental principle of Wikipedia]] and of [[Meta:Founding principles|other Wikimedia projects]]. It is also one of Wikipedia's three core content policies; the other two are "[[Wikipedia:Verifiability|Verifiability]]" and "[[Wikipedia:No original research|No original research]]". These policies jointly determine the type and quality of material acceptable in Wikipedia articles, and because they work in harmony, they cannot be interpreted in isolation from one another.
+
+This policy is {{strong|non-negotiable}}, and the principles upon which it is based cannot be superseded by other [[Wikipedia:Policies and guidelines|policies or guidelines]], nor by [[Wikipedia:Consensus|editor consensus]].
+
+==Explanation==
+{{shortcut|WP:YESPOV|WP:WIKIVOICE|WP:VOICE}}
+{{Redirect|WP:VOICE|the project about voice intros in articles|Wikipedia:Voice intro project}}
+{{Seealso|Wikipedia:Neutral point of view/FAQ|Wikipedia:What Wikipedia is not#Wikipedia is not a soapbox or means of promotion}}
+{{Further|Wikipedia:Advocacy}}
+
+Achieving what the [[Wikipedia community]] understands as ''[[neutrality (philosophy)|neutrality]]'' means carefully and critically analyzing a variety of [[Wikipedia:Verifiability#Reliable sources|reliable sources]] and then attempting to convey to the reader the information contained in them fairly, proportionately, and as far as possible without editorial bias. Wikipedia aims to '''describe disputes, but not engage in them.''' The aim is to inform, not influence. Editors, while naturally having their own [[Point of view (philosophy)|points of view]], should strive in [[WP:DGF|good faith]] to provide complete information and not to promote one particular point of view over another. The neutral point of view does not mean the exclusion of certain points of view; rather, it means including all verifiable points of view which have sufficient due [[#Due and undue weight|weight]]. Observe the following principles to help achieve the level of neutrality that is appropriate for an encyclopedia:
+{{shortcut|WP:OPINION}}{{Anchor|OPINION}}
+* '''Avoid stating [[opinion]]s as [[fact]]s.''' Usually, articles will contain information about the [[importance|significant]] [[Point of view (philosophy)|opinions]] that have been expressed in [[Wikipedia:Reliable_sources|reliable sources]] about their subjects. However, these opinions should not be stated in Wikipedia's voice. Rather, they should be [[WP:INTEXT|attributed in the text to particular sources]], or where justified, described as widespread views, etc. For example, an article should not state that {{!xt|[[genocide]] is an evil action}} but may state that {{xt|genocide has been described by John So-and-so as the epitome of human evil}}.
+* <span class="anchor" id="Seriously Contested Assertions">{{shortcut|WP:SERIOUSLYCONTESTED}}'''Avoid stating seriously contested assertions as facts.'''</span> If different reliable sources make conflicting assertions about a matter, treat these assertions as opinions rather than facts, and do not present them as direct statements in wikivoice.
+* '''Avoid stating facts as opinions.''' Uncontested and uncontroversial factual assertions made by reliable sources should normally be directly stated in Wikipedia's voice, for example {{xt|the sky is blue}} not {{!xt|[name of source] believes [[WP:SKYBLUE|the sky is blue]]}}. Unless a topic specifically deals with a disagreement over otherwise uncontested information, there is no need for specific attribution for the assertion, although it is helpful to add a reference link to the source in support of [[Wikipedia:Verifiability|verifiability]]. Further, the passage should not be worded in any way that makes it appear to be contested.
+* '''Prefer nonjudgmental language.''' A neutral point of view neither sympathizes with nor disparages its subject (or what reliable sources say about the subject), although this must sometimes be balanced against clarity. Present opinions and conflicting findings in a disinterested tone. [[WP:EDITORIAL|Do not editorialize]]. When editorial bias towards one particular point of view can be detected the article needs to be fixed. The only bias that should be evident is the bias attributed to the source.
+* '''Indicate the relative prominence of opposing views.''' Ensure that the reporting of different views on a subject adequately reflects the relative levels of support for those views and that it does not give a false impression of parity, or give [[#Due and undue weight|undue weight]] to a particular view. For example, to state that {{!xt|According to [[Simon Wiesenthal]], the Holocaust was a program of extermination of the Jewish people in Germany, but [[David Irving]] disputes this analysis}} would be to give apparent parity between the supermajority view and a tiny minority view by assigning each to a single activist in the field.
+
+== <span class="anchor" id="achieve"></span><span class="anchor" id="ACHIEVE"></span><span class="anchor" id="Achieving neutrality"></span>What to include and exclude ==
+{{shortcut|WP:NPOVHOW|WP:ACHIEVE NPOV}}
+{{hatnote|See the [[Wikipedia:NPOV tutorial|NPOV tutorial]] and [[Wikipedia:Neutral point of view/Examples|NPOV examples]].}}
+Generally, [[WP:PRESERVE|do not remove sourced information from the encyclopedia]] solely because it seems biased. Instead, try to rewrite the passage or section to achieve a more neutral tone. Biased information can usually be balanced with material cited to other sources to produce a more neutral perspective, so such problems should be fixed when possible through the [[Wikipedia:Editing policy|normal editing process]]. Remove material when you have a good reason to believe it misinforms or misleads readers in ways that cannot be addressed by rewriting the passage. The sections below offer specific guidance on common problems.
+
+===Article structure===
+{{shortcut|WP:STRUCTURE}}
+{{See|Wikipedia:Manual of Style/Layout}}
+
+The internal structure of an article may require additional attention to protect neutrality and to avoid problems like ''[[#Point of view forks|POV forking]]'' and ''[[#Due and undue weight|undue weight]]''. Although specific article structures are not, as a rule, prohibited, care must be taken to ensure that the overall presentation is broadly neutral.
+
+Segregation of text or other content into different regions or subsections, based solely on the apparent POV of the content itself, may result in an unencyclopedic structure, such as a back-and-forth dialogue between proponents and opponents.{{efn|Article sections devoted solely to criticism, and pro-and-con sections within articles, are two commonly cited examples. There are varying views on whether and to what extent such structures are appropriate; see advice on [[Wikipedia:Avoid thread mode|thread mode]], [[Wikipedia:Criticism|criticism]], [[Wikipedia:Pro and con lists|pro-and-con lists]], and the [[Template:Criticism-section|criticism template]].}} It may also create an apparent hierarchy of fact where details in the main passage appear true and undisputed, whereas other segregated material is deemed controversial and therefore more likely to be false. Try to achieve a more neutral text by folding debates into the narrative, rather than isolating them into sections that ignore or fight against each other.
+
+Pay attention to headers, footnotes, or other formatting elements that might unduly favor one point of view or one aspect of the subject. Watch out for structural or stylistic aspects that make it difficult for a reader to fairly and equally assess the credibility of all relevant and related viewpoints.{{efn|Commonly cited examples include articles that read too much like a debate and content structured like a resume. See also the [[Wikipedia:Guide to layout|guide to layout]], [[Wikipedia:Criticism#Formatting criticism|formatting of criticism]], [[Wikipedia:Edit war|edit warring]], [[Wikipedia:Template messages/Cleanup#Contradiction and confusion|cleanup templates]], and the [[Template:Lopsided|unbalanced-opinion template]].}}
+
+===<span id="Undue weight"></span><span id="DUE"></span><span id="UNDUE"></span><span id="WEIGHT"></span>Due and undue weight===
+{{redirect2|Wikipedia:DUE|Wikipedia:UNDUE|guidance on balancing different aspects of a topic|#Balancing aspects}}
+{{For|an explanatory essay about how other policies interacts with this subsection|Wikipedia:What ONUS means}}
+{{shortcut|WP:WEIGHT|WP:DUE|WP:UNDUE}}
+
+Neutrality requires that [[Wikipedia:What is an article?#Namespace|mainspace]] articles and pages fairly represent {{em|all}} significant viewpoints that have been published by [[Wikipedia:Verifiability#What counts as a reliable source|reliable sources]], in proportion to the prominence of each viewpoint in those sources. Giving '''due weight''' and avoiding giving '''undue weight''' means articles should not give minority views or aspects as much of or as detailed a description as more widely held views or widely supported aspects. Generally, the views of tiny minorities should not be included at all, except perhaps in a "''[[WP:SEEALSO|See also]]''" to an article about those specific views. For example, the article on the [[Earth]] does not directly mention modern support for the [[flat Earth]] concept, the view of a distinct (and minuscule) minority; to do so would give undue weight to it.
+
+Undue weight can be given in several ways, including but not limited to the depth of detail, quantity of text, prominence of placement, juxtaposition of statements, and [[MOS:IMAGERELEVANCE|use of imagery]]. In articles specifically relating to a minority viewpoint, such views may receive more attention and space. However, these pages should still appropriately reference the majority viewpoint wherever relevant and must not represent content strictly from the minority view's perspective. Specifically, it should always be clear which parts of the text describe the minority view. In addition, the majority view should be explained sufficiently to let the reader understand how the minority view differs from it, and controversies regarding aspects of the minority view should be clearly identified and explained. How much detail is required depends on the subject. For instance, articles on historical views such as flat Earth, with few or no modern proponents, may briefly state the modern position and then discuss the history of the idea in great detail, neutrally presenting the history of a now-discredited belief. Other minority views may require a much more extensive description of the majority view to avoid misleading the reader. See [[Wikipedia:Fringe theories|fringe theories guideline]] and the [[Wikipedia:Neutral point of view/FAQ|NPOV FAQ]].
+
+Wikipedia should not present a dispute as if a view held by a small minority is as significant as the majority view. Views held by a tiny minority should not be represented except in articles devoted to those views (such as the flat Earth). Giving undue weight to the view of a significant minority or including that of a tiny minority might be misleading as to the shape of the dispute. Wikipedia aims to present competing views {{em|in proportion to their representation in reliable sources}} on the subject. This rule applies not only to article text but to images, wikilinks, external links, categories, templates, and all other material as well.
+
+{{blockquote
+|text=<nowiki/>
+* If a viewpoint is in the majority, then it should be easy to substantiate it with references to commonly accepted reference texts;
+* If a viewpoint is held by a significant minority, then it should be easy to name {{em|[[wiktionary:prominent|prominent]]}} adherents;
+* If a viewpoint is held by an extremely small minority, it does not belong on Wikipedia, regardless of whether it is true, or you can prove it, except perhaps in some ancillary article.
+|author=[[Jimmy Wales|Jimbo Wales]]
+|source=paraphrase of a [[mailarchive:wikien-l/2003-September/006715.html|September 2003 post on the WikiEN-l mailing list]]
+}}
+
+Keep in mind that, in determining proper weight, we consider a viewpoint's prevalence in reliable sources, {{em|not}} its prevalence among Wikipedia editors or the general public.
+
+If you can prove a theory that few or none believe, Wikipedia is not the place to present such proof. Once it has been presented and discussed in [[Wikipedia:Reliable sources|sources that are reliable]], it may be appropriately included. See "[[Wikipedia:No original research|No original research]]" and "[[Wikipedia:Verifiability|Verifiability]]".
+
+===Balance===
+{{shortcut|WP:BALANCE}}
+{{redirect|WP:BALANCE|balance regarding the "In the news" section|WP:ITNBALANCE|the "balanced editing restriction"|WP:BER}}
+
+Neutrality assigns [[#Due and undue weight|weight]] to viewpoints in proportion to their prominence in reliable sources. However, when reputable sources contradict one another '''and''' are relatively equal in prominence, describe both points of view and work for balance. This involves describing the opposing views clearly, drawing on secondary or tertiary sources that describe the disagreement from a disinterested viewpoint.
+
+====<span class="anchor" id="Giving_.22equal_validity.22"></span>Giving "equal validity" can create a false balance====
+{{shortcut|WP:FALSEBALANCE}}
+{{see also|False balance}}
+{{Quote box
+| quote = When considering "due impartiality"{{nbsp}}... [we are] careful when reporting on science to make a distinction between an opinion and a fact. When there is a consensus of opinion on scientific matters, providing an opposite view without consideration of "due weight" can lead to "false balance", meaning that viewers might perceive an issue to be more controversial than it actually is. This does not mean that scientists cannot be questioned or challenged, but that their contributions must be properly scrutinised. Including an opposite view may well be appropriate, but [it] must clearly communicate the degree of credibility that the view carries.
+| source = —[[BBC Trust]]'s policy on science reporting 2011<ref>{{Cite web|title=BBC Trust—BBC science coverage given "vote of confidence" by independent report. 2011|url=http://www.bbc.co.uk/bbctrust/news/press_releases/2011/science_impartiality.html|date=20 July 2011|accessdate=14 August 2011|archive-date=21 December 2012|archive-url=https://web.archive.org/web/20121221081200/http://www.bbc.co.uk/bbctrust/news/press_releases/2011/science_impartiality.html|url-status=live}}</ref><br />See updated report from 2014.<ref>{{Cite web |title=Trust Conclusions on the Executive Report on Science Impartiality Review Actions. 2014 |url=http://downloads.bbc.co.uk/bbctrust/assets/files/pdf/our_work/science_impartiality/trust_conclusions.pdf |date=July 2014 |accessdate=7 July 2014 |archive-date=7 July 2014 |archive-url=https://web.archive.org/web/20140707232459/http://downloads.bbc.co.uk/bbctrust/assets/files/pdf/our_work/science_impartiality/trust_conclusions.pdf |url-status=live }}</ref>
+| width = 35%
+| salign = right
+}}
+While it is important to account for all significant viewpoints on any topic, Wikipedia policy does not state or imply that every minority view, [[Wikipedia:Fringe theories|fringe theory]], or [[WP:ECREE|extraordinary claim]] needs to be presented along with commonly accepted mainstream scholarship as if they were of equal validity. There are many such beliefs in the world, some popular and some little-known: claims that the [[Modern flat Earth societies|Earth is flat]], that the [[Knights Templar]] possessed the [[Holy Grail]], that the [[Moon landing conspiracy theories|Apollo Moon landings were a hoax]], and similar ones. [[Conspiracy theories]], [[pseudoscience]], [[Pseudohistory|speculative history]], or plausible but unaccepted theories should not be legitimized through comparison to accepted academic scholarship. We do not take a stand on these issues as encyclopedia writers, for or against; we merely omit this information where including it would unduly legitimize it, and otherwise include and describe these ideas in their proper context concerning established scholarship and the beliefs of the wider world.
+
+=== Balancing aspects ===
+{{shortcut|WP:PROPORTION|WP:BALASP|WP:ASPECT|clear=right}}
+
+An article should not give undue weight to minor aspects of its subject but should strive to treat each aspect with a weight proportional to its treatment in the body of reliable, published material on the subject. For example, a description of isolated events, quotes, criticisms, or news reports related to one subject may be [[Wikipedia:Verifiability|verifiable]] and impartial, but still disproportionate to their overall significance to the article topic. This is a concern especially for [[Wikipedia:Recentism|recent events]] that may be in the [[Wikipedia:What Wikipedia is not#Wikipedia is not a newspaper|news]].
+
+In addition to describing why the subject is notable (e.g., "is an author", "biggest employer in the region"), encyclopedia articles should [[Wikipedia:Establish context|place the subject in context]]. For example, an article about a person should always indicate, at least in a general way, when and where they lived (e.g., "17th-century Spanish writer", "born c. 1907 in Japan"), and an article about a business should always indicate the nature of its business (e.g., "manufactures widgets", "shipping and logistics company").
+
+=== Making necessary assumptions ===
+{{shortcut|WP:MNA}}
+
+When writing articles, there may be cases where making some assumptions is necessary to get through a topic. For example, in writing about evolution, it is not helpful to hash out the creation-evolution controversy on every page. There are virtually no topics that could proceed without making some assumptions that ''someone'' would find controversial. This is true not only in evolutionary biology but also in philosophy, history, physics, art, nutrition, etc.
+
+It is difficult to draw up a rule, but the following principle may help: there is probably not a good reason to discuss some assumption on a given page if that assumption is best discussed in depth on some ''other'' page. However, a brief, unobtrusive pointer or wikilink might be appropriate.
+
+===<span class="anchor" id="Good research"></span>Selecting sources===
+{{see|Wikipedia:Reliable sources#Some types of sources}}
+{{shortcut|WP:BESTSOURCES}}
+
+In principle, all articles should be [[Wikipedia:Based upon|based]] on [[Wikipedia:Reliable sources|reliable]], [[Wikipedia:Independent sources|independent]], [[WP:SECONDARY|secondary]] published sources with a reputation for fact-checking and accuracy. When writing about a topic, basing content on the best respected and most authoritative reliable sources helps to prevent bias, undue weight, and other NPOV issues. 
+
+If you need help finding high-quality sources, see [[Wikipedia:Find your source]].  Experienced editors can access some [[WP:PAYWALLED|paywalled sources]] at no cost through the [[Wikipedia:The Wikipedia Library]].  You can also ask other editors on the [[Help:Talk pages|talk page]] of the article you are working on, or ask at [[Wikipedia:Reference desk|the reference desk]].
+
+====Bias in sources====
+{{Shortcut|WP:SOURCEBIAS}}
+{{See also|Wikipedia:Reliable sources#Biased or opinionated sources}}
+
+A common argument in a dispute about reliable sources is that one source is biased, meaning another source should be given preference. Some editors argue that biased sources should not be used because they introduce improper POV to an article. However, biased sources are not inherently disallowed based on bias alone, although other aspects of the source may make it invalid. A neutral point of view should be achieved by balancing the bias in sources based on the weight of the opinion in reliable sources and not by excluding sources that do not conform to the editor's point of view. This does not mean any biased source ''must'' be used; it may well serve an article better [[WP:VNOT|to exclude the material altogether]].
+
+=== Controversial subjects ===
+{{Shortcut|WP:SNPOV}}
+
+Wikipedia deals with numerous areas that are frequently subjects of intense debate both in the real world and among editors of the encyclopedia. A proper understanding and application of NPOV is sought in all areas of Wikipedia, but it is often needed most in these.
+
+==== Fringe theories and pseudoscience ====
+{{Shortcut|WP:PSCI|WP:PSEUDOSCIENCE|WP:FRINGESUBJECTS}}
+{{see|Wikipedia:Fringe theories|#Due and undue weight}}
+
+[[Pseudoscience|Pseudoscientific]] theories are presented by proponents as science but characteristically fail to adhere to [[Scientific method|scientific standards and methods]]. Conversely, by its very nature, [[scientific consensus]] is the majority viewpoint of scientists towards a topic. Thus, when talking about [[:Category:Pseudoscience|pseudoscientific topics]], we should not describe these two opposing viewpoints as being equal to each other. While pseudoscience may in some cases be significant to an article, it should not [[wiktionary:obfuscate#Verb|obfuscate]] the description of the mainstream views of the [[scientific community]].
+
+Any inclusion of [[Wikipedia:Fringe theories|fringe]] or pseudoscientific views should not give them [[#Due and undue weight|undue weight]]. The fringe or pseudoscientific view should be clearly described as such. An explanation of how experts in the relevant field have reacted to such views should be prominently included. This helps us to describe differing views fairly. This applies to all types of fringe subjects, for instance, forms of [[historical negationism]] that are considered by [[Wikipedia:Reliable sources|more reliable sources]] to either lack evidence or actively ignore evidence, such as claims that [[Pope John Paul I conspiracy theories|Pope John Paul{{nbsp}}I was murdered]], or that [[Moon landing conspiracy theories|the Apollo Moon landings were faked]].
+
+See Wikipedia's established [[Wikipedia:Fringe theories#Spectrum of fringe theories|pseudoscience guidelines]] to help decide whether a topic is appropriately classified as pseudoscience.
+
+==== Religion ====
+{{Redirect|WP:RNPOV|neutrality of redirects|Wikipedia:Redirect#Neutrality of redirects}}
+{{Shortcut|WP:RNPOV}}
+
+In the case of beliefs and practices, Wikipedia content should not only encompass what motivates individuals who hold these beliefs and practices but also account for how such beliefs and practices developed. Wikipedia articles on history and religion draw from religion's sacred texts as [[Wikipedia:Primary|primary sources]] and modern archaeological, historical, and scientific works as [[Wikipedia:Secondary|secondary]] and [[Wikipedia:Tertiary|tertiary]] sources.
+
+Some adherents of a religion might object to a critical<!--the use here of the word //critical// is referenced by the article itself, in the succeeding paragraph--> historical treatment of their own faith because in their view such analysis discriminates against their religious beliefs. Their point of view can be mentioned if it can be documented by relevant, reliable sources. There is no contradiction. NPOV policy means Wikipedia editors ought to try to write sentences like this: "Certain Frisbeetarianists (such as the Rev. Goodcatch) believe This and That and consider those to have been tenets of Frisbeetarianism from its earliest days. Certain sects who call themselves ''Ultimate Frisbeetarianists''—influenced by the findings of modern historians and archaeologists (such as Dr. Investigate's textual analysis and Prof. Iconoclast's carbon-dating work)—still believe This, but no longer believe That, and instead believe Something Else."
+
+Several words that have very specific meanings in studies of religion have different meanings in less formal contexts, e.g., ''[[fundamentalism]]'', ''[[mythology]]'', and (as in the prior paragraph) ''critical''. Wikipedia articles about religious topics should take care to use these words only in their formal senses to avoid causing unnecessary offence or misleading the reader. Conversely, editors should not avoid using terminology that has been established by the majority of the current reliable and relevant sources on a topic out of sympathy for a particular point of view or concern that readers may confuse the formal and informal meanings. Details about particular terms can be found at [[Wikipedia:Manual of Style/Words to watch]].
+
+=== <span class="anchor" id="Point of view forks"></span>Point-of-view forks ===
+{{shortcut|WP:NPOVFORK}}
+{{See also|Wikipedia:Content forks}}
+
+A ''POV fork'' is an attempt to evade the neutrality policy by creating a new article about a subject that is already treated in an article, often to avoid or highlight negative or positive viewpoints or facts. POV forks are not permitted on Wikipedia.
+
+All facts and significant points of view on a given subject should be treated in one article except in the case of a [[WP:SPINOFF|spinoff sub-article]]. Some topics are so large that one article cannot reasonably cover all facets of the topic, so a spinoff sub-article is created. For example, [[Evolution as fact and theory]] is a sub-article of [[Evolution]], and [[Creation–evolution controversy]] is a sub-article of [[Creationism]]. This type of split is permissible only if written from a neutral point of view and must not be an attempt to evade the consensus process at another article.
+
+== How to write neutrally ==
+
+===Naming===
+{{shortcut|WP:POVNAMING}}
+{{see also|Wikipedia:Article titles#Neutrality in article titles}}
+
+In some cases, the name chosen for a topic can give an appearance of bias. Although neutral terms are generally preferable, name choice must be balanced against clarity. Thus, if a name is widely used in reliable sources (particularly those written in English) and is therefore likely to be well recognized by readers, it may be used even though some could regard it as biased. For example, the widely used names "[[Boston Massacre]]", "[[Teapot Dome scandal]]", and "[[Jack the Ripper]]" are legitimate ways of referring to the subjects in question despite appearing to pass judgment. The best name to use for a topic may depend on the context in which it is mentioned. It may be appropriate to mention alternative names and the controversies over their use, particularly when the topic in question is itself the main topic being discussed.
+
+This advice especially applies to article titles. Although multiple terms may be in common usage, a single name should be chosen as the article title, in line with the [[Wikipedia:Article titles|article titling policy]] (and relevant guidelines such as on [[Wikipedia:Naming conventions (geographic names)|geographical names]]).
+
+Article titles that combine alternative names are discouraged. For example, names such as "Derry/Londonderry" or "Flat Earth (Round Earth)" should not be used. Instead, alternative names should be given their due prominence within the article itself, and [[Wikipedia:Redirect|redirects]] created as appropriate.
+
+Some article titles are descriptive rather than being an actual name. Descriptive titles should be worded neutrally, so as not to suggest a viewpoint ''for'' or ''against'' a topic, or to confine the content of the article to views on a particular side of an issue (for example, an article titled "Criticisms of X" might be better renamed "Societal views on X"). Neutral titles encourage multiple viewpoints and responsible article writing.
+
+=== Impartial tone ===
+{{shortcut|WP:IMPARTIAL}}
+{{See also|Wikipedia:Writing better articles#Information style and tone}}
+
+Wikipedia {{em|describes}} disputes, but does not {{em|engage}} in them. A neutral characterization of disputes requires presenting viewpoints with a consistently impartial tone; otherwise, articles end up as partisan commentaries {{em|even while}} presenting all relevant points of view. Even where a topic is presented in terms of facts rather than opinions, inappropriate tones can be introduced through how facts are selected, presented, or organized. Neutral articles are written with a tone that provides an unbiased, accurate, and proportionate representation of all positions included in the article.
+
+The tone of Wikipedia articles should be impartial, neither endorsing nor rejecting a particular point of view. Try not to quote directly from participants engaged in a heated dispute; instead, summarize and present the arguments in an impartial, formal tone.
+
+===Describing aesthetic opinions and reputations===
+{{shortcut|WP:AESTHETIC|WP:SUBJECTIVE}}
+[[File:Van Gogh - Starry Night - Google Art Project.jpg|thumb|''[[The Starry Night]]'' {{Ndash}}good painting or bad painting? That's not for us to decide, but we note what others say.]]
+
+Wikipedia articles about art and other creative topics (e.g., musicians, actors, books, etc.) have a tendency to become [[WP:PEACOCK|effusive]]. This is out of place in an encyclopedia. Aesthetic opinions are diverse and subjective—we might not all agree about who the world's greatest soprano is. However, it is appropriate to note how an artist or a work has been received by prominent experts, critics, and the general public. For instance, the article on Shakespeare should note that he is widely considered one of the greatest authors in the English language by both scholars and the general public. It should not, however, state that Shakespeare is the greatest author in the English language. More generally, it is sometimes permissible to note a subject's reputation when that reputation is widespread and potentially informative or of interest to readers. Articles on creative works should provide an overview of their common interpretations, preferably with citations to experts holding those interpretations. Verifiable public and scholarly critiques provide a useful context for works of art.
+
+=== Attributing and specifying biased statements ===
+{{shortcut|WP:SUBSTANTIATE|WP:ATTRIBUTEPOV}}
+{{Further|Wikipedia:Manual of Style#Point of view}}
+
+Biased statements of opinion can be presented only with [[WP:INTEXT|in-text attribution]]. For instance, "John Doe is the best baseball player" expresses an opinion and must not be asserted in Wikipedia as if it were a fact. It can be included as a factual statement about the opinion: "John Doe's baseball skills have been praised by baseball insiders such as Al Kaline and Joe Torre." Opinions must still be [[Wikipedia:Verifiability|verifiable]] and appropriately [[Wikipedia:Citing sources|cited]].
+
+Another approach is to ''specify'' or ''substantiate'' the statement, by giving those details that actually are factual. For example: "John Doe had the highest batting average in the major leagues from 2003 through 2006." People may still argue over whether he was the best baseball player, but they will not argue over this.
+
+Avoid the temptation to rephrase biased or opinion statements with [[WP:WEASEL|weasel words]], for example, "Many people think John Doe is the best baseball player." ''Which people?'' ''How'' many? ("Most people think" is acceptable only when supported by at least one high-quality source indicating this directly.)
+
+=== Words to watch ===
+{{Main|Wikipedia:Manual of Style/Words to watch}}
+
+There are no forbidden words or expressions on Wikipedia, but certain expressions should be used with care, because they may introduce bias. For example, the word ''claim'', as in "Jim ''claimed'' he paid for the sandwich", could [[WP:CLAIM|imply a lack of credibility]]. Using this or other [[WP:ALLEGED|expressions of doubt]] may make an article appear to promote one position over another. Try to state the facts more simply without using such [[loaded words]]; for example, "Jim ''said'' he paid for the sandwich". Strive to eliminate [[WP:PEACOCK|expressions that are flattering]], disparaging, vague, or clichéd, or that endorse a particular point of view (unless those expressions are part of a quote from a noteworthy source).
+
+==Common objections and clarifications==
+{{for|answers and clarifications on the issues raised in this section|Wikipedia:Neutral point of view/FAQ}}
+
+[[File:WikiConference India 2011 Jimmy Wales 4.jpg|right|thumb|200x200px|Wikipedia co-founder [[Jimmy Wales]] talks about NPOV at [[WikiConference India]]]]
+Common objections or concerns raised to Wikipedia's NPOV policy are summarized in the subheadings below. Since the NPOV policy is often unfamiliar to newcomers—and is so central to Wikipedia's approach—many issues surrounding it have been covered before very extensively. If you have some new contribution to make to the debate, you could try the [[Wikipedia talk:Neutral point of view|policy talk page]]. Before asking, please review the links below.
+
+=== Being neutral ===
+
+; [[Wikipedia:Neutral point of view/FAQ#There's no such thing as objectivity|"There's no such thing as objectivity"]]
+: Everybody with any philosophical sophistication knows we all have biases. So, how can we take the NPOV policy seriously?
+; [[Wikipedia:Neutral point of view/FAQ#Lack of neutrality as an excuse to delete|Lack of neutrality as an excuse to delete]]
+: The NPOV policy is sometimes used as an excuse to delete texts that are perceived as biased. Isn't this a problem?
+; [[Wikipedia:Neutral point of view/FAQ#Assert facts, not opinions|A simple formulation—what does it mean?]]
+: A former section of this policy called "A simple formulation" said, "Assert facts, including facts about opinions—but don't assert opinions themselves." What does this mean?
+
+=== Balancing different views ===
+
+; [[Wikipedia:Neutral point of view/FAQ#Writing for the opponent|Writing for the opponent]]
+: I'm not convinced by what you say about "writing for the opponent". I don't want to write for the opponents. Most of them rely on stating as fact many demonstrably false statements. Are you saying that to be neutral in writing an article, I must {{em|lie}} to represent the view I disagree with?
+; [[Wikipedia:Neutral point of view/FAQ#Morally offensive views|Morally offensive views]]
+: What about views that are morally offensive to most readers, such as Holocaust denial, that some people actually hold? Surely we are not to be neutral about {{em|them}}?
+
+=== Editor disputes ===
+
+; [[Wikipedia:Neutral point of view/FAQ#Dealing with biased contributors|Dealing with biased contributors]]
+: I agree with the nonbias policy, but there are some here who seem completely, irremediably biased. I have to go around and clean up after them. What do I do?
+; [[Wikipedia:Neutral point of view/FAQ#Avoiding constant disputes|Avoiding constant disputes]]
+: How can we avoid constant and endless warfare over neutrality issues?
+
+=== Other objections ===
+
+; [[Wikipedia:Neutral point of view/FAQ#Anglo-American focus|Anglo-American focus]]
+: The English Wikipedia seems to have an Anglo-American focus. Is this contrary to NPOV?
+; [[Wikipedia:Neutral point of view/FAQ#Not answered here|Not answered here]]
+: I have some other objection—where should I complain?
+
+==History==
+{{Main|Wikipedia:Core content policies}}
+
+"Neutral Point Of View" is one of the oldest governing concepts on Wikipedia. Originally appearing within [[Nupedia]] titled "[https://web.archive.org/web/20001205000200/http://www.nupedia.com/policy.shtml#III Non-bias policy]", it was drafted by [[Larry Sanger]] in 2000. In 2001, Sanger suggested that avoiding bias as one of Wikipedia's [https://web.archive.org/web/20010416035716/www.wikipedia.com/wiki/RulesToConsider "rules to consider"]. This [http://cyber.law.harvard.edu/~reagle/wp-redux/NeutralPointOfView/982358834.html was codified] with the objective of the NPOV policy to produce an unbiased encyclopedia. The [[Special:PermanentLink/270453|original NPOV policy statement on Wikipedia]] was added by Sanger on December 26, 2001. [[Jimmy Wales]] has qualified NPOV as "non-negotiable", consistently, throughout various discussions: [https://web.archive.org/web/20010416035757/http://www.wikipedia.com/wiki/NeutralPointOfView 2001 statement], [https://web.archive.org/web/20110406110157/http://lists.wikimedia.org/pipermail/wikien-l/2003-November/008096.html November 2003], [http://lists.wikimedia.org/pipermail/wikien-l/2006-April/044386.html April 2006], [https://web.archive.org/web/20110217075343/http://www.gossamer-threads.com/lists/wiki/foundation/123928#123928 March 2008].
+
+[[Wikipedia:No original research|No original research]] (NOR) and [[Wikipedia:Verifiability|verifiability]] (V) have their origins in the NPOV policy and the problem of dealing with [[#Due and undue weight|undue weight]] and [[Wikipedia:Fringe theories|fringe theories]]. The [[Special:PermanentLink/2014449|NOR policy was established in 2003]] to address problematic uses of sources. The [[Special:PermanentLink/1339095|verifiability policy was established in 2003]] to ensure the accuracy of articles by encouraging editors to cite sources. Development of the undue-weight section also started in 2003, for which a [http://mail.wikipedia.org/pipermail/wikien-l/2003-September/006715.html mailing-list post] by Jimmy Wales in September was instrumental.
+
+==See also==
+===Policies and guidelines===
+
+* [[Wikipedia:Conflict of interest|Conflict of interest]]
+* [[Wikipedia:Fringe theories|Fringe theories]]
+* [[Wikipedia:Manual of Style/Words to watch|Words to watch]]
+* [[Wikipedia:No original research|No original research]]
+* [[Wikipedia:Verifiability|Verifiability]]
+
+===Noticeboards===
+
+* [[Wikipedia:Neutral point of view/Noticeboard|NPOV noticeboard]]
+
+===Information pages===
+{{div col}}
+* [[Wikipedia:Describing points of view|Describing points of view]]
+* [[Wikipedia:List of controversial issues|List of controversial issues]]
+* [[Wikipedia:NPOV dispute|NPOV dispute]]
+* [[Wikipedia:Neutral point of view/FAQ|NPOV FAQ]]
+* [[Help:Introduction to policies and guidelines/neutrality quiz|NPOV quiz]]
+* [[Wikipedia:Recentism|Recentism]]
+* [[Meta:Positive tone|Positive tone]] (historical Meta policy)
+* [[Meta:Responses to How to Build Wikipedia, Understand Bias|Understand bias]] (historical Meta policy)
+{{div col end}}
+
+===Essays===
+{{div col}}
+* [[Wikipedia:Academic bias|Academic bias]]
+* [[Wikipedia:Be neutral in form|Be neutral in form]]
+* [[Wikipedia:Blind men and an elephant|Blind men and an elephant]]
+* [[Wikipedia:Cherrypicking|Cherrypicking]]
+* [[Wikipedia:Civil POV pushing|Civil POV pushing]]
+* [[Wikipedia:Coatrack articles|Coatrack articles]]
+* [[Wikipedia:Conflicting sources|Conflicting sources]]
+* [[Wikipedia:Controversial articles|Controversial articles]]
+* [[Wikipedia:Criticism|Criticism sections]]
+* [[Wikipedia:Describing points of view|Describing points of view]]
+* [[Wikipedia:Don't "teach the controversy"|Don't "teach the controversy"]]
+* [[Wikipedia:Let the facts speak for themselves|Let the facts speak for themselves]]
+* [[Wikipedia:Let the reader decide|Let the reader decide]]
+* [[Wikipedia:Myth versus fiction|Myth versus fiction]]
+* [[Wikipedia:NPOV means neutral editing, not neutral content|NPOV means neutral editing, not neutral content]]
+* [[Wikipedia:NPOV tutorial|NPOV tutorial]]
+* [[Wikipedia:POV and OR from editors, sources, and fields|POV and OR from editors, sources, and fields]]
+* [[Wikipedia:Presentism|Presentism]]
+* [[Wikipedia:Scientific consensus|Scientific consensus]]
+* [[Wikipedia:Scientific point of view|Scientific point of view]]
+* [[Wikipedia:Systemic bias|Systemic bias]]
+* [[Wikipedia:Why NPOV?|Why NPOV?]]
+* [[Wikipedia:Wikipedia only reports what the sources say|Wikipedia only reports what the sources say]]
+* [[Wikipedia:Ye shall know them by their sources|Ye shall know them by their sources]]
+{{div col end}}
+
+===Articles===
+{{div col}}
+* {{section link|Criticism of Wikipedia|Neutral point of view and conflicts of interest}}
+* [[Consensus reality]]
+* [[Journalistic objectivity]]
+* [[One-sided argument]]
+{{div col end}}
+
+===Templates===
+
+* General NPOV templates:
+** {{tl|POV}}—message used to attract other editors to assess and fix neutrality problems
+** {{tl|POV section}}—message that tags only a single section as disputed
+** {{tl|POV statement}}—message when only one sentence is questionable
+** {{tl|NPOV language}}—message used when the neutrality of the style of writing is questioned
+** {{tl|Political POV}}—message when the political neutrality of an article is questioned
+** {{tl|Fact or opinion}}—message when a sentence may or may not require [[WP:INTEXT|in-text attribution]] (e.g., "[[Jimmy Wales]] says")
+** {{tl|Attribution needed}}—when in-text attribution should be added
+* Undue-weight templates:
+** {{tl|Undue weight}}—message used to warn that a part of an article lends undue weight to certain ideas relative to the article as a whole
+** {{tl|Undue weight section}}—same as above but to tag a section only
+** {{tl|Undue weight inline}}—same as above but to tag a sentence or paragraph only
+
+==Notes==
+{{notelist}}
+
+==References==
+{{Reflist}}
+
+{{Wikipedia principles}}
+{{Wikipedia policies and guidelines}}
+
+[[Category:Wikipedia neutral point of view| ]]
+[[Category:Wikipedia policies|{{PAGENAME}}]]
+[[Category:Wikipedia content policies]]
