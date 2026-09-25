@@ -5,9 +5,13 @@
 //! visual diff, published only on explicit human confirmation.
 //!
 //! Modules land incrementally per the MVP-1 plan
-//! (docs/design-plans/2026-09-24-mvp1-structured-loop.md):
-//! ledger, checks (quote_anchor/paraphrase/linter/gate), render, anchors,
-//! lavish, wikipedia, rules, session, cli.
+//! (`docs/design-plans/2026-09-24-mvp1-structured-loop.md`):
+//! `ledger`, `checks` (`quote_anchor`/`paraphrase`/`linter`/`gate`),
+//! `render`, `anchors`, `lavish`, `wikipedia`, `rules`, `session`, `cli`.
+
+pub mod checks;
+pub mod ledger;
+pub mod session;
 
 /// User-Agent used for every outbound HTTP request to Wikimedia (and, with
 /// the same identity, to source/archive/Earwig hosts). Product-internalized
