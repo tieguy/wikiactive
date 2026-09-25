@@ -100,6 +100,13 @@ dropped.
 
 ### Comment conventions (lavish)
 
+- **Edit summaries name a rule only when verified.** "per MOS:PROSE" style
+  attributions require the rule to actually say what the edit does — check
+  against `rules/canonical/` before naming it. wikiactive house rules
+  (e.g. the semicolon guard) are NOT Wikipedia rules and must never be
+  attributed to the MOS; describe such edits plainly ("split a
+  semicolon-joined sentence for readability") or as house style.
+
 - Comments on **changed blocks** (`wa-N`) resolve to wikitext ranges — fix
   in proposed.wikitext.
 - Comments on **evidence cards** (`ev-N`) resolve to ledger quotes — the
