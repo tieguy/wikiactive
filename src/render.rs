@@ -111,8 +111,8 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     let proposed_blocks = extract_blocks(input.proposed_html).map_err(RenderError::Html)?;
 
     // 3. Block-level diff.
-    let base_texts: Vec<&str> = base_blocks.iter().map(String::as_str).collect();
-    let prop_texts: Vec<&str> = proposed_blocks.iter().map(String::as_str).collect();
+    let base_texts: Vec<&str> = base_blocks.iter().map(|b| b.text.as_str()).collect();
+    let prop_texts: Vec<&str> = proposed_blocks.iter().map(|b| b.text.as_str()).collect();
     let diff = similar::TextDiff::from_slices(&base_texts, &prop_texts);
 
     // 4. Walk the diff; assign wa-N ids + anchors (all anchored in the
@@ -126,23 +126,52 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     let mut new_pane = String::new();
     let mut counter = 0usize;
     let mut prop_idx = 0usize;
-    let mut pending_deletes: Vec<&str> = Vec::new();
+    let mut pending_deletes: Vec<(&str, BlockKind)> = Vec::new();
 
     for change in diff.iter_all_changes() {
         match change.tag() {
             similar::ChangeTag::Equal => {
                 flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
                 prop_idx += 1;
-                old_pane.push_str(&block_html(None, None, change.value(), "equal", &round_id));
-                new_pane.push_str(&block_html(None, None, change.value(), "equal", &round_id));
+                let kind = change
+                    .new_index()
+                    .map_or(BlockKind::Paragraph, |i| proposed_blocks[i].kind);
+                old_pane.push_str(&block_html(
+                    None,
+                    None,
+                    change.value(),
+                    kind,
+                    "equal",
+                    &round_id,
+                ));
+                new_pane.push_str(&block_html(
+                    None,
+                    None,
+                    change.value(),
+                    kind,
+                    "equal",
+                    &round_id,
+                ));
             }
             similar::ChangeTag::Delete => {
-                pending_deletes.push(change.value());
+                let kind = change
+                    .old_index()
+                    .map_or(BlockKind::Paragraph, |i| base_blocks[i].kind);
+                pending_deletes.push((change.value(), kind));
             }
             similar::ChangeTag::Insert => {
                 let new_text = change.value();
-                let old_text = pending_deletes.join("\n\n");
-                pending_deletes.clear();
+                let new_kind = change
+                    .new_index()
+                    .map_or(BlockKind::Paragraph, |i| proposed_blocks[i].kind);
+                let (old_text, old_kind) = if pending_deletes.is_empty() {
+                    (String::new(), new_kind)
+                } else {
+                    let texts: Vec<&str> = pending_deletes.iter().map(|(t, _)| *t).collect();
+                    let kind = pending_deletes[0].1;
+                    pending_deletes.clear();
+                    (texts.join("\n\n"), kind)
+                };
                 counter += 1;
                 let id = format!("wa-{counter}");
                 // Anchor: the proposed wikitext range of this block.
@@ -159,6 +188,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         Some(&id),
                         Some(&anchor),
                         new_text,
+                        new_kind,
                         "add",
                         &round_id,
                     ));
@@ -168,6 +198,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         None,
                         None,
                         &old_inline,
+                        old_kind,
                         "del",
                         &round_id,
                     ));
@@ -175,6 +206,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         Some(&id),
                         Some(&anchor),
                         &new_inline,
+                        new_kind,
                         "add",
                         &round_id,
                     ));
@@ -221,11 +253,68 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     })
 }
 
-/// Extract top-level content blocks (plain text) from Parsoid HTML:
+/// One content block: its text plus its structural kind, so the review
+/// panes can SHOW formatting (a heading renders as a heading, a bullet as
+/// a bullet) instead of flattening the page to prose.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Block {
+    pub text: String,
+    pub kind: BlockKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlockKind {
+    Heading(u8),
+    Paragraph,
+    ListItem,
+    Quote,
+    Pre,
+    Def,
+}
+
+impl BlockKind {
+    fn of(element: scraper::ElementRef<'_>) -> Self {
+        match element.value().name() {
+            "h2" => Self::Heading(2),
+            "h3" => Self::Heading(3),
+            "h4" => Self::Heading(4),
+            "p" => Self::Paragraph,
+            "li" => Self::ListItem,
+            "blockquote" => Self::Quote,
+            "pre" => Self::Pre,
+            _ => Self::Def,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Heading(2) => "h2 heading",
+            Self::Heading(3) => "h3 heading",
+            Self::Heading(_) => "heading",
+            Self::Paragraph => "paragraph",
+            Self::ListItem => "list item",
+            Self::Quote => "quote",
+            Self::Pre => "pre",
+            Self::Def => "definition",
+        }
+    }
+
+    fn css(self) -> &'static str {
+        match self {
+            Self::Heading(_) => "heading",
+            Self::ListItem => "listitem",
+            Self::Quote => "quote",
+            Self::Pre => "pre",
+            Self::Paragraph | Self::Def => "para",
+        }
+    }
+}
+
+/// Extract top-level content blocks (text + kind) from Parsoid HTML:
 /// headings, paragraphs, list items, in document order. `<style>`/`<script>`
 /// descendant text (e.g. the `.mw-parser-output` CSS Parsoid embeds in the
 /// References section) is excluded — it is not content.
-fn extract_blocks(html: &str) -> Result<Vec<String>, String> {
+fn extract_blocks(html: &str) -> Result<Vec<Block>, String> {
     let doc = scraper::Html::parse_document(html);
     let selector = scraper::Selector::parse("h2, h3, h4, p, li, blockquote, pre, dd")
         .map_err(|e| format!("selector: {e:?}"))?;
@@ -233,7 +322,10 @@ fn extract_blocks(html: &str) -> Result<Vec<String>, String> {
     for element in doc.select(&selector) {
         let text = collapse_ws(&text_of(element));
         if !text.is_empty() {
-            blocks.push(text);
+            blocks.push(Block {
+                text,
+                kind: BlockKind::of(element),
+            });
         }
     }
     Ok(blocks)
@@ -275,12 +367,11 @@ fn collapse_ws(s: &str) -> String {
 }
 
 /// Emit buffered deletes that never paired with an insert (pure deletions).
-fn flush_pure_deletes(pending: &mut Vec<&str>, old_pane: &mut String, round_id: &str) {
-    for text in pending.drain(..) {
-        old_pane.push_str(&block_html(None, None, text, "del", round_id));
+fn flush_pure_deletes(pending: &mut Vec<(&str, BlockKind)>, old_pane: &mut String, round_id: &str) {
+    for (text, kind) in pending.drain(..) {
+        old_pane.push_str(&block_html(None, None, text, kind, "del", round_id));
     }
 }
-
 /// Word-level inline diff between the old and new sides of a changed block
 /// pair: returns (`old_html`, `new_html`) with `<del>`/`<ins>` runs around the
 /// changed words (equal words render plain in both).
@@ -324,6 +415,7 @@ fn block_html_inline(
     id: Option<&str>,
     anchor: Option<&str>,
     inline_html: &str,
+    kind: BlockKind,
     class: &str,
     round_id: &str,
 ) -> String {
@@ -333,11 +425,12 @@ fn block_html_inline(
         format!(" data-lavish-revision=\"{round_id}\"")
     });
     let tag = id.map_or_else(
-        || "-".to_string(),
-        |i| format!("{i} · {}", anchor.unwrap_or("-")),
+        || format!("[{}]", kind.label()),
+        |i| format!("{i} · {} · {}", anchor.unwrap_or("-"), kind.label()),
     );
     format!(
-        "<div class=\"block {class}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{inline_html}</div>\n"
+        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{inline_html}</div>\n",
+        kind.css(),
     )
 }
 
@@ -354,27 +447,25 @@ fn block_html(
     id: Option<&str>,
     anchor: Option<&str>,
     text: &str,
+    kind: BlockKind,
     class: &str,
     round_id: &str,
 ) -> String {
-    let id_attr = id.map(|i| format!(" id=\"{i}\"")).unwrap_or_default();
-    let anchor_attr = anchor
-        .map(|a| format!(" data-wiki-anchor=\"{a}\""))
-        .unwrap_or_default();
-    let rev_attr = id
-        .map(|_| format!(" data-lavish-revision=\"{round_id}\""))
-        .unwrap_or_default();
+    let id_attr = id.map_or_else(String::new, |i| format!(" id=\"{i}\""));
+    let anchor_attr = anchor.map_or_else(String::new, |a| format!(" data-wiki-anchor=\"{a}\""));
+    let rev_attr = id.map_or_else(String::new, |_| {
+        format!(" data-lavish-revision=\"{round_id}\"")
+    });
+    let tag = id.map_or_else(
+        || format!("[{}]", kind.label()),
+        |i| format!("{i} · {} · {}", anchor.unwrap_or("-"), kind.label()),
+    );
     format!(
-        "<div class=\"block {class}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{text}</div>\n",
-        id_attr = id_attr,
-        anchor_attr = anchor_attr,
-        tag = id
-            .map(|i| format!("{i} · {}", anchor.unwrap_or("-")))
-            .unwrap_or_default(),
-        text = esc(text),
+        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{}</div>\n",
+        kind.css(),
+        esc(text),
     )
 }
-
 /// Locate a block's wikitext anchor: the line range (1-based, char cols)
 /// whose content matches the block text's opening words. Returns
 /// `L<s>:C<col>-L<e>:C<col2>`.
@@ -503,6 +594,11 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .block {{ border: 1px solid var(--line); border-radius: 6px; padding: .75rem; margin: .5rem 0; position: relative; overflow: auto; }}
   .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
   .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
+  .block.heading {{ font-weight: 700; font-family: system-ui, sans-serif; font-size: 1.05em; }}
+  .block.listitem {{ padding-left: 1.5rem; }}
+  .block.listitem::before {{ content: "\2022  "; color: var(--muted); }}
+  .block.quote {{ font-style: italic; border-left: 3px solid var(--line); }}
+  .block.pre {{ font-family: ui-monospace, monospace; font-size: .85em; }}
   .block del {{ background: #f3b8b8; text-decoration: line-through; }}
   .block ins {{ background: #a8d8a8; text-decoration: none; }}
   .evidence {{ border: 1px solid var(--accent); border-radius: 6px; margin: 1rem 0; padding: .75rem; background: #f6f2fc; overflow: auto; }}
