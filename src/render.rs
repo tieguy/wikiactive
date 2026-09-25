@@ -492,19 +492,29 @@ fn inline_word_diff(old: &str, new: &str) -> (String, String) {
     let mut del_run = String::new();
     let mut ins_run = String::new();
     for change in diff.iter_all_changes() {
-        let piece = match (change.old_index(), change.new_index()) {
-            (Some(i), _) => render(&old_words[i]),
-            (_, Some(i)) => render(&new_words[i]),
-            _ => esc(change.value()),
+        // Equal runs render PER SIDE: the old pane takes the old token's
+        // formatting sentinels, the new pane the new token's — otherwise an
+        // edit that only REMOVES formatting shows the old formatting in both
+        // panes (operator catch: "no visible change").
+        let piece_old = match change.old_index() {
+            Some(i) => render(&old_words[i]),
+            None => match change.new_index() {
+                Some(j) => render(&new_words[j]),
+                None => esc(change.value()),
+            },
+        };
+        let piece_new = match change.new_index() {
+            Some(j) => render(&new_words[j]),
+            None => piece_old.clone(),
         };
         let glue = " ";
         match change.tag() {
             similar::ChangeTag::Delete => {
-                del_run.push_str(&piece);
+                del_run.push_str(&piece_old);
                 del_run.push_str(glue);
             }
             similar::ChangeTag::Insert => {
-                ins_run.push_str(&piece);
+                ins_run.push_str(&piece_new);
                 ins_run.push_str(glue);
             }
             similar::ChangeTag::Equal => {
@@ -518,9 +528,9 @@ fn inline_word_diff(old: &str, new: &str) -> (String, String) {
                     let _ = write!(new_html, "<ins>{trimmed}</ins> ");
                     ins_run.clear();
                 }
-                old_html.push_str(&piece);
+                old_html.push_str(&piece_old);
                 old_html.push(' ');
-                new_html.push_str(&piece);
+                new_html.push_str(&piece_new);
                 new_html.push(' ');
             }
         }
