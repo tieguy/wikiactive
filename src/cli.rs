@@ -508,6 +508,12 @@ async fn render_cmd(
         let out = lavish::open_session(&paths.review_html(), false, reopen)?;
         print_lavish_output(&out)?;
     }
+    if let Some(url) = lavish::session_url(&paths.review_html()) {
+        println!(
+            "review: {}  (or: {url})",
+            lavish::terminal_link(&url, "open the review session")
+        );
+    }
     Ok(())
 }
 
@@ -625,6 +631,16 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
             .join("\n  ")
     );
 
+    // Reviews should be absurdly easy: a clickable (OSC 8) link to the live
+    // review session above the confirmation prompt, with a copyable raw URL
+    // fallback for terminals without hyperlink support.
+    if let Some(url) = lavish::session_url(&paths.review_html()) {
+        println!(
+            "review it: {}  (or: {url})",
+            lavish::terminal_link(&url, "open the live review session")
+        );
+    }
+
     let wiki = Wikipedia::connect().await?;
     let mut confirm = TtyConfirm;
     let outcome = wiki
@@ -655,9 +671,21 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
         detail: vec![outcome.diff_url.clone()],
     };
     append_round(&paths, &entry)?;
+    if outcome.created_revision() {
+        println!(
+            "published: {} (new revid {})",
+            outcome.diff_url, outcome.new_revid
+        );
+    } else {
+        println!(
+            "no change: the page already contains this text (revid {})",
+            outcome.new_revid
+        );
+    }
     println!(
-        "published: {} (new revid {})",
-        outcome.diff_url, outcome.new_revid
+        "check it: {}  (or: {})",
+        lavish::terminal_link(&outcome.permalink(), "open the saved revision"),
+        outcome.permalink()
     );
     println!(
         "post-publish: run Earwig compare per new web source; append the disclosure-page log entry"
