@@ -195,3 +195,7 @@ Plan-mode: `plan-reviewer` subagent before handoff (this pass). Implementation: 
 **Deferred**
 - L5 Wikidata writeback (ledger schema keeps claim↔quote hooks; `mwapi` speaks to Wikidata when needed).
 - MVP-2: local web app + z.ai driver; portability constraint honored by keeping all core logic framework-free with an axum growth path.
+
+**Post-MVP review-surface styling backlog (operator notes, 2026-09-25)**
+- Match the primary enwiki/VisualEditor styles in the diff panes: the dotted-underline wikilink marker is an MVP expedient and reads like many systems' misspelling marks. Use the wiki's own link affordances as the reference styling.
+- Evaluate reusing Visual Editor components for the review surface (VE's diff machinery / link rendering) instead of hand-rolled span marking — the artifact is already built from Parsoid HTML, VE's native format, so component reuse may be cheaper than restyling.
