@@ -423,6 +423,52 @@ pub fn comments_from_poll(tree: &Toon) -> Vec<CommentPrompt> {
         .collect()
 }
 
+/// The lavish state file mapping served sessions to their URLs.
+pub const LAVISH_STATE: &str = ".lavish-axi/state.json";
+
+/// URL of the live session serving `artifact`, read from lavish's state
+/// file. `None` when no session (or no state) exists.
+#[must_use]
+pub fn session_url(artifact: &std::path::Path) -> Option<String> {
+    let home = std::env::var_os("HOME")?;
+    session_url_from_state(
+        &std::path::Path::new(&home)
+            .join(".lavish-axi")
+            .join("state.json"),
+        artifact,
+    )
+}
+
+/// Testable core of [`session_url`].
+#[must_use]
+pub fn session_url_from_state(
+    state_path: &std::path::Path,
+    artifact: &std::path::Path,
+) -> Option<String> {
+    let text = std::fs::read_to_string(state_path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let artifact_str = artifact.to_string_lossy();
+    value
+        .pointer("/sessions")?
+        .as_object()?
+        .values()
+        .filter_map(|sess| {
+            let file = sess.get("file")?.as_str()?;
+            let url = sess.get("url")?.as_str()?;
+            Some((file.to_string(), url.to_string()))
+        })
+        .find(|(file, _)| std::path::Path::new(file) == std::path::Path::new(&*artifact_str))
+        .map(|(_, url)| url)
+}
+
+/// An OSC 8 terminal hyperlink: modern terminals render `label` as a
+/// clickable link to `url`; others show just the label (callers print the
+/// raw URL separately as a copyable fallback).
+#[must_use]
+pub fn terminal_link(url: &str, label: &str) -> String {
+    format!("\u{1b}]8;;{url}\u{1b}\\{label}\u{1b}]8;;\u{1b}\\")
+}
+
 /// Build the pinned lavish-axi command.
 #[must_use]
 pub fn lavish_command(args: &[&str]) -> Command {
@@ -478,7 +524,7 @@ pub fn agent_reply(artifact: &std::path::Path, message: &str) -> std::io::Result
 
 #[cfg(test)]
 mod tests {
-    use super::{Toon, comments_from_poll, parse_toon};
+    use super::{Toon, comments_from_poll, parse_toon, session_url_from_state};
 
     const OPEN_OUTPUT: &str = "session:\n  file: /tmp/x.html\n  url: \"http://127.0.0.1:4000/session/abc\"\n  status: opened\nnext_step: \"Now you must run poll.\"\n";
 
@@ -632,6 +678,34 @@ mod tests {
         );
         let evidence = crate::anchors::resolve_comment(&comments[2], &table).unwrap();
         assert_eq!(evidence.wikitext_anchor, "ledger:Q1");
+    }
+
+    #[test]
+    fn session_url_resolves_from_state_by_artifact_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state.json");
+        std::fs::write(
+            &state,
+            r#"{"sessions": {"a": {"file": "/tmp/x/review.html", "url": "http://h:1/session/a", "status": "open"},
+                             "b": {"file": "/tmp/y/review.html", "url": "http://h:1/session/b"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            session_url_from_state(&state, std::path::Path::new("/tmp/y/review.html")),
+            Some("http://h:1/session/b".to_string())
+        );
+        assert_eq!(
+            session_url_from_state(&state, std::path::Path::new("/tmp/missing.html")),
+            None
+        );
+    }
+
+    #[test]
+    fn terminal_link_uses_osc8() {
+        let link = super::terminal_link("http://example/s", "review");
+        assert!(link.starts_with("\u{1b}]8;;http://example/s\u{1b}\\"));
+        assert!(link.ends_with("\u{1b}]8;;\u{1b}\\"));
+        assert!(link.contains("review"));
     }
 
     #[test]

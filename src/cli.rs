@@ -767,7 +767,11 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
                 "disclosure log appended to {}",
                 corpus.house_rules.disclosure.log_page
             );
-            println!("check it: {}", outcome.permalink());
+            println!(
+                "check it: {}  (or: {})",
+                lavish::terminal_link(&outcome.permalink(), "open the log entry"),
+                outcome.permalink()
+            );
         }
         None => println!(
             "disclosure log already contains this entry (no-op): {}",
