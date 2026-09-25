@@ -96,9 +96,20 @@ fn ac4_fixed_sfn_usage() {
 #[test]
 fn ac4_fixed_page_pages_inconsistency() {
     let config = cfg();
-    let text = "A.<ref name=a>{{cite book|title=X|page=1}}</ref> B.<ref name=b>{{cite book|title=Y|pages=2-3}}</ref>";
-    let findings = gate("", text, &config);
-    assert!(findings.iter().any(|f| f.rule == "page-pages-consistency"));
+    // Single page sitting in |pages= is the defect; |page= single +
+    // |pages= range is correct template usage and must NOT flag.
+    let bad = "A.<ref name=a>{{cite book|title=X|pages=2}}</ref>";
+    assert!(
+        gate("", bad, &config)
+            .iter()
+            .any(|f| f.rule == "page-pages-consistency")
+    );
+    let good = "A.<ref name=a>{{cite book|title=X|page=1}}</ref> B.<ref name=b>{{cite book|title=Y|pages=2-3}}</ref>";
+    assert!(
+        !gate("", good, &config)
+            .iter()
+            .any(|f| f.rule == "page-pages-consistency")
+    );
 }
 
 #[test]

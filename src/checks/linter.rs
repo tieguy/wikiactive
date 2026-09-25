@@ -127,10 +127,6 @@ static REF_AUTONUMBER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"<ref\s+name\s*=\s*":\d+""#).expect("valid regex"));
 static SFN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\{\{\s*[Ss]fn\b").expect("valid regex"));
-static PAGE_PARAM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\|\s*page\s*=").expect("valid regex"));
-static PAGES_PARAM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\|\s*pages\s*=").expect("valid regex"));
 static NAMED_REF_PINPOINT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?s)<ref\s+name\s*=\s*"[^"]*"[^>]*>\s*\{\{[^}]*?\|\s*page\s*="#)
         .expect("valid regex")
@@ -331,12 +327,20 @@ fn check_rule(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
             );
         }
         "page-pages-consistency" => {
-            // Mix = both parameter forms present among citations on the page.
-            if PAGE_PARAM.is_match(text) && PAGES_PARAM.is_match(text) {
+            // Correct template usage mixes the two: |page= for a single
+            // page, |pages= for a range. The defect is a SINGLE-page value
+            // sitting in |pages= (inconsistent with the template contract).
+            static PAGES_SINGLE: LazyLock<Regex> = LazyLock::new(|| {
+                Regex::new(r"\|\s*pages\s*=\s*[0-9A-Za-z]+\s*([|}\n]|$)").expect("valid regex")
+            });
+            if let Some(m) = PAGES_SINGLE.find(text) {
                 findings.push(LintFinding {
                     rule: rule.id.clone(),
                     line: 0,
-                    detail: "both |page= and |pages= appear in citations; pick one".into(),
+                    detail: format!(
+                        "single page in |pages= (use |page= for singles): {}",
+                        m.as_str()
+                    ),
                     severity: rule.severity,
                 });
             }

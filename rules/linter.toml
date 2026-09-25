@@ -30,11 +30,11 @@ sample_clean = 'Fielding wrote extensively on travel.<ref name="fielding1942" />
 
 [rules.page_pages_consistency]
 id = "page-pages-consistency"
-description = "Do not mix |page= and |pages= for the same citation template within an article; pick one convention"
+description = "A single page value in |pages= (template contract: |page= for singles, |pages= for ranges)"
 severity = "error"
 applies = "whole-page"
-sample_violation = '<ref name="a">{{cite book|title=X|page=12}}</ref> later <ref name="b">{{cite book|title=Y|pages=34-35}}</ref>'
-sample_clean = '<ref name="a">{{cite book|title=X|page=12}}</ref> later <ref name="b">{{cite book|title=Y|page=34}}</ref>'
+sample_violation = '<ref name="a">{{cite book|title=X|pages=34}}</ref>'
+sample_clean = '<ref name="a">{{cite book|title=X|page=12}}</ref> later <ref name="b">{{cite book|title=Y|pages=34-35}}</ref>'
 
 [rules.named_ref_with_pinpoint]
 id = "named-ref-with-pinpoint"
