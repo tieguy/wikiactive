@@ -8,6 +8,8 @@
 suffix = "LLM-Disclosure: [[User:LuisVilla/wikiactive]]"
 # Page on en.wikipedia maintained as the full disclosure artifact.
 page = "User:LuisVilla/wikiactive"
+# Subpage carrying the per-article-session log entries.
+log_page = "User:LuisVilla/wikiactive/log"
 # Refuse to publish a summary that lacks the suffix (never append silently to
 # an operator-provided summary that tried to omit it).
 require_suffix = true

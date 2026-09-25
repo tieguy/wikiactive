@@ -30,8 +30,15 @@ pub struct HouseRules {
 pub struct DisclosureRules {
     pub suffix: String,
     pub page: String,
+    /// Subpage carrying per-article-session log entries.
+    #[serde(default = "default_log_page")]
+    pub log_page: String,
     #[serde(default)]
     pub require_suffix: bool,
+}
+
+fn default_log_page() -> String {
+    "User:LuisVilla/wikiactive/log".to_string()
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
