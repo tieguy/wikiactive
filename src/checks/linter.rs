@@ -34,6 +34,17 @@ pub enum Severity {
     Warn,
 }
 
+impl Severity {
+    /// Lowercase label for reports.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warn => "warn",
+        }
+    }
+}
+
 /// Scope declared per rule in `rules/linter.toml`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -397,11 +408,18 @@ fn check_rule_on(rule: &LintRule, text: &str, line: usize, findings: &mut Vec<Li
 }
 
 fn line_scan(rule: &LintRule, text: &str, re: &Regex, what: &str, findings: &mut Vec<LintFinding>) {
-    if let Some(m) = re.find(text) {
+    let matches: Vec<&str> = re.find_iter(text).map(|m| m.as_str()).collect();
+    if let Some(first) = matches.first() {
+        let count = matches.len();
+        let suffix = if count > 1 {
+            format!(" (+{} more)", count - 1)
+        } else {
+            String::new()
+        };
         findings.push(LintFinding {
             rule: rule.id.clone(),
             line: 0,
-            detail: format!("{what}: {}", m.as_str()),
+            detail: format!("{what}: {first}{suffix}"),
             severity: rule.severity,
         });
     }

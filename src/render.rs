@@ -27,7 +27,7 @@ use crate::session::Finding;
 /// `{id,label,timestamp,summary}`, oldest first; the browser legend lists at
 /// most 6 and silently ignores malformed registries — rounds beyond 6 stay
 /// recorded here but unlisted in the legend; noted in PLAYBOOK.md).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
 pub struct RevisionEntry {
     pub id: String,
     pub label: String,

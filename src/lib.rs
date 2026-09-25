@@ -11,6 +11,7 @@
 
 pub mod anchors;
 pub mod checks;
+pub mod cli;
 pub mod lavish;
 pub mod ledger;
 pub mod render;
