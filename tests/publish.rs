@@ -19,6 +19,25 @@ impl ConfirmSource for Approve {
     }
 }
 
+/// Mock GET for `wikitext_at_revid` (queries by revids only).
+async fn mock_wikitext_at_revid(server: &MockServer, revid: u64, content: &str) {
+    let revid_str = revid.to_string();
+    server
+        .mock_async(move |when, then| {
+            when.method(httpmock::Method::GET)
+                .query_param("revids", revid_str.clone());
+            then.status(200).json_body(serde_json::json!({
+                "batchcomplete": "",
+                "query": {"pages": [{
+                    "pageid": 1,
+                    "ns": 2,
+                    "title": "User:LuisVilla/wikiactive",
+                    "revisions": [{"revid": revid, "slots": {"main": {"content": content}}}]
+                }]}
+            }));
+        })
+        .await;
+}
 /// Mock GET for the csrf token fetch (`post_with_token` step).
 async fn mock_csrf_token(server: &MockServer) {
     server
@@ -205,7 +224,8 @@ async fn disclosure_log_append_is_idempotent() {
         .mock_async(|when, then| {
             when.method(httpmock::Method::GET)
                 .query_param("action", "query")
-                .query_param("titles", "User:LuisVilla/wikiactive");
+                .query_param_exists("titles")
+                .query_param("rvprop", "ids");
             then.status(200).json_body(serde_json::json!({
                 "batchcomplete": "",
                 "query": {"pages": [{
@@ -220,6 +240,12 @@ async fn disclosure_log_append_is_idempotent() {
         })
         .await;
     let edit_mock = mock_edit_ok(&server).await;
+    mock_wikitext_at_revid(
+        &server,
+        900,
+        "== Sessions ==\n<!-- wa-session:2026-09-24-cd -->\nalready logged",
+    )
+    .await;
 
     let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
         .await
@@ -245,7 +271,8 @@ async fn disclosure_log_appends_when_marker_absent() {
         .mock_async(|when, then| {
             when.method(httpmock::Method::GET)
                 .query_param("action", "query")
-                .query_param("titles", "User:LuisVilla/wikiactive");
+                .query_param_exists("titles")
+                .query_param("rvprop", "ids");
             then.status(200).json_body(serde_json::json!({
                 "batchcomplete": "",
                 "query": {"pages": [{
@@ -260,6 +287,7 @@ async fn disclosure_log_appends_when_marker_absent() {
         })
         .await;
     mock_csrf_token(&server).await;
+    mock_wikitext_at_revid(&server, 900, "== Sessions ==").await;
     // The append edit posts to the disclosure page at its current revid.
     server
         .mock_async(|when, then| {

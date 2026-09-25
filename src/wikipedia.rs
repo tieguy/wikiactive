@@ -247,17 +247,19 @@ impl Wikipedia {
         revid: u64,
     ) -> Result<String, WikipediaError> {
         let revid_str = revid.to_string();
+        // NB: the API forbids revids+titles together; revids alone addresses
+        // the revision directly.
         let resp: Value = self
             .api
             .get_value([
                 ("action", "query"),
                 ("prop", "revisions"),
-                ("titles", title),
                 ("rvprop", "ids|content"),
                 ("rvslots", "main"),
                 ("revids", revid_str.as_str()),
             ])
             .await?;
+        let _ = title;
         let pages = query_pages(&resp);
         if pages.is_empty() {
             return Err(WikipediaError::BadShape("query.pages".into()));
