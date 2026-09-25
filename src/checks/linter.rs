@@ -109,6 +109,24 @@ impl LinterConfig {
     }
 }
 
+/// True when `added_line` is a modification of some base line that already
+/// contained a semicolon (shared 30+ char prefix): the semicolon is
+/// pre-existing prose, not fresh drafting by this tool.
+fn pre_existing_semicolon(added_line: &str, base: &str) -> bool {
+    let added_has_semi = added_line.contains(';');
+    if !added_has_semi {
+        return false;
+    }
+    let prefix_len = 30.min(added_line.len());
+    let prefix = &added_line[..added_line
+        .char_indices()
+        .nth(30)
+        .map_or(added_line.len(), |(i, _)| i)];
+    let _ = prefix_len;
+    base.lines()
+        .any(|b| b.contains(';') && b.len() >= 5 && b.contains(prefix.trim()))
+}
+
 /// One linter finding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LintFinding {
@@ -280,6 +298,15 @@ pub fn gate(base: &str, proposed: &str, cfg: &LinterConfig) -> Vec<LintFinding> 
         match rule.applies {
             Scope::AddedLines | Scope::DraftedLines => {
                 for (line, text) in &added {
+                    if rule.applies == Scope::DraftedLines
+                        && rule.id == "semicolon-prose"
+                        && pre_existing_semicolon(text, base)
+                    {
+                        // Editing a pre-existing line must not gate on the
+                        // previous author's semicolons — the guard is for
+                        // prose this tool drafts.
+                        continue;
+                    }
                     check_rule_on(rule, text, *line, &mut findings);
                 }
             }

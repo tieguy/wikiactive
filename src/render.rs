@@ -328,12 +328,22 @@ fn extract_blocks(html: &str) -> Result<Vec<Block>, String> {
 /// indication of the link").
 const LINK_START: char = '\u{1}';
 const LINK_END: char = '\u{2}';
+const EM_START: char = '\u{3}';
+const EM_END: char = '\u{4}';
+const STRONG_START: char = '\u{5}';
+const STRONG_END: char = '\u{6}';
 
 /// Strip link sentinels (for anchor matching, which wants plain text).
 fn strip_link_marks(text: &str) -> String {
-    text.chars()
-        .filter(|c| *c != LINK_START && *c != LINK_END)
-        .collect()
+    const SENTINELS: [char; 6] = [
+        LINK_START,
+        LINK_END,
+        EM_START,
+        EM_END,
+        STRONG_START,
+        STRONG_END,
+    ];
+    text.chars().filter(|c| !SENTINELS.contains(c)).collect()
 }
 
 /// Visible text of an element, skipping style/script subtrees. Anchor text
@@ -364,6 +374,20 @@ fn text_of(element: scraper::ElementRef<'_>) -> String {
                     }
                 }
             }
+            Node::Element(e) if matches!(e.name(), "i" | "em") => {
+                if let Some(inner) = scraper::ElementRef::wrap(child) {
+                    out.push(EM_START);
+                    out.push_str(&text_of(inner));
+                    out.push(EM_END);
+                }
+            }
+            Node::Element(e) if matches!(e.name(), "b" | "strong") => {
+                if let Some(inner) = scraper::ElementRef::wrap(child) {
+                    out.push(STRONG_START);
+                    out.push_str(&text_of(inner));
+                    out.push(STRONG_END);
+                }
+            }
             Node::Element(e) if e.name() != "style" && e.name() != "script" => {
                 if let Some(inner) = scraper::ElementRef::wrap(child) {
                     out.push_str(&text_of(inner));
@@ -379,21 +403,14 @@ fn text_of(element: scraper::ElementRef<'_>) -> String {
 /// spans wrapped in `<span class="wl">` (dotted underline in CSS).
 fn marked_text_to_html(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    let mut open = false;
     for ch in text.chars() {
         match ch {
-            LINK_START => {
-                if !open {
-                    out.push_str("<span class=\"wl\">");
-                    open = true;
-                }
-            }
-            LINK_END => {
-                if open {
-                    out.push_str("</span>");
-                    open = false;
-                }
-            }
+            LINK_START => out.push_str("<span class=\"wl\">"),
+            LINK_END => out.push_str("</span>"),
+            EM_START => out.push_str("<em>"),
+            EM_END => out.push_str("</em>"),
+            STRONG_START => out.push_str("<strong>"),
+            STRONG_END => out.push_str("</strong>"),
             other => out.push_str(&esc(&other.to_string())),
         }
     }
@@ -441,29 +458,22 @@ fn flush_pure_deletes(pending: &mut Vec<(&str, BlockKind)>, old_pane: &mut Strin
 /// Word-level inline diff between the old and new sides of a changed block
 /// pair: returns (`old_html`, `new_html`) with `<del>`/`<ins>` runs around the
 /// changed words (equal words render plain in both).
-type MarkedWord = (String, bool); // (text, linked)
-
 /// Split sentinel-marked text into whitespace-separated words carrying a
 /// linked flag.
-fn marked_words(text: &str) -> Vec<MarkedWord> {
-    let mut words: Vec<MarkedWord> = Vec::new();
+fn marked_words(text: &str) -> Vec<String> {
+    let mut words: Vec<String> = Vec::new();
     let mut current = String::new();
-    let mut any_link = false;
     for ch in text.chars() {
-        match ch {
-            LINK_START => any_link = true,
-            LINK_END => {}
-            c if c.is_whitespace() => {
-                if !current.is_empty() {
-                    words.push((std::mem::take(&mut current), any_link));
-                    any_link = false;
-                }
+        if ch.is_whitespace() {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
             }
-            c => current.push(c),
+        } else {
+            current.push(ch);
         }
     }
     if !current.is_empty() {
-        words.push((current, any_link));
+        words.push(current);
     }
     words
 }
@@ -471,16 +481,12 @@ fn marked_words(text: &str) -> Vec<MarkedWord> {
 fn inline_word_diff(old: &str, new: &str) -> (String, String) {
     let old_words = marked_words(old);
     let new_words = marked_words(new);
-    let old_texts: Vec<&str> = old_words.iter().map(|(t, _)| t.as_str()).collect();
-    let new_texts: Vec<&str> = new_words.iter().map(|(t, _)| t.as_str()).collect();
+    let old_plain: Vec<String> = old_words.iter().map(|w| strip_link_marks(w)).collect();
+    let new_plain: Vec<String> = new_words.iter().map(|w| strip_link_marks(w)).collect();
+    let old_texts: Vec<&str> = old_plain.iter().map(String::as_str).collect();
+    let new_texts: Vec<&str> = new_plain.iter().map(String::as_str).collect();
     let diff = similar::TextDiff::from_slices(&old_texts, &new_texts);
-    let render = |word: &MarkedWord| -> String {
-        if word.1 {
-            format!("<span class=\"wl\">{}</span>", esc(&word.0))
-        } else {
-            esc(&word.0)
-        }
-    };
+    let render = |word: &str| -> String { marked_text_to_html(word) };
     let mut old_html = String::new();
     let mut new_html = String::new();
     let mut del_run = String::new();
