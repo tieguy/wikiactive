@@ -9,8 +9,12 @@
 //! `ledger`, `checks` (`quote_anchor`/`paraphrase`/`linter`/`gate`),
 //! `render`, `anchors`, `lavish`, `wikipedia`, `rules`, `session`, `cli`.
 
+pub mod anchors;
 pub mod checks;
+pub mod lavish;
 pub mod ledger;
+pub mod render;
+pub mod rules;
 pub mod session;
 pub mod wikipedia;
 
