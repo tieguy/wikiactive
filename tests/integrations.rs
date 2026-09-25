@@ -248,7 +248,7 @@ async fn no_external_skill_files_are_read() {
     );
     assert_eq!(
         wikiloop::DISCLOSURE_SUFFIX,
-        "LLM-Disclosure: U:LuisVilla/wikiactive"
+        "LLM-Disclosure: [[User:LuisVilla/wikiactive]]"
     );
     // ssrf_guard is compiled in, not configured by skill files.
     assert!(ssrf_guard(&url::Url::parse("http://localhost/").unwrap()).is_err());

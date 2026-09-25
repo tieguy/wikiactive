@@ -26,4 +26,4 @@ pub const USER_AGENT: &str = "wikiactive/0.1 (en.wikipedia User:LuisVilla; luis@
 
 /// Disclosure suffix appended to every published edit summary. Mechanically
 /// enforced by the publish path; configured in rules/house-rules.toml.
-pub const DISCLOSURE_SUFFIX: &str = "LLM-Disclosure: U:LuisVilla/wikiactive";
+pub const DISCLOSURE_SUFFIX: &str = "LLM-Disclosure: [[User:LuisVilla/wikiactive]]";

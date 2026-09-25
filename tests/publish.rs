@@ -78,7 +78,7 @@ async fn mock_edit_ok(server: &MockServer) -> httpmock::Mock<'_> {
             when.method(httpmock::Method::POST)
                 .body_includes("action=edit")
                 .body_includes("assert=user")
-                .body_includes("LLM-Disclosure%3A+U%3ALuisVilla%2Fwikiactive")
+                .body_includes("LLM-Disclosure%3A+%5B%5BUser%3ALuisVilla%2Fwikiactive%5D%5D")
                 .body_includes("baserevid=500");
             then.status(200).json_body(serde_json::json!({
                 "edit": {"result": "Success", "newrevid": 501}
@@ -328,7 +328,7 @@ async fn create_from_base_zero_posts_without_baserevid() {
             when.method(httpmock::Method::POST)
                 .body_includes("action=edit")
                 .body_includes("assert=user")
-                .body_includes("LLM-Disclosure%3A+U%3ALuisVilla%2Fwikiactive")
+                .body_includes("LLM-Disclosure%3A+%5B%5BUser%3ALuisVilla%2Fwikiactive%5D%5D")
                 .body_excludes("baserevid")
                 .body_excludes("nocreate");
             then.status(200).json_body(serde_json::json!({

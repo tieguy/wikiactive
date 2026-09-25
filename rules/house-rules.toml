@@ -5,7 +5,7 @@
 
 [disclosure]
 # Appended to every published edit summary. Format checked by tests/publish.rs.
-suffix = "LLM-Disclosure: U:LuisVilla/wikiactive"
+suffix = "LLM-Disclosure: [[User:LuisVilla/wikiactive]]"
 # Page on en.wikipedia maintained as the full disclosure artifact.
 page = "User:LuisVilla/wikiactive"
 # Refuse to publish a summary that lacks the suffix (never append silently to
