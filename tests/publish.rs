@@ -389,3 +389,56 @@ async fn null_edit_reports_no_change() {
     assert_eq!(outcome.new_revid, 700, "base stands; no revision created");
     assert!(outcome.diff_url.is_empty());
 }
+
+/// The marker rides in the entry text (invisible comment) so idempotency
+/// survives hand-edited log pages.
+#[tokio::test]
+async fn disclosure_log_embeds_marker_in_entry() {
+    let server = MockServer::start_async().await;
+    server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::GET)
+                .query_param("action", "query")
+                .query_param_exists("titles");
+            then.status(200).json_body(serde_json::json!({
+                "query": {"pages": [{"pageid": 1, "ns": 2,
+                    "title": "User:LuisVilla/wikiactive/log",
+                    "revisions": [{"revid": 900, "slots": {"main": {"content": "== Log =="}}}]}
+                ]}
+            }));
+        })
+        .await;
+    mock_wikitext_at_revid(&server, 900, "== Log ==").await;
+    mock_csrf_token(&server).await;
+    let edit_mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .body_includes("action=edit")
+                // Encoding-agnostic: the marker comment and entry text ride in
+                // the posted wikitext in any form-encoding.
+                .body_includes("wa-session")
+                .body_includes("2026");
+            then.status(200).json_body(serde_json::json!({
+                "edit": {"result": "Success", "newrevid": 901}
+            }));
+        })
+        .await;
+
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .unwrap();
+    let mut approve = Approve;
+    let marked = "* 2026 entry";
+    let out = wiki
+        .append_disclosure_log(
+            "User:LuisVilla/wikiactive/log",
+            marked,
+            "wa-session:test",
+            &mut approve,
+        )
+        .await
+        .expect("append")
+        .expect("Some");
+    assert_eq!(out.new_revid, 901);
+    assert_eq!(edit_mock.calls(), 1);
+}

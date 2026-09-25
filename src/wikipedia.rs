@@ -424,7 +424,11 @@ impl Wikipedia {
             tracing::info!("disclosure log already contains {marker}; skipping");
             return Ok(None);
         }
-        let updated = format!("{existing}\n{entry}\n");
+        // The marker rides IN the entry as an invisible comment so
+        // idempotency survives hand-edited log pages (re-runs detect the
+        // on-page marker, and tool-appended entries carry it too).
+        let marked_entry = format!("<!-- {marker} -->\n{entry}");
+        let updated = format!("{existing}\n{marked_entry}\n");
         let revid = match current {
             Ok(revid) => revid,
             Err(WikipediaError::PageMissing(_)) => 0,
