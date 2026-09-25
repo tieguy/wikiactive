@@ -427,6 +427,23 @@ fn line_scan_stripped(rule: &LintRule, text: &str, findings: &mut Vec<LintFindin
     }
 }
 
+/// Whether `word` belongs to a `-ise` family that is NOT a British marker
+/// (both-variant words like "promise", "advise", "exercise"). Matches the
+/// exclusion base or its `e`-less stem so inflected forms
+/// ("promised", "comprised") stay excluded.
+fn non_variant_ise(word: &str) -> bool {
+    NON_VARIANT_ISE_PREFIXES.iter().any(|p| {
+        let trimmed = p.strip_suffix('e').unwrap_or(p);
+        word.starts_with(p) || word.starts_with(trimmed)
+    })
+}
+
+/// British/American marker suffix families for the cross-word check.
+const UK_FAMILIES: &[&str] = &[
+    "ise", "ised", "ises", "ising", "isation", "isations", "our", "ours",
+];
+const US_FAMILIES: &[&str] = &["ize", "ized", "izes", "izing", "ization", "izations"];
+
 /// Detect a national-variety mix: an `-our`/`-or` twin pair, an `-ise`/`-ize`
 /// twin stem, or co-occurrence of a British `-our`/`-ise` marker with an
 /// American `-or`/`-ize` marker.
@@ -450,7 +467,7 @@ fn variety_mix(text: &str) -> Option<String> {
     // 2. -ise/-ize twin stems (organised+organized).
     let mut stems: HashMap<String, HashSet<&str>> = HashMap::new();
     for word in &words {
-        if NON_VARIANT_ISE_PREFIXES.iter().any(|p| word.starts_with(p)) {
+        if non_variant_ise(word) {
             continue;
         }
         if let Some(caps) = ISE_IZE.captures(word) {
@@ -469,10 +486,10 @@ fn variety_mix(text: &str) -> Option<String> {
     // 3. Cross-word mix: at least one marker of each variety.
     let british_marker = words.iter().any(|w| {
         OUR_OR_PAIRS.iter().any(|(uk, _)| w == uk)
-            || (w.ends_with("ise") && !NON_VARIANT_ISE_PREFIXES.iter().any(|p| w.starts_with(p)))
+            || (UK_FAMILIES.iter().any(|s| w.ends_with(s)) && !non_variant_ise(w))
     });
     let american_marker = words.iter().any(|w| {
-        OUR_OR_PAIRS.iter().any(|(_, us)| w == us) || w.ends_with("ize") || w.ends_with("ization")
+        OUR_OR_PAIRS.iter().any(|(_, us)| w == us) || US_FAMILIES.iter().any(|s| w.ends_with(s))
     });
     if british_marker && american_marker {
         return Some(
@@ -513,28 +530,31 @@ fn italic_mismatch(text: &str) -> Option<String> {
 }
 
 /// See-also entries whose target is already wikilinked in the body.
+///
+/// The See also section is its contiguous list of `*`/`#`/`{{…}}` entries
+/// after the heading; the first blank or non-list line ends the section
+/// (real sections are lists; prose after them is body).
 fn see_also_duplications(text: &str) -> Vec<String> {
     let lines: Vec<&str> = text.lines().collect();
     let mut see_also = Vec::new();
     let mut body = String::new();
     let mut in_section = false;
-    let mut seen_heading = false;
     for line in &lines {
         let trimmed = line.trim();
         let is_l2 =
             trimmed.starts_with("==") && !trimmed.starts_with("===") && trimmed.ends_with("==");
         if is_l2 {
-            seen_heading = true;
             in_section = trimmed.to_lowercase().contains("see also");
             continue;
         }
-        if in_section {
+        let is_list_entry =
+            trimmed.starts_with('*') || trimmed.starts_with('#') || trimmed.starts_with("{{");
+        if in_section && !trimmed.is_empty() && is_list_entry {
             see_also.push((*line).to_string());
-        } else if seen_heading || !see_also.is_empty() {
-            body.push_str(line);
-            body.push('\n');
         } else {
-            // Lead before any heading counts as body.
+            if in_section {
+                in_section = false;
+            }
             body.push_str(line);
             body.push('\n');
         }

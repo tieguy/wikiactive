@@ -1,0 +1,67 @@
+{{Short description|Mechanism for implementing precommitment by restricting one’s own future options}}
+[[File:Hán Xìn.jpg|thumb|200px|Chinese military general [[Han Xin]] purportedly created a commitment device for his soldiers: he placed them with their backs to a river to make sure they would fight.]]
+
+A '''commitment device''' is a mechanism or arrangement that implements [[precommitment]] by deliberately restricting one’s own future options to make a commitment credible. The term is used in both [[game theory]] and [[behavioral economics]], though with different emphases. In game theory, a commitment device is a strategic move that constrains an agent’s future choices in order to influence the behavior of other parties, such as an adversary or negotiating partner. In behavioral economics, it refers to a voluntary self-imposed constraint designed to help an individual follow through on intentions they might otherwise abandon due to [[akrasia]] (weakness of will) or [[temporal discounting|time-inconsistent preferences]].<ref>{{Cite journal |last=Bryan |first=Gharad |last2=Karlan |first2=Dean |last3=Nelson |first3=Scott |date=2010-09-04 |title=Commitment Devices |url=https://www.annualreviews.org/content/journals/10.1146/annurev.economics.102308.124324 |journal=Annual Review of Economics |language=en |volume=2 |issue=Volume 2, 2010 |pages=671–698 |doi=10.1146/annurev.economics.102308.124324 |issn=1941-1383}}</ref>
+
+Examples of commitment devices range from strategic contexts — such as a general burning bridges to make retreat impossible, or [[mutually assured destruction|nuclear deterrence postures]] that make retaliation automatic — to personal self-control tools, such as savings accounts with withdrawal penalties, public announcements of goals, or contracts that impose costs for failure to follow through.<ref name=“CD”/><ref>{{Cite journal |last=Schelling |first=T. C. |date=1960 |title=Reciprocal Measures for Arms Stabilization |url=https://www.jstor.org/stable/20026622 |journal=Daedalus |volume=89 |issue=4 |pages=892–914 |issn=0011-5266}}</ref>
+
+Commitment devices have two major features. They are voluntarily adopted for use, and they tie consequences to follow-through failures.<ref name="CD"/> Consequences can be immutable (irreversible, such as a monetary consequence) or mutable (allows for the possibility of future reversal of the consequence).<ref name="CD"/>
+
+==Overview==
+[[File:Odysseus Sirens BM E440 n2.jpg|thumb|left|[[Odysseus]] lashed to the mast by his first mate. Depicted by the [[Siren Painter]].]]
+
+The term "commitment device" is used in both economics and [[game theory]]. In particular, the concept is relevant to the fields of economics and, especially, the study of decision making.<ref>{{harvnb|Brocas, ''et al.''}}</ref>
+
+A common example comes from mythology: Odysseus' plan to survive hearing the [[Siren (mythology)|siren]]s' song without jumping overboard. Economist Jodi Beggs writes "Commitment devices are a way to overcome the discrepancy between an individual's short-term and long-term preferences; in other words, they are a way for self-aware people to modify their incentives or set of possible choices in order to overcome impatience or other irrational behavior. You know the story of [[Odysseus|Ulysses]] tying himself to the mast so that he couldn't be lured in by the song of the Sirens? You can think of that as the quintessential commitment device".<ref>{{harvnb|Beggs|2009}}.</ref>
+
+Behavioral economist Daniel Goldstein describes how commitment devices established in "cold states" help and protect themselves against impulsive decisions in later, emotional, stimulated, "hot states". Goldstein says that, despite their usefulness, commitment devices nevertheless have drawbacks. Namely, they still rely on some self-control.<ref name="gold">{{Citation|last=Goldstein|first=Daniel|title=The battle between your present and future self|date=21 December 2011 |url=https://www.ted.com/talks/daniel_goldstein_the_battle_between_your_present_and_future_self|language=en|access-date=2020-05-06}}</ref> 
+Goldstein says that, for one, a commitment device can promote [[learned helplessness]] in the agent. If the agent enters a situation where the device does not incentivize commitment, the agent may not have enough will power or ability to control themselves. (Goldstein uses the example of a cake falling into the grey area of a diet, so it is eaten excessively.) Second, commitment devices can usually be reversed. (An unplugged distracting electronic can be plugged back in.)
+<ref name=gold/>
+
+Goldstein says "In effect you are like Odysseus and the first mate in one person. You're binding yourself, and then you're weaseling your way out of it, and then you're beating yourself up for it afterwards."<ref name=gold/>
+
+==Methods==
+* Create larger obstacles to temptations to increase the costs of temptations. 
+* Make one's commitment public, so one's reputation may be affected. 
+* Make a bet or monetary contract with someone to increase the benefit of keeping one's promise.
+
+==Challenges==
+It can be challenging to promote uptake of commitment devices. In the field of health, for example, commitment devices have the potential to increase patient adherence to their health goals, but utilization of these techniques is low.<ref name=WB /><ref name="CD"/> Health professionals can potentially increase patient uptake of commitment devices by increasing their accessibility, making policies opt-out, and leveraging patients’ social networks.<ref name="CD"/>
+
+==Other examples==
+[[File:Lawrence Joel.jpg|thumb|A soldier receives a Medal of Honor. Game theorists suggest that human cultural constructs like [[Honour|honor]] might function as commitment devices.]]Examples of commitment devices abound. Dubner and Levitt give the example of [[Han Xin]], a general in Ancient China, who positioned his soldiers with their backs to a river, making it impossible for them to flee, thereby leaving them no choice but to attack the enemy head-on. They also present various commitment devices related to weight loss.<ref>{{cite web |last1=Dubner |first1=Stephen J. |last2=Levitt |first2=Steven D. |title=The Stomach-Surgery Conundrum |url=https://www.nytimes.com/2007/11/18/magazine/18wwln-freakonomics-t.html |website=The New York Times |date=18 November 2007}}</ref> In addition, some game theorists have argued that human emotions and sense of honor are forms of commitment device.<ref>{{harvnb|Arslan|2011}} and {{harvnb|Ross|Dumouchel|2004}}</ref> Other examples include announcing commitments publicly and [[mutually assured destruction]],<ref>{{harvnb|Straker|2011}}</ref> as well as software programs that block internet access for a predetermined period of time.
+
+Filmmaker [[Alice Wu]] successfully employed a commitment device to complete the screenplay for ''[[The Half of It]]''. Wu wrote a $1,000 check to the [[National Rifle Association of America]] (an organization she does not support) and asked a friend to mail it in if Wu did not complete the screenplay in five weeks.<ref>{{Cite web|url=https://www.vanityfair.com/hollywood/2020/04/the-half-of-it-netflix-movie-alice-wu|title = Alice Wu's the Half of It is a Thoroughly Modern Queer Romance|website = [[Vanity Fair (magazine)|Vanity Fair]]|date = 28 April 2020}}</ref>
+
+Comedian [[Nathan Fielder]], on his show ''[[Nathan for You]],'' shows a process of taking an embarrassing photo of himself, nude, as the human meat of a [[hot dog]], printing a copy and sealing it into an envelope for his grandmother ("someone who I'd never want to see me this way"), and taking it to a [[notary]] who would mail it out if Fielder did not have proof of a completed screenplay within two weeks. Fielder would then attempt to see if it could work for other people, whom he prompted to utilize similar methods of potential embarrassment in an effort to achieve a weight loss goal.<ref>{{Cite AV media |url=https://www.youtube.com/watch?v=zDuwzdIl3sQ |title=Motivated By Embarrassment {{!}} Nathan For You {{!}} Comedy Central Africa |date=2024-03-17 |last=Comedy Central Africa |access-date=2025-09-25 |via=YouTube}}</ref>
+
+==See also==
+*[[Precommitment]]
+*[[Positive psychology]]
+*[[Hold-up problem]]
+*[[StickK]], a website that enables people to make "commitment contracts"
+*[[Nudge theory]]
+
+==References==
+{{Reflist|2|refs=
+<ref name=DubnerLevitt>{{Cite news|url=https://www.nytimes.com/2007/11/18/magazine/18wwln-freakonomics-t.html?_r=1|author=Dubner and Levitt, Stephen J. and Steven D.|title=The Stomach-Surgery Conundrum|work=[[The New York Times]]|date=November 18, 2007}}</ref>
+
+<ref name=WB>{{cite journal|url=https://www.aeaweb.org/articles?id=10.1257/app.2.4.213|title=Put Your Money Where Your Butt Is: A Commitment Contract For Smoking Cessation|year=2009|publisher=World Bank|doi=10.1257/app.2.4.213|last1=Giné|first1=Xavier|last2=Karlan|first2=Dean|last3=Zinman|first3=Jonathan|journal=American Economic Journal: Applied Economics|volume=2|issue=4|pages=213–235|s2cid=73160456|hdl=10986/4177|hdl-access=free}}</ref>
+
+<ref name="CD">{{cite journal|url=https://scholar.harvard.edu/files/todd_rogers/files/commitment_devices_2.pdf|author1=Rogers, T.|author2=Milkman, K. L.|author3-link=Kevin Volpp|author3=Volpp, K. G.|year=2014|title=Commitment Devices: Using Initiatives to Change Behavior|journal=JAMA|volume=311|issue=20|pages=2065–2066|doi=10.1001/jama.2014.3485|pmid=24777472}}</ref>
+}}
+
+==Further reading==
+*{{cite web|last=Arslan|first=Ruben|url=http://itb.biologie.hu-berlin.de/blogs/evoblog/contrib/evolution-of-cooperation-emotion-as-a-commitment-device-1|title=Evolution of cooperation: Emotion as a commitment device|work=Evolutionary Theory across the Life Sciences|archive-url=https://web.archive.org/web/20120415041540/http://itb.biologie.hu-berlin.de/blogs/evoblog/contrib/evolution-of-cooperation-emotion-as-a-commitment-device-1|archive-date=2012-04-15 |date=2011}} 
+* {{cite book|last=Ayres|first=Ian|authorlink=Ian Ayres|title=Carrots and Sticks|publisher=Bantam|year=2010|isbn=978-0-553-80763-9}}
+*{{Cite web|last=Beggs|first=Jodi|url=http://www.economistsdoitwithmodels.com/2009/06/17/be-careful-with-those-commitment-devices/|title=Be Careful With Those Commitment Devices…|date=June 17, 2009|archive-url=https://web.archive.org/web/20110812041700/http://www.economistsdoitwithmodels.com/2009/06/17/be-careful-with-those-commitment-devices/|archive-date=2011-08-12}}
+*{{Cite web|author1=Brocas, Isabelle |author2=Juan D. Carrillo |author3=Mathias Dewatripont|url=http://www-bcf.usc.edu/~juandc/PDFpapers/book2-ch04.pdf|title=Commitment Devices under Self-Control Problems: An Overview|archive-url=https://web.archive.org/web/20110930034921/http://www-bcf.usc.edu/~juandc/PDFpapers/book2-ch04.pdf|archive-date=2011-09-30 |ref={{harvid|Brocas, et al.}}}}
+*{{Cite journal|last1=Ross |last2=Dumouchel |first1=Don |first2=Paul |url=http://rss.sagepub.com/content/16/3/251.abstract|title=Emotions as Strategic Signals|journal=Rationality and Society|date=August 2004|volume=16|number=3|pages=251–286|doi=10.1177/1043463104044678|s2cid=145646865|archive-url=https://web.archive.org/web/20140827052531/http://rss.sagepub.com/content/16/3/251.abstract|archive-date=2014-08-27|url-access=subscription}} 
+*{{cite web |last=Straker |first=Dave |url=http://changingminds.org/techniques/general/more_methods/commitment_devices.htm |title=Commitment Devices |work=Changing Minds |date=2011}}
+
+==External links==
+*[https://nudgewise.com Nudgewise], a platform that helps people stay committed to goals
+
+[[Category:Behavioral economics]]
+[[Category:Game theory]]
+[[Category:Strategy (game theory)]]
