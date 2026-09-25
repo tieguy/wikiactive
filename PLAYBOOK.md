@@ -119,8 +119,11 @@ mechanically (`LLM-Disclosure: U:LuisVilla/wikiactive`).
 - **TALK provenance note** — offer source scans on request; summarize what
   was checked (only negative results and the provenance note belong on
   talk, per the disposition ladder).
-- **Disclosure-page log append** — idempotent entry per session: article,
-  date, drafting model + version, per-edit diff links.
+- **Disclosure-page log append** — one entry per **article session** (each
+  `wa session init` is a page-session; the entry lands when that session's
+  publishing completes): article, date, drafting model + version, tool code
+  revision, per-edit diff links. Entries live on the `/log` subpage;
+  idempotent per session id.
 - **Screenshots** — capture the live review artifact (itself a browser
   page); upload to Commons as own work per the README's licensing note.
   The evidence-rail round is the canonical citation-review demonstration.
