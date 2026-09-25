@@ -322,19 +322,67 @@ fn extract_blocks(html: &str) -> Result<Vec<Block>, String> {
     Ok(blocks)
 }
 
-/// Visible text of an element, skipping style/script subtrees.
+/// Sentinels wrapping anchor text so the panes can SHOW what is linked
+/// (Parsoid wraps internal links in `<a rel="mw:WikiLink">`; plain
+/// `element.text()` drops the wrapper — operator review catch: "no visual
+/// indication of the link").
+const LINK_START: char = '\u{1}';
+const LINK_END: char = '\u{2}';
+
+/// Strip link sentinels (for anchor matching, which wants plain text).
+fn strip_link_marks(text: &str) -> String {
+    text.chars()
+        .filter(|c| *c != LINK_START && *c != LINK_END)
+        .collect()
+}
+
+/// Visible text of an element, skipping style/script subtrees. Anchor text
+/// is wrapped in [`LINK_START`]/[`LINK_END`] sentinels for link-aware
+/// rendering.
 fn text_of(element: scraper::ElementRef<'_>) -> String {
     use scraper::node::Node;
     let mut out = String::new();
     for child in element.children() {
         match child.value() {
             Node::Text(t) => out.push_str(t),
+            Node::Element(e) if e.name() == "a" => {
+                if let Some(inner) = scraper::ElementRef::wrap(child) {
+                    out.push(LINK_START);
+                    out.push_str(&text_of(inner));
+                    out.push(LINK_END);
+                }
+            }
             Node::Element(e) if e.name() != "style" && e.name() != "script" => {
                 if let Some(inner) = scraper::ElementRef::wrap(child) {
                     out.push_str(&text_of(inner));
                 }
             }
             _ => {}
+        }
+    }
+    out
+}
+
+/// Render sentinel-marked text to pane HTML: plain text escaped, marked
+/// spans wrapped in `<span class="wl">` (dotted underline in CSS).
+fn marked_text_to_html(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut open = false;
+    for ch in text.chars() {
+        match ch {
+            LINK_START => {
+                if !open {
+                    out.push_str("<span class=\"wl\">");
+                    open = true;
+                }
+            }
+            LINK_END => {
+                if open {
+                    out.push_str("</span>");
+                    open = false;
+                }
+            }
+            other => out.push_str(&esc(&other.to_string())),
         }
     }
     out
@@ -381,36 +429,91 @@ fn flush_pure_deletes(pending: &mut Vec<(&str, BlockKind)>, old_pane: &mut Strin
 /// Word-level inline diff between the old and new sides of a changed block
 /// pair: returns (`old_html`, `new_html`) with `<del>`/`<ins>` runs around the
 /// changed words (equal words render plain in both).
+type MarkedWord = (String, bool); // (text, linked)
+
+/// Split sentinel-marked text into whitespace-separated words carrying a
+/// linked flag.
+fn marked_words(text: &str) -> Vec<MarkedWord> {
+    let mut words: Vec<MarkedWord> = Vec::new();
+    let mut current = String::new();
+    let mut any_link = false;
+    for ch in text.chars() {
+        match ch {
+            LINK_START => any_link = true,
+            LINK_END => {}
+            c if c.is_whitespace() => {
+                if !current.is_empty() {
+                    words.push((std::mem::take(&mut current), any_link));
+                    any_link = false;
+                }
+            }
+            c => current.push(c),
+        }
+    }
+    if !current.is_empty() {
+        words.push((current, any_link));
+    }
+    words
+}
+
 fn inline_word_diff(old: &str, new: &str) -> (String, String) {
-    let diff = similar::TextDiff::from_words(old, new);
+    let old_words = marked_words(old);
+    let new_words = marked_words(new);
+    let old_texts: Vec<&str> = old_words.iter().map(|(t, _)| t.as_str()).collect();
+    let new_texts: Vec<&str> = new_words.iter().map(|(t, _)| t.as_str()).collect();
+    let diff = similar::TextDiff::from_slices(&old_texts, &new_texts);
+    let render = |word: &MarkedWord| -> String {
+        if word.1 {
+            format!("<span class=\"wl\">{}</span>", esc(&word.0))
+        } else {
+            esc(&word.0)
+        }
+    };
     let mut old_html = String::new();
     let mut new_html = String::new();
     let mut del_run = String::new();
     let mut ins_run = String::new();
     for change in diff.iter_all_changes() {
-        let piece = esc(change.value());
+        let piece = match (change.old_index(), change.new_index()) {
+            (Some(i), _) => render(&old_words[i]),
+            (_, Some(i)) => render(&new_words[i]),
+            _ => esc(change.value()),
+        };
+        let glue = " ";
         match change.tag() {
-            similar::ChangeTag::Delete => del_run.push_str(&piece),
-            similar::ChangeTag::Insert => ins_run.push_str(&piece),
+            similar::ChangeTag::Delete => {
+                del_run.push_str(&piece);
+                del_run.push_str(glue);
+            }
+            similar::ChangeTag::Insert => {
+                ins_run.push_str(&piece);
+                ins_run.push_str(glue);
+            }
             similar::ChangeTag::Equal => {
                 if !del_run.is_empty() {
-                    let _ = write!(old_html, "<del>{del_run}</del>");
+                    let trimmed = del_run.trim_end().to_string();
+                    let _ = write!(old_html, "<del>{trimmed}</del> ");
                     del_run.clear();
                 }
                 if !ins_run.is_empty() {
-                    let _ = write!(new_html, "<ins>{ins_run}</ins>");
+                    let trimmed = ins_run.trim_end().to_string();
+                    let _ = write!(new_html, "<ins>{trimmed}</ins> ");
                     ins_run.clear();
                 }
                 old_html.push_str(&piece);
+                old_html.push(' ');
                 new_html.push_str(&piece);
+                new_html.push(' ');
             }
         }
     }
     if !del_run.is_empty() {
-        let _ = write!(old_html, "<del>{del_run}</del>");
+        let trimmed = del_run.trim_end().to_string();
+        let _ = write!(old_html, "<del>{trimmed}</del>");
     }
     if !ins_run.is_empty() {
-        let _ = write!(new_html, "<ins>{ins_run}</ins>");
+        let trimmed = ins_run.trim_end().to_string();
+        let _ = write!(new_html, "<ins>{trimmed}</ins>");
     }
     (old_html, new_html)
 }
@@ -469,7 +572,7 @@ fn block_html(
     format!(
         "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{}</div>\n",
         kind.css(),
-        esc(text),
+        marked_text_to_html(text),
     )
 }
 /// Locate a block's wikitext anchor: the line range (1-based, char cols)
@@ -482,7 +585,7 @@ fn locate_block_anchor(wikitext: &str, block_text: &str) -> Option<String> {
             .collect::<Vec<_>>()
             .join(" ")
     };
-    let block_norm = norm(block_text);
+    let block_norm = norm(&strip_link_marks(block_text));
     if block_norm.is_empty() {
         return None;
     }
@@ -601,6 +704,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
   .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
   .ctx-sep {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .75rem; text-align: center; padding: .15rem 0; }}
+  .wl {{ text-decoration: underline dotted; text-underline-offset: 2px; }}
   .block.heading {{ font-weight: 700; font-family: system-ui, sans-serif; font-size: 1.05em; }}
   .block.listitem {{ padding-left: 1.5rem; }}
   .block.listitem::before {{ content: "\2022  "; color: var(--muted); }}
