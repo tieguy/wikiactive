@@ -25,9 +25,9 @@ pub const ENWIKI_API: &str = "https://en.wikipedia.org/w/api.php";
 /// Env var carrying the `OAuth2` owner-only token.
 pub const OAUTH2_TOKEN_ENV: &str = "WIKIACTIVE_OAUTH2_TOKEN";
 
-/// Env var for the BotPasswords smoke-test fallback:
+/// Env var for the `BotPasswords` smoke-test fallback:
 /// `WIKIACTIVE_BOTPASSWORD="SomeUser@botname:password"`. Plan policy:
-/// BotPasswords is for the userspace smoke test ONLY, never mainspace —
+/// `BotPasswords` is for the userspace smoke test ONLY, never mainspace —
 /// mainspace requires the OAuth owner-only consumer (descriptive tool tag,
 /// revocable grant).
 pub const BOTPASSWORD_ENV: &str = "WIKIACTIVE_BOTPASSWORD";
@@ -145,7 +145,7 @@ pub struct Wikipedia {
 impl Wikipedia {
     /// Connect to en.wikipedia with etiquette defaults and credentials from
     /// the environment: `OAuth2` owner-only token from [`OAUTH2_TOKEN_ENV`]
-    /// if set, else the BotPasswords fallback from [`BOTPASSWORD_ENV`]
+    /// if set, else the `BotPasswords` fallback from [`BOTPASSWORD_ENV`]
     /// (smoke-test only), else unauthenticated read-only.
     ///
     /// # Errors
