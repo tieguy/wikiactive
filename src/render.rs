@@ -127,39 +127,27 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     let mut counter = 0usize;
     let mut prop_idx = 0usize;
     let mut pending_deletes: Vec<(&str, BlockKind)> = Vec::new();
+    let mut skipped_equal = 0usize;
 
     for change in diff.iter_all_changes() {
         match change.tag() {
             similar::ChangeTag::Equal => {
+                // Review surface shows ONLY changed blocks; unchanged runs
+                // collapse to a count separator (operator request: "show
+                // only the changed paragraphs").
                 flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
+                skipped_equal += 1;
                 prop_idx += 1;
-                let kind = change
-                    .new_index()
-                    .map_or(BlockKind::Paragraph, |i| proposed_blocks[i].kind);
-                old_pane.push_str(&block_html(
-                    None,
-                    None,
-                    change.value(),
-                    kind,
-                    "equal",
-                    &round_id,
-                ));
-                new_pane.push_str(&block_html(
-                    None,
-                    None,
-                    change.value(),
-                    kind,
-                    "equal",
-                    &round_id,
-                ));
             }
             similar::ChangeTag::Delete => {
+                emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
                 let kind = change
                     .old_index()
                     .map_or(BlockKind::Paragraph, |i| base_blocks[i].kind);
                 pending_deletes.push((change.value(), kind));
             }
             similar::ChangeTag::Insert => {
+                emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
                 let new_text = change.value();
                 let new_kind = change
                     .new_index()
@@ -213,6 +201,9 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                 }
             }
         }
+    }
+    if !pending_deletes.is_empty() {
+        emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
     }
     flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
 
@@ -364,6 +355,21 @@ fn collapse_ws(s: &str) -> String {
         }
     }
     out.trim().to_string()
+}
+
+/// One-line collapsed-context separator between change groups: keeps the
+/// reviewer oriented without rendering unchanged blocks.
+fn emit_ctx_sep(old_pane: &mut String, new_pane: &mut String, skipped: &mut usize) {
+    if *skipped > 0 {
+        let sep = format!(
+            "<div class=\"ctx-sep\">\u{22ef} {} unchanged block{} \u{22ef}</div>\n",
+            skipped,
+            if *skipped == 1 { "" } else { "s" }
+        );
+        old_pane.push_str(&sep);
+        new_pane.push_str(&sep);
+        *skipped = 0;
+    }
 }
 
 /// Emit buffered deletes that never paired with an insert (pure deletions).
@@ -594,6 +600,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .block {{ border: 1px solid var(--line); border-radius: 6px; padding: .75rem; margin: .5rem 0; position: relative; overflow: auto; }}
   .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
   .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
+  .ctx-sep {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .75rem; text-align: center; padding: .15rem 0; }}
   .block.heading {{ font-weight: 700; font-family: system-ui, sans-serif; font-size: 1.05em; }}
   .block.listitem {{ padding-left: 1.5rem; }}
   .block.listitem::before {{ content: "\2022  "; color: var(--muted); }}
@@ -789,6 +796,26 @@ mod tests {
         assert!(!out.artifact_html.contains("cite.citation"));
         assert!(!out.artifact_html.contains(".x{}"));
         assert!(out.artifact_html.contains("cited claim"));
+    }
+
+    /// Review surface shows ONLY changed blocks: unchanged runs collapse
+    /// to a count separator instead of rendering (operator request).
+    #[test]
+    fn unchanged_blocks_collapse_to_separator() {
+        let ledger = crate::ledger::Ledger::default();
+        let out = render(&input(BASE_WT, PROP_WT, BASE_HTML, PROP_HTML, &ledger, &[])).unwrap();
+        // The unchanged lead paragraph must NOT render as a pane block.
+        assert!(
+            !out.artifact_html.contains("The tower is old."),
+            "unchanged blocks must not render"
+        );
+        // A collapsed-context separator reports the skipped run.
+        assert!(
+            out.artifact_html.contains("unchanged block"),
+            "separator missing"
+        );
+        // The changed block still renders with its anchor.
+        assert!(out.artifact_html.contains("id=\"wa-1\""));
     }
 
     #[test]
