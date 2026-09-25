@@ -439,9 +439,18 @@ pub fn lavish_command(args: &[&str]) -> Command {
 ///
 /// # Errors
 /// Spawn or non-zero exit.
-pub fn open_session(artifact: &std::path::Path, no_open: bool) -> std::io::Result<Output> {
+pub fn open_session(
+    artifact: &std::path::Path,
+    no_open: bool,
+    reopen: bool,
+) -> std::io::Result<Output> {
     let file = artifact.to_string_lossy().to_string();
-    let mut cmd = lavish_command(&[&file]);
+    let mut args: Vec<&str> = Vec::new();
+    if reopen {
+        args.push("--reopen");
+    }
+    args.push(&file);
+    let mut cmd = lavish_command(&args);
     if no_open {
         cmd.env("LAVISH_AXI_NO_OPEN", "1");
     }

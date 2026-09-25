@@ -80,6 +80,9 @@ pub enum Command {
         /// Do not open a lavish session after rendering.
         #[arg(long)]
         no_open: bool,
+        /// Reopen a user-ended lavish session (explicit operator request).
+        #[arg(long)]
+        reopen: bool,
     },
     /// Long-poll the lavish session; on feedback, print resolved anchors.
     Poll {
@@ -197,7 +200,19 @@ pub async fn run(cli: Cli) -> Result<()> {
             html_proposed,
             summary,
             no_open,
-        } => render_cmd(&slug, round, html_base, html_proposed, &summary, no_open).await,
+            reopen,
+        } => {
+            render_cmd(
+                &slug,
+                round,
+                html_base,
+                html_proposed,
+                &summary,
+                no_open,
+                reopen,
+            )
+            .await
+        }
         Command::Poll { slug, agent_reply } => poll_cmd(&slug, agent_reply.as_deref()),
         Command::Publish { slug, summary } => publish_cmd(&slug, &summary).await,
         Command::Ledger { cmd } => match cmd {
@@ -406,6 +421,7 @@ async fn render_cmd(
     html_proposed: Option<PathBuf>,
     summary: &str,
     no_open: bool,
+    reopen: bool,
 ) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
@@ -473,7 +489,7 @@ async fn render_cmd(
         output.anchor_table.len()
     );
     if !no_open {
-        let out = lavish::open_session(&paths.review_html(), false)?;
+        let out = lavish::open_session(&paths.review_html(), false, reopen)?;
         print_lavish_output(&out)?;
     }
     Ok(())
