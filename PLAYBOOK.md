@@ -81,20 +81,25 @@ dropped.
    --quotes Q1`. Quotes that don't locate verbatim are rejected at entry.
 4. **Propose** — edit `sessions/<slug>/proposed.wikitext` with ONE logical
    edit (scoped like a code-review commit).
-5. **Render** — `wa render <slug> --round <n> --summary "<one line>"`. The
+5. **Check (fail-fast)** — `wa check <slug>` runs the full gate standalone
+   against `proposed.wikitext` (no artifact attempt). Iterate here until it
+   passes: the report groups reasons as NEEDS ANCHOR (ledger wiring:
+   register/fetch/quote) vs HARD BLOCK (revise prose, quote, or lint), each
+   with the offending wikitext span.
+6. **Render** — `wa render <slug> --round <n> --summary "<one line>"`. The
    gate runs as mandatory pre-flight; blocked = no artifact, all reasons
    listed. On success: review.html opens in lavish.
-6. **Review** — the operator reads the two-pane diff with the evidence
+7. **Review** — the operator reads the two-pane diff with the evidence
    rail; comments anchor to `wa-N` (wikitext ranges) and `ev-N` (ledger
    quotes).
-7. **Poll** — `wa poll <slug>` (or re-poll with `--agent-reply "<msg>"`
+8. **Poll** — `wa poll <slug>` (or re-poll with `--agent-reply "<msg>"`
    after applying feedback). Comments resolve to anchors; quote the
    resolved span back in your reply so mis-maps are visible.
-8. **Revise → re-render → re-poll** until the operator is satisfied.
-9. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
-   gate re-runs; then the ONE human gate: a `/dev/tty` confirmation. The
-   model never self-publishes. On success the base re-pins.
-10. **Post-publish** — Earwig compare per new web source; TALK provenance
+9. **Revise → re-render → re-poll** until the operator is satisfied.
+10. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
+    gate re-runs; then the ONE human gate: a `/dev/tty` confirmation. The
+    model never self-publishes. On success the base re-pins.
+11. **Post-publish** — Earwig compare per new web source; TALK provenance
     note; disclosure-page session-log append; screenshots for the
     disclosure page (operator, manual Commons upload).
 

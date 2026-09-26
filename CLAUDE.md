@@ -44,6 +44,7 @@ wa analyze <slug>
 wa findings add <slug> -
 wa ledger register|fetch|archive|quote|claim ...
 wa render <slug> --round 1 --summary "..."
+wa check <slug>            # standalone gate preflight (no artifact)
 wa poll <slug> [--agent-reply "..."]
 wa publish <slug> --summary "..."
 wa lint <wikitext-file>

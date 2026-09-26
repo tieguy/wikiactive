@@ -104,6 +104,10 @@ pub enum Command {
     },
     /// Whole-page lint scan (pre-existing defects; also used by replay).
     Lint { path: PathBuf },
+    /// Standalone gate run against the session's proposed edit: structured,
+    /// disposition-grouped output; writes NO artifact (fail-fast preflight
+    /// before the render attempt).
+    Check { slug: String },
     /// Append this session's entry to the disclosure page log (idempotent;
     /// uses house-rules disclosure page).
     DisclosureLog {
@@ -243,6 +247,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             } => ledger_claim(&slug, &prose, &quotes),
         },
         Command::Lint { path } => lint_cmd(&path),
+        Command::Check { slug } => check_cmd(&slug),
         Command::DisclosureLog {
             slug,
             entry,
@@ -623,13 +628,8 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
     });
     anyhow::ensure!(
         !verdict.blocked,
-        "gate blocked publish:\n  {}",
-        verdict
-            .reasons
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n  ")
+        "gate blocked publish:\n{}",
+        crate::checks::gate::format_reasons(&verdict.reasons)
     );
 
     // Reviews should be absurdly easy: a clickable (OSC 8) link to the live
@@ -872,6 +872,36 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
             corpus.house_rules.disclosure.log_page
         ),
     }
+    Ok(())
+}
+
+/// `wa check <slug>` — standalone gate run (fail-fast preflight): the same
+/// gate as render's mandatory pre-flight, run without any artifact attempt
+/// and without opening a session. Output is the structured, disposition-
+/// grouped report; exits non-zero when blocked so the driver can iterate
+/// cheaply before rendering.
+fn check_cmd(slug: &str) -> Result<()> {
+    let (paths, _meta) = load_session(slug)?;
+    let corpus =
+        RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let base_wikitext = std::fs::read_to_string(paths.base())?;
+    let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
+    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let ledger = Ledger::load(&paths.ledger())?;
+
+    let verdict = crate::checks::gate::run_gate(&GateInput {
+        ledger: &ledger,
+        findings: &findings.findings,
+        base_wikitext: &base_wikitext,
+        proposed_wikitext: &proposed_wikitext,
+        linter_config: &corpus.linter,
+    });
+    if verdict.blocked {
+        print!("{}", crate::checks::gate::format_reasons(&verdict.reasons));
+        println!("\nno artifact written (wa check never renders)");
+        anyhow::bail!("gate blocked");
+    }
+    println!("gate: PASS — the proposal is renderable (no artifact written by check)");
     Ok(())
 }
 

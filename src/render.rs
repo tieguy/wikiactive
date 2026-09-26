@@ -101,12 +101,9 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
         blocked, reasons, ..
     } = verdict;
     if blocked {
-        let joined = reasons
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n  ");
-        return Err(RenderError::GateBlocked(joined));
+        return Err(RenderError::GateBlocked(
+            crate::checks::gate::format_reasons(&reasons),
+        ));
     }
 
     // 2. Extract content blocks from both HTML sides.
@@ -692,8 +689,9 @@ fn block_html(
 }
 /// Locate a block's wikitext anchor: the line range (1-based, char cols)
 /// whose content matches the block text's opening words. Returns
-/// `L<s>:C<col>-L<e>:C<col2>`.
-fn locate_block_anchor(wikitext: &str, block_text: &str) -> Option<String> {
+/// `L<s>:C<col>-L<e>:C<col2>`. Also used by the gate to span-locate claim
+/// prose in the proposed wikitext (MVP-2 A.2.1).
+pub(crate) fn locate_block_anchor(wikitext: &str, block_text: &str) -> Option<String> {
     let norm = |s: &str| {
         s.to_lowercase()
             .split_whitespace()
