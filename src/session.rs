@@ -191,6 +191,14 @@ pub struct SessionMeta {
     /// Latest published round (publish re-pins `base_revid`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_published_diff_url: Option<String>,
+    /// Drift-review pin (MVP-2 A.2.2): the operator's last-edit revid when
+    /// the session was initialized with `--review-since-user`; the wikitext
+    /// at that revid is stored as `review-since.wikitext` and the analyze
+    /// bundle embeds the drift diff against it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_since_revid: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_since_user: Option<String>,
 }
 
 /// One round-log entry (`rounds.jsonl`, append-only).

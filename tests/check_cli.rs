@@ -115,3 +115,57 @@ fn clean_proposal_passes_without_artifact() {
         "check writes no artifact on pass either"
     );
 }
+
+/// MVP-2 A.2.2 — a session with the review-since drift pin embeds the
+/// drift diff (with provenance label) in the analyze bundle, without
+/// `--prior-base`.
+#[test]
+fn review_since_drift_embedded_in_analyze_bundle() {
+    let dir = setup_session(
+        r#"{"findings":[]}"#,
+        "She was a railroad president.\n",
+        "She was a railroad president.\n",
+    );
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("session.json"),
+        r#"{"article":"Test article","base_revid":900,"started":"2026-09-25T00:00:00Z","entry_loop":3,"review_since_revid":8900001,"review_since_user":"LuisVilla"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        session.join("review-since.wikitext"),
+        "She was a railroad president.\n",
+    )
+    .unwrap();
+    // The base has drifted since the operator's last edit.
+    std::fs::write(
+        session.join("base.wikitext"),
+        "She was president of the railroad.\n",
+    )
+    .unwrap();
+
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["analyze", "test-article"])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let ctx = std::fs::read_to_string(session.join("context.md")).unwrap();
+    assert!(
+        ctx.contains("drift (prior session or operator's last edit)"),
+        "drift section present: {ctx}"
+    );
+    assert!(
+        ctx.contains("since LuisVilla's last edit (revid 8900001)"),
+        "provenance label present: {ctx}"
+    );
+    assert!(
+        ctx.contains("president of the railroad"),
+        "diff content embedded: {ctx}"
+    );
+}

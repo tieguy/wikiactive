@@ -19,11 +19,23 @@ use crate::session::Finding;
 pub struct HouseRules {
     pub disclosure: DisclosureRules,
     pub prose: ProseRules,
+    /// Operator identity (default username for `--review-since-user`).
+    #[serde(default)]
+    pub operator: OperatorRules,
     #[serde(default)]
     pub citevar: Option<serde_json::Value>,
     pub user_agent: UserAgentRules,
     #[serde(default)]
     pub etiquette: Option<serde_json::Value>,
+}
+
+/// `[operator]` in `rules/house-rules.toml` — the on-wiki operator
+/// identity, a fork-edit point alongside `user_agent.string`.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct OperatorRules {
+    /// Default username for `wa session init --review-since-user`.
+    #[serde(default)]
+    pub username: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -224,7 +236,10 @@ pub fn build_context_bundle(
         article.wikitext.len()
     );
     if let Some(diff) = &article.prior_session_diff {
-        let _ = write!(text, "- drift vs prior session:\n{diff}\n");
+        let _ = write!(
+            text,
+            "- drift (prior session or operator's last edit):\n{diff}\n"
+        );
     }
     text.push_str("\n## Tier 1 — judgment core (verbatim)\n\n");
     text.push_str(&corpus.tier1_core);

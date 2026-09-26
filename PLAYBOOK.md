@@ -35,6 +35,10 @@ Pins the current revid (the session's base) and stores the base wikitext.
 Every edit in the session is prepared against this base; a moved base aborts
 publish (AC.10), never silently overwrites.
 
+`--review-since-user [<name>]` (default: house-rules `[operator]` username)
+records your last edit to the article; `wa analyze` then embeds the drift
+diff since that revision — the re-review-of-own-past-work entry path.
+
 ### Step 0 of EVERY iteration: `wa analyze`
 
 Before proposing anything, run `wa analyze <slug>` and read its output. The

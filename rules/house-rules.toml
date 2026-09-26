@@ -20,6 +20,12 @@ require_suffix = true
 # House rule: no semicolons in drafted prose (mirrored in linter.toml).
 ban_semicolons = true
 
+[operator]
+# The on-wiki operator identity (single fork-edit point alongside
+# user_agent.string and the disclosure block). Default for
+# `wa session init --review-since-user` drift review.
+username = "LuisVilla"
+
 [citevar]
 named_refs = true
 ban_autonumber_refnames = ":N pattern"

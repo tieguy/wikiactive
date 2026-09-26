@@ -281,3 +281,81 @@ async fn fetch_refuses_redirect_to_private_target() {
         "redirect must not be followed: {msg}"
     );
 }
+
+// ------------------------------------------------ MVP-2 A.2.2 drift-review pin
+
+/// `wa session init --review-since-user` (MVP-2 A.2.2): the usercontribs
+/// query pins the operator's last-edit revid and the wikitext at that revid
+/// is fetched — the two API halves of the analyze drift bundle. A user who
+/// never edited the title pins nothing (None, not an error).
+#[tokio::test]
+async fn review_since_user_records_revid_and_drift_summary() {
+    let server = MockServer::start_async().await;
+    let uc_mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::GET)
+                .query_param("action", "query")
+                .query_param("list", "usercontribs")
+                .query_param("ucuser", "LuisVilla")
+                .query_param("uctitle", "Sarah Kidder")
+                .query_param("uclimit", "1")
+                .query_param("maxlag", "5")
+                .header("User-Agent", USER_AGENT);
+            then.status(200).json_body(serde_json::json!({
+                "query": {"usercontribs": [
+                    {"revid": 8_900_001, "user": "LuisVilla", "title": "Sarah Kidder"}
+                ]}
+            }));
+        })
+        .await;
+    let wt_mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::GET)
+                .query_param("action", "query")
+                .query_param("revids", "8900001")
+                .query_param("maxlag", "5")
+                .header("User-Agent", USER_AGENT);
+            then.status(200).json_body(serde_json::json!({
+                "query": {"pages": {"1": {"pageid": 1, "ns": 0, "title": "Sarah Kidder",
+                    "revisions": [{"revid": 8_900_001, "slots": {"main": {"content": "She was a railroad president."}}}]}}}
+            }));
+        })
+        .await;
+    server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::GET)
+                .query_param("ucuser", "NobodyElse")
+                .header("User-Agent", USER_AGENT);
+            then.status(200)
+                .json_body(serde_json::json!({"query": {"usercontribs": []}}));
+        })
+        .await;
+
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .expect("connect");
+    let revid = wiki
+        .last_edit_revid("LuisVilla", "Sarah Kidder")
+        .await
+        .expect("usercontribs query");
+    assert_eq!(
+        revid,
+        Some(8_900_001),
+        "the operator's last-edit revid is recorded"
+    );
+    let prior = wiki
+        .wikitext_at_revid("Sarah Kidder", 8_900_001)
+        .await
+        .expect("wikitext at the pinned revid");
+    assert_eq!(prior, "She was a railroad president.");
+    assert_eq!(uc_mock.calls(), 1);
+    assert_eq!(wt_mock.calls(), 1);
+
+    // Never edited the title: no pin, no error.
+    assert_eq!(
+        wiki.last_edit_revid("NobodyElse", "Sarah Kidder")
+            .await
+            .expect("empty contribs is not an error"),
+        None
+    );
+}

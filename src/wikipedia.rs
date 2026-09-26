@@ -266,6 +266,35 @@ impl Wikipedia {
         Err(WikipediaError::BadShape("no revid in response".into()))
     }
 
+    /// Most recent revision id of `user`'s edits to `title` (None when the
+    /// user never edited it) — the drift-review pin for
+    /// `--review-since-user` (MVP-2 A.2.2).
+    ///
+    /// # Errors
+    /// Network/API error or malformed response.
+    pub async fn last_edit_revid(
+        &self,
+        user: &str,
+        title: &str,
+    ) -> Result<Option<u64>, WikipediaError> {
+        let resp: Value = self
+            .api
+            .get_value([
+                ("action", "query"),
+                ("list", "usercontribs"),
+                ("ucuser", user),
+                ("uctitle", title),
+                ("ucprop", "ids"),
+                ("uclimit", "1"),
+            ])
+            .await?;
+        // usercontribs defaults to newest-first: the first entry is the
+        // user's most recent edit to the title.
+        Ok(resp
+            .pointer("/query/usercontribs/0/revid")
+            .and_then(Value::as_u64))
+    }
+
     /// Fetch wikitext at a pinned revid (session base).
     ///
     /// # Errors

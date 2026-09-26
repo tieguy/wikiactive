@@ -130,6 +130,11 @@ pub enum SessionCmd {
         /// Triage-selected entry loop (1–5).
         #[arg(long)]
         entry_loop: u8,
+        /// Drift-review pin (MVP-2 A.2.2): record this user's last edit to
+        /// the article; analyze embeds the drift diff since. Defaults to
+        /// rules/house-rules.toml [operator] username when omitted.
+        #[arg(long)]
+        review_since_user: Option<String>,
     },
     /// Show session state.
     Show { slug: String },
@@ -200,7 +205,8 @@ pub async fn run(cli: Cli) -> Result<()> {
             SessionCmd::Init {
                 article,
                 entry_loop,
-            } => session_init(&article, entry_loop).await,
+                review_since_user,
+            } => session_init(&article, entry_loop, review_since_user).await,
             SessionCmd::Show { slug } => session_show(&slug),
         },
         Command::Analyze { slug, prior_base } => analyze(&slug, prior_base),
@@ -256,11 +262,21 @@ pub async fn run(cli: Cli) -> Result<()> {
     }
 }
 
-async fn session_init(article: &str, entry_loop: u8) -> Result<()> {
+async fn session_init(
+    article: &str,
+    entry_loop: u8,
+    review_since_user: Option<String>,
+) -> Result<()> {
     anyhow::ensure!((1..=5).contains(&entry_loop), "entry_loop must be 1-5");
     let slug = slugify(article);
     let paths = SessionPaths::new(&slug);
     std::fs::create_dir_all(&paths.dir).context("create session dir")?;
+
+    // Drift-review default: the operator identity from house rules (single
+    // fork-edit point) unless the flag names another user explicitly.
+    let corpus =
+        RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let review_user = review_since_user.or_else(|| corpus.house_rules.operator.username.clone());
 
     let wiki = Wikipedia::connect()
         .await
@@ -281,12 +297,39 @@ async fn session_init(article: &str, entry_loop: u8) -> Result<()> {
         Err(other) => return Err(other.into()),
     };
 
+    // Drift-review pin (MVP-2 A.2.2): the operator's last-edit revid + the
+    // wikitext at it (stored beside the base; analyze diffs against it).
+    let mut drift_note = String::new();
+    let (review_since_revid, review_since_user) = match review_user {
+        Some(user) => match wiki.last_edit_revid(&user, article).await {
+            Ok(Some(rs_revid)) => {
+                let prior = wiki
+                    .wikitext_at_revid(article, rs_revid)
+                    .await
+                    .context("fetch wikitext at review-since revid")?;
+                std::fs::write(paths.dir.join("review-since.wikitext"), &prior)?;
+                drift_note = format!(", drift pin: {user}'s last edit @ {rs_revid}");
+                (Some(rs_revid), Some(user))
+            }
+            Ok(None) => {
+                println!(
+                    "--review-since-user: {user} has never edited {article}; no drift pin recorded"
+                );
+                (None, None)
+            }
+            Err(e) => return Err(e.into()),
+        },
+        None => (None, None),
+    };
+
     let meta = SessionMeta {
         article: article.to_string(),
         base_revid: revid,
         started: now_iso(),
         entry_loop,
         last_published_diff_url: None,
+        review_since_revid,
+        review_since_user,
     };
     std::fs::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
     std::fs::write(paths.base(), &wikitext)?;
@@ -295,7 +338,9 @@ async fn session_init(article: &str, entry_loop: u8) -> Result<()> {
     FindingsFile::default()
         .save(&paths.findings())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    println!("session initialized: sessions/{slug} (base revid {revid}, entry loop L{entry_loop})");
+    println!(
+        "session initialized: sessions/{slug} (base revid {revid}, entry loop L{entry_loop}{drift_note})"
+    );
     Ok(())
 }
 
@@ -358,13 +403,27 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
         .with_context(|| format!("sessions/{slug}/base.wikitext missing"))?;
     let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
-    let prior_session_diff = prior_base
-        .map(|path| {
-            let prior = std::fs::read_to_string(&path)
-                .with_context(|| format!("--prior-base {} unreadable", path.display()))?;
-            anyhow::Ok(unified_diff(&prior, &base_wikitext))
-        })
-        .transpose()?;
+    // Drift context (MVP-2 A.2.2): explicit --prior-base wins; otherwise a
+    // session initialized with --review-since-user diffs against the
+    // operator's last-edit wikitext (review-since.wikitext).
+    let prior_and_label: Option<(String, String)> = if let Some(path) = prior_base {
+        let prior = std::fs::read_to_string(&path)
+            .with_context(|| format!("--prior-base {} unreadable", path.display()))?;
+        Some((prior, "prior base".to_string()))
+    } else {
+        let rs_path = paths.dir.join("review-since.wikitext");
+        if meta.review_since_revid.is_some() && rs_path.exists() {
+            let prior =
+                std::fs::read_to_string(&rs_path).context("review-since.wikitext unreadable")?;
+            let user = meta.review_since_user.clone().unwrap_or_default();
+            let revid = meta.review_since_revid.unwrap_or_default();
+            Some((prior, format!("{user}'s last edit (revid {revid})")))
+        } else {
+            None
+        }
+    };
+    let prior_session_diff = prior_and_label
+        .map(|(prior, label)| format!("since {label}:\n{}", unified_diff(&prior, &base_wikitext)));
     let article = ArticleState {
         title: meta.article.clone(),
         base_revid: meta.base_revid,
