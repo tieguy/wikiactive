@@ -108,7 +108,11 @@ dropped.
   semicolon-joined sentence for readability") or as house style.
 
 - Comments on **changed blocks** (`wa-N`) resolve to wikitext ranges — fix
-  in proposed.wikitext.
+  in proposed.wikitext. A **plain** range (`L..:C..-L..:C..`) points into
+  the *proposed* wikitext (new side); a **`base:`-prefixed** range
+  (`base:L..:C..-L..:C..`) points into the *base* wikitext (old side —
+  the removed wording, including pure deletions). When acting on a
+  `base:` anchor, quote the base span in your reply.
 - Comments on **evidence cards** (`ev-N`) resolve to ledger quotes — the
   comment is about the source/quote, not the prose: swap sources, adjust
   quotes (re-verify!), or note the dispute.
@@ -157,8 +161,6 @@ Opus 5.5 drafting quirk).
 - The lavish revisions legend lists **at most 6 rounds**; the registry in
   the artifact keeps every round, rounds beyond 6 just don't appear in the
   legend.
-- Deletions render in the old pane without individual `wa-N` ids (comment
-  on the paired addition).
 - Wikitext anchors are line-based (`L..:C..`); col are char columns.
 - The linter is regex-level; no `<nowiki>` handling, refs spanning lines
   attribute to the opening line.

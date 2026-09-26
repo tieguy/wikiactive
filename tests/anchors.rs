@@ -88,6 +88,51 @@ fn ac6_evidence_rail_comment_maps_to_ledger_quote_id() {
     assert_eq!(resolved.wikitext_anchor, "ledger:Q1");
 }
 
+/// MVP-2 A.1.1 — deletion anchors: comments on old-pane blocks (removed
+/// content, including pure deletions) resolve to `base:`-prefixed ranges
+/// into the BASE wikitext, for element and text-range payloads alike.
+#[test]
+fn ac6_old_pane_comments_resolve_to_base_wikitext_anchors() {
+    let table = vec![
+        ("wa-1".into(), "base:L12:C0-L12:C310".into()),
+        ("wa-2".into(), "L12:C0-L12:C298".into()),
+    ];
+    let element = CommentPrompt {
+        prompt: "This removal drops the attribution.".into(),
+        selector: "div#wa-1".into(),
+        tag: "div".into(),
+        text: "The keep was removed in 1970…".into(),
+        target: None,
+    };
+    let resolved = resolve_comment(&element, &table).expect("resolves");
+    assert_eq!(resolved.element_id, "wa-1");
+    assert_eq!(resolved.wikitext_anchor, "base:L12:C0-L12:C310");
+
+    let text_range = CommentPrompt {
+        prompt: "This clause is sourced — keep it.".into(),
+        selector: "#wa-1".into(),
+        tag: "text".into(),
+        text: "removed in 1970".into(),
+        target: Some(CommentTarget::TextRange {
+            text: "removed in 1970".into(),
+            selector: "#wa-1".into(),
+            start: RangeBoundary {
+                selector: "#wa-1".into(),
+                path: vec![1],
+                offset: 8,
+            },
+            end: RangeBoundary {
+                selector: "#wa-1".into(),
+                path: vec![1],
+                offset: 23,
+            },
+        }),
+    };
+    let resolved = resolve_comment(&text_range, &table).expect("resolves");
+    assert_eq!(resolved.wikitext_anchor, "base:L12:C0-L12:C310");
+    assert_eq!(resolved.selected_text.as_deref(), Some("removed in 1970"));
+}
+
 #[test]
 fn ac6_unknown_id_and_idless_selector_fail_loudly() {
     let bad_id = CommentPrompt {

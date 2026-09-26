@@ -13,6 +13,39 @@ fn col_of(p: &str) -> &str {
     p.strip_prefix('C').unwrap_or(p)
 }
 
+/// Validate one changed-block anchor: a plain `L..:C..-L..:C..` range must
+/// fall inside the proposed wikitext, a `base:`-prefixed range (deletion
+/// anchor) inside the base wikitext; the covered slice must be non-empty.
+fn assert_valid_range(anchor: &str, base_lines: &[&str], proposed_lines: &[&str]) {
+    let (in_base, range) = match anchor.strip_prefix("base:") {
+        Some(rest) => (true, rest),
+        None => (false, anchor),
+    };
+    let lines = if in_base { base_lines } else { proposed_lines };
+    // Anchor is L<s>:C<a>-L<e>:C<b>; the covered wikitext slice must be
+    // non-empty (b > a on the start line, or e > s).
+    let parts: Vec<&str> = range.split(&['-', ':'][..]).collect();
+    assert!(
+        parts.len() == 4
+            && parts[0].starts_with('L')
+            && parts[2].starts_with('L')
+            && parts[0][1..].parse::<usize>().is_ok()
+            && col_of(parts[1]).parse::<usize>().is_ok()
+            && parts[2][1..].parse::<usize>().is_ok()
+            && col_of(parts[3]).parse::<usize>().is_ok(),
+        "malformed anchor {anchor}"
+    );
+    let line_start: usize = parts[0][1..].parse().unwrap();
+    let col_start: usize = col_of(parts[1]).parse().unwrap();
+    let line_end: usize = parts[2][1..].parse().unwrap();
+    let col_end: usize = col_of(parts[3]).parse().unwrap();
+    assert!(line_start >= 1 && line_start <= lines.len(), "{anchor}");
+    assert!(
+        line_end > line_start || col_end > col_start,
+        "empty range {anchor}"
+    );
+}
+
 fn linter() -> LinterConfig {
     LinterConfig::load(std::path::Path::new("rules/linter.toml")).unwrap()
 }
@@ -74,38 +107,27 @@ fn ac5_golden_render_against_recorded_parsoid() {
         .collect();
     assert_eq!(ids.len(), out.anchor_table.len(), "ids must be unique");
 
-    // Every changed-block id maps to a non-empty wikitext range in the
-    // proposed wikitext.
-    let lines: Vec<&str> = proposed_wt.lines().collect();
+    // Every changed-block id maps to a non-empty wikitext range; new-side
+    // blocks anchor in the proposed wikitext, old-side blocks (deletion
+    // anchors) carry a `base:` prefix and anchor in the base wikitext.
+    let proposed_lines: Vec<&str> = proposed_wt.lines().collect();
+    let base_lines: Vec<&str> = base_wt.lines().collect();
+    let mut old_side_anchors = 0usize;
     for entry in &out.anchor_table {
         if entry.element_id.starts_with("ev-") {
             continue;
         }
-        // Anchor is L<s>:C<a>-L<e>:C<b>; the covered wikitext slice must be
-        // non-empty (b > a on the start line, or e > s).
-        let parts: Vec<&str> = entry.wikitext_anchor.split(&['-', ':'][..]).collect();
-        assert!(
-            parts.len() == 4
-                && parts[0].starts_with('L')
-                && parts[2].starts_with('L')
-                && parts[0][1..].parse::<usize>().is_ok()
-                && col_of(parts[1]).parse::<usize>().is_ok()
-                && parts[2][1..].parse::<usize>().is_ok()
-                && col_of(parts[3]).parse::<usize>().is_ok(),
-            "{entry:?} malformed anchor {}",
-            entry.wikitext_anchor
-        );
-        let line_start: usize = parts[0][1..].parse().unwrap();
-        let col_start: usize = col_of(parts[1]).parse().unwrap();
-        let line_end: usize = parts[2][1..].parse().unwrap();
-        let col_end: usize = col_of(parts[3]).parse().unwrap();
-        assert!(line_start >= 1 && line_start <= lines.len(), "{entry:?}");
-        assert!(
-            line_end > line_start || col_end > col_start,
-            "{entry:?} empty range {}",
-            entry.wikitext_anchor
-        );
+        if entry.wikitext_anchor.starts_with("base:") {
+            old_side_anchors += 1;
+        }
+        assert_valid_range(&entry.wikitext_anchor, &base_lines, &proposed_lines);
     }
+    // The fixture edit is a changed pair: its old half carries a `base:`
+    // deletion anchor into the recorded base wikitext.
+    assert!(
+        old_side_anchors >= 1,
+        "old-side (base:) anchors missing — deletion anchors"
+    );
 
     // Revisions registry matches the documented shape and appears in the
     // artifact.

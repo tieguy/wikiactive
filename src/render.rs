@@ -40,8 +40,11 @@ pub struct RevisionEntry {
 pub struct AnchorEntry {
     /// Artifact element id (`wa-N` or `ev-N`).
     pub element_id: String,
-    /// `data-wiki-anchor` value: wikitext `L..:C..-L..:C..` range or
-    /// `ledger:Q<n>`.
+    /// `data-wiki-anchor` value, one of three families:
+    /// `L..:C..-L..:C..` — range in the PROPOSED wikitext (new-side blocks);
+    /// `base:L..:C..-L..:C..` — range in the BASE wikitext (old-side blocks:
+    /// changed-pair old text and pure deletions — deletion anchors);
+    /// `ledger:Q<n>` — a ledger quote (evidence cards).
     pub wikitext_anchor: String,
 }
 
@@ -115,18 +118,21 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     let prop_texts: Vec<&str> = proposed_blocks.iter().map(|b| b.text.as_str()).collect();
     let diff = similar::TextDiff::from_slices(&base_texts, &prop_texts);
 
-    // 4. Walk the diff; assign wa-N ids + anchors (all anchored in the
-    //    PROPOSED wikitext; a pure deletion anchors to the nearest
-    //    surviving proposed line). Consecutive Delete+Insert runs pair into
-    //    ONE changed block whose inside is a WORD-LEVEL diff (<del>/<ins>
-    //    runs), so a one-word change is visible inside a long paragraph.
+    // 4. Walk the diff; assign wa-N ids + anchors. NEW-side blocks (pure
+    //    insertions, changed pairs' new half) anchor in the PROPOSED
+    //    wikitext; OLD-side blocks (changed pairs' old half, pure
+    //    deletions) anchor in the BASE wikitext with a `base:` prefix, so
+    //    comments on removed content resolve (deletion anchors).
+    //    Consecutive Delete+Insert runs pair into ONE changed block whose
+    //    inside is a WORD-LEVEL diff (<del>/<ins> runs), so a one-word
+    //    change is visible inside a long paragraph.
     let round_id = format!("r{}", input.round);
     let mut anchor_table: Vec<AnchorEntry> = Vec::new();
     let mut old_pane = String::new();
     let mut new_pane = String::new();
     let mut counter = 0usize;
     let mut prop_idx = 0usize;
-    let mut pending_deletes: Vec<(&str, BlockKind)> = Vec::new();
+    let mut pending_deletes: Vec<PendingDelete<'_>> = Vec::new();
     let mut skipped_equal = 0usize;
 
     for change in diff.iter_all_changes() {
@@ -135,16 +141,28 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                 // Review surface shows ONLY changed blocks; unchanged runs
                 // collapse to a count separator (operator request: "show
                 // only the changed paragraphs").
-                flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
+                flush_pure_deletes(
+                    &mut pending_deletes,
+                    &mut old_pane,
+                    input.base_wikitext,
+                    &round_id,
+                    &mut counter,
+                    &mut anchor_table,
+                );
                 skipped_equal += 1;
                 prop_idx += 1;
             }
             similar::ChangeTag::Delete => {
                 emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
-                let kind = change
-                    .old_index()
-                    .map_or(BlockKind::Paragraph, |i| base_blocks[i].kind);
-                pending_deletes.push((change.value(), kind));
+                let idx = change.old_index().unwrap_or(0);
+                let kind = base_blocks
+                    .get(idx)
+                    .map_or(BlockKind::Paragraph, |b| b.kind);
+                pending_deletes.push(PendingDelete {
+                    text: change.value(),
+                    kind,
+                    block_idx: idx,
+                });
             }
             similar::ChangeTag::Insert => {
                 emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
@@ -152,26 +170,25 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                 let new_kind = change
                     .new_index()
                     .map_or(BlockKind::Paragraph, |i| proposed_blocks[i].kind);
-                let (old_text, old_kind) = if pending_deletes.is_empty() {
-                    (String::new(), new_kind)
+                let (old_text, old_kind, old_block_idx) = if pending_deletes.is_empty() {
+                    (String::new(), new_kind, 0)
                 } else {
-                    let texts: Vec<&str> = pending_deletes.iter().map(|(t, _)| *t).collect();
-                    let kind = pending_deletes[0].1;
+                    let texts: Vec<&str> = pending_deletes.iter().map(|d| d.text).collect();
+                    let first = pending_deletes[0];
                     pending_deletes.clear();
-                    (texts.join("\n\n"), kind)
+                    (texts.join("\n\n"), first.kind, first.block_idx)
                 };
-                counter += 1;
-                let id = format!("wa-{counter}");
-                // Anchor: the proposed wikitext range of this block.
-                let anchor = locate_block_anchor(input.proposed_wikitext, new_text)
-                    .unwrap_or_else(|| next_line_anchor(input.proposed_wikitext, prop_idx));
                 prop_idx += 1;
-                anchor_table.push(AnchorEntry {
-                    element_id: id.clone(),
-                    wikitext_anchor: anchor.clone(),
-                });
                 if old_text.is_empty() {
-                    // Pure insertion: no old counterpart to pair.
+                    // Pure insertion: one id, anchored in the proposed wikitext.
+                    counter += 1;
+                    let id = format!("wa-{counter}");
+                    let anchor = locate_block_anchor(input.proposed_wikitext, new_text)
+                        .unwrap_or_else(|| next_line_anchor(input.proposed_wikitext, prop_idx - 1));
+                    anchor_table.push(AnchorEntry {
+                        element_id: id.clone(),
+                        wikitext_anchor: anchor.clone(),
+                    });
                     new_pane.push_str(&block_html(
                         Some(&id),
                         Some(&anchor),
@@ -181,18 +198,41 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         &round_id,
                     ));
                 } else {
+                    // Changed pair: the OLD side gets its own id anchored in
+                    // the BASE wikitext (`base:` prefix) so comments on the
+                    // removed wording resolve.
                     let (old_inline, new_inline) = inline_word_diff(&old_text, new_text);
+                    counter += 1;
+                    let old_id = format!("wa-{counter}");
+                    let old_anchor = format!(
+                        "base:{}",
+                        locate_block_anchor(input.base_wikitext, &old_text).unwrap_or_else(|| {
+                            next_line_anchor(input.base_wikitext, old_block_idx)
+                        })
+                    );
+                    anchor_table.push(AnchorEntry {
+                        element_id: old_id.clone(),
+                        wikitext_anchor: old_anchor.clone(),
+                    });
+                    counter += 1;
+                    let new_id = format!("wa-{counter}");
+                    let new_anchor = locate_block_anchor(input.proposed_wikitext, new_text)
+                        .unwrap_or_else(|| next_line_anchor(input.proposed_wikitext, prop_idx - 1));
+                    anchor_table.push(AnchorEntry {
+                        element_id: new_id.clone(),
+                        wikitext_anchor: new_anchor.clone(),
+                    });
                     old_pane.push_str(&block_html_inline(
-                        None,
-                        None,
+                        Some(&old_id),
+                        Some(&old_anchor),
                         &old_inline,
                         old_kind,
                         "del",
                         &round_id,
                     ));
                     new_pane.push_str(&block_html_inline(
-                        Some(&id),
-                        Some(&anchor),
+                        Some(&new_id),
+                        Some(&new_anchor),
                         &new_inline,
                         new_kind,
                         "add",
@@ -205,7 +245,14 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     if !pending_deletes.is_empty() {
         emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
     }
-    flush_pure_deletes(&mut pending_deletes, &mut old_pane, &round_id);
+    flush_pure_deletes(
+        &mut pending_deletes,
+        &mut old_pane,
+        input.base_wikitext,
+        &round_id,
+        &mut counter,
+        &mut anchor_table,
+    );
 
     // 5. Evidence rail: one card per finding (gate guarantees quotes
     //    resolve into the ledger).
@@ -449,10 +496,49 @@ fn emit_ctx_sep(old_pane: &mut String, new_pane: &mut String, skipped: &mut usiz
     }
 }
 
-/// Emit buffered deletes that never paired with an insert (pure deletions).
-fn flush_pure_deletes(pending: &mut Vec<(&str, BlockKind)>, old_pane: &mut String, round_id: &str) {
-    for (text, kind) in pending.drain(..) {
-        old_pane.push_str(&block_html(None, None, text, kind, "del", round_id));
+/// A buffered deletion awaiting its fate: paired into a changed block, or
+/// flushed as a pure deletion.
+#[derive(Clone, Copy)]
+struct PendingDelete<'a> {
+    text: &'a str,
+    kind: BlockKind,
+    /// Position among the base blocks (fallback anchor line).
+    block_idx: usize,
+}
+
+/// Emit buffered deletes that never paired with an insert (pure
+/// deletions). Each gets its own `wa-N` id anchored in the BASE wikitext
+/// (`base:` prefix) so operator comments on removed content resolve —
+/// deletion anchors.
+fn flush_pure_deletes(
+    pending: &mut Vec<PendingDelete<'_>>,
+    old_pane: &mut String,
+    base_wikitext: &str,
+    round_id: &str,
+    counter: &mut usize,
+    anchor_table: &mut Vec<AnchorEntry>,
+) {
+    for d in pending.drain(..) {
+        let n = *counter + 1;
+        *counter = n;
+        let id = format!("wa-{n}");
+        let anchor = format!(
+            "base:{}",
+            locate_block_anchor(base_wikitext, d.text)
+                .unwrap_or_else(|| next_line_anchor(base_wikitext, d.block_idx))
+        );
+        anchor_table.push(AnchorEntry {
+            element_id: id.clone(),
+            wikitext_anchor: anchor.clone(),
+        });
+        old_pane.push_str(&block_html(
+            Some(&id),
+            Some(&anchor),
+            d.text,
+            d.kind,
+            "del",
+            round_id,
+        ));
     }
 }
 /// Word-level inline diff between the old and new sides of a changed block
@@ -857,27 +943,74 @@ mod tests {
             .map(|a| a.element_id.clone())
             .collect();
         assert_eq!(ids.len(), out.anchor_table.len());
-        // Every changed-block anchor resolves to a non-empty range in the
-        // proposed wikitext (AC.5).
+        // Every wa- anchor is a non-empty range in ONE of the two
+        // wikitexts: old-side blocks (deletion anchors) carry `base:`
+        // ranges into the base wikitext; new-side blocks plain ranges into
+        // the proposed wikitext.
         for entry in &out.anchor_table {
             if entry.element_id.starts_with("wa-") {
                 assert!(
-                    entry.wikitext_anchor.starts_with('L'),
+                    entry.wikitext_anchor.starts_with('L')
+                        || entry.wikitext_anchor.starts_with("base:L"),
                     "{} -> {}",
                     entry.element_id,
                     entry.wikitext_anchor
                 );
             }
         }
-        let anchor = out
+        // The changed pair yields TWO ids: old side (base anchor) first,
+        // new side (proposed anchor) second.
+        let old_side = out
             .anchor_table
             .iter()
             .find(|a| a.element_id == "wa-1")
             .unwrap();
         assert!(
-            anchor.wikitext_anchor.starts_with("L4:C0-L4:"),
+            old_side.wikitext_anchor.starts_with("base:L4:C0-L4:"),
             "{}",
-            anchor.wikitext_anchor
+            old_side.wikitext_anchor
+        );
+        let new_side = out
+            .anchor_table
+            .iter()
+            .find(|a| a.element_id == "wa-2")
+            .unwrap();
+        assert!(
+            new_side.wikitext_anchor.starts_with("L4:C0-L4:"),
+            "{}",
+            new_side.wikitext_anchor
+        );
+    }
+
+    /// Deletion anchors: a block removed entirely still gets its own
+    /// `wa-N` id anchored in the BASE wikitext (`base:` prefix), so
+    /// operator comments on removed content resolve (MVP-2 A.1.1).
+    #[test]
+    fn pure_deletion_gets_anchored_id_in_base_wikitext() {
+        let ledger = crate::ledger::Ledger::default();
+        let base_wt = "The tower is old.\n\n== History ==\nIt was built in 1937.\n\nThe keep was removed in 1970.\n";
+        let prop_wt = "The tower is old.\n\n== History ==\nIt was built in 1937.\n";
+        let base_html = "<html><body><p>The tower is old.</p><h2>History</h2><p>It was built in 1937.</p><p>The keep was removed in 1970.</p></body></html>";
+        let prop_html = "<html><body><p>The tower is old.</p><h2>History</h2><p>It was built in 1937.</p></body></html>";
+        let out = render(&input(base_wt, prop_wt, base_html, prop_html, &ledger, &[])).unwrap();
+        assert!(
+            out.artifact_html.contains("The keep was removed in 1970."),
+            "deleted text renders in the old pane"
+        );
+        let entry = out
+            .anchor_table
+            .iter()
+            .find(|a| a.element_id == "wa-1")
+            .expect("pure deletion gets a wa id");
+        assert!(
+            entry.wikitext_anchor.starts_with("base:L6:C0-L6:"),
+            "deletion anchor points into the base wikitext: {}",
+            entry.wikitext_anchor
+        );
+        assert!(
+            out.artifact_html
+                .contains(&format!("data-wiki-anchor=\"{}\"", entry.wikitext_anchor)),
+            "the deleted block carries its anchor attribute"
         );
     }
 
