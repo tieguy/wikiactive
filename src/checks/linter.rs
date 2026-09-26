@@ -307,6 +307,15 @@ pub fn gate(base: &str, proposed: &str, cfg: &LinterConfig) -> Vec<LintFinding> 
                         // prose this tool drafts.
                         continue;
                     }
+                    if rule.applies == Scope::AddedLines && rule.id == "refname-autonumber" {
+                        // Same rationale: a pre-existing `:N` auto name
+                        // (VisualEditor artifact) on an edited line is
+                        // inherited, not drafted — gate only names the
+                        // draft itself introduces.
+                        let cleaned = strip_pre_existing_refnames(text, base);
+                        check_rule_on(rule, &cleaned, *line, &mut findings);
+                        continue;
+                    }
                     check_rule_on(rule, text, *line, &mut findings);
                 }
             }
@@ -469,6 +478,22 @@ fn line_scan(rule: &LintRule, text: &str, re: &Regex, what: &str, findings: &mut
             severity: rule.severity,
         });
     }
+}
+
+/// Pre-existing auto ref names on an edited line (`:N`, a `VisualEditor`
+/// artifact) are blanked before the added-lines gate: the CITEVAR rule
+/// covers names this tool's draft introduces, not the previous author's
+/// (operator TF round-1 note rationale, same as the semicolon guard).
+fn strip_pre_existing_refnames(text: &str, base: &str) -> String {
+    let mut out = String::from(text);
+    for m in REF_AUTONUMBER.find_iter(text) {
+        let frag = m.as_str();
+        if base.contains(frag) {
+            let blank = " ".repeat(frag.len());
+            out = out.replacen(frag, &blank, 1);
+        }
+    }
+    out
 }
 
 /// Semicolon scan with URLs and HTML entities masked first.
@@ -834,6 +859,30 @@ mod tests {
             !findings.iter().any(|f| f.rule == "named-ref-with-pinpoint"),
             "{findings:?}"
         );
+    }
+
+    /// MVP-2 A.3 (live L2): editing a line that carries the previous
+    /// author's `:N` auto ref names must not trip the added-lines gate —
+    /// only names the draft itself introduces are ours to flag (same
+    /// rationale as the semicolon guard).
+    #[test]
+    fn gate_ignores_pre_existing_autonumber_refnames_on_edited_lines() {
+        let c = cfg();
+        let base = "Kidder ran the line.<ref name=\":1\" /> She retired in 1913.\n";
+        // Edited line: reworded prose, keeps the inherited `:1`, ADDS a
+        // new `:2` auto name — only `:2` may be flagged.
+        let proposed = "Kidder ran the line profitably.<ref name=\":1\" /> She retired in 1913.<ref name=\":2\">{{cite web|url=https://example.com}}</ref>\n";
+        let findings = gate(base, proposed, &c);
+        let refname: Vec<_> = findings
+            .iter()
+            .filter(|f| f.rule == "refname-autonumber")
+            .collect();
+        assert_eq!(
+            refname.len(),
+            1,
+            "only the newly added :2 flags: {findings:?}"
+        );
+        assert!(refname[0].detail.contains(":2"), "{:?}", refname[0]);
     }
 
     #[test]

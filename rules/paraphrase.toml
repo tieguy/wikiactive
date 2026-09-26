@@ -20,10 +20,13 @@ too_close_den = 10
 # ...or any unquoted verbatim word-run of this length appears...
 too_close_run_words = 10
 # ...or ≥ too_close_lcs_num/too_close_lcs_den of the draft's tokens match
-# the source in order (LCS; 2/5 = 40%) — catches synonym-substitution that
-# keeps the sentence architecture.
-too_close_lcs_num = 2
-too_close_lcs_den = 5
+# the source in order (LCS; 1/2 = 50%) — catches synonym-substitution that
+# keeps the sentence architecture. (Was 2/5 = 40% until 2026-09-25: the
+# first live L2 session showed a clean paraphrase — 0/14 shingles, 3-word
+# run — blocked at LCS 8/17 because 7 of  8 shared tokens were unavoidable
+# proper nouns/date; see the MVP-2 addendum.)
+too_close_lcs_num = 1
+too_close_lcs_den = 2
 
 # No-support when < no_support_num/no_support_den shingle containment
 # (1/20 = 5%) AND < no_support_lcs_num/no_support_lcs_den content-token LCS

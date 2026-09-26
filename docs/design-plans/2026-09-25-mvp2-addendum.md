@@ -42,6 +42,22 @@ License note: the snapshot derives from GPL-2.0-or-later sources
 (mediawiki/core `content.links.less`, Vector, Codex tokens); one-way
 compatible with this repo's GPL-3.0-only.
 
+## A.2.3 — Paraphrase LCS threshold tuned on live evidence (2026-09-25)
+
+The first live L2 session (Sarah Kidder) produced a clean paraphrase —
+0/14 shingles shared, longest run 3 words — that the gate blocked on the
+LCS signal alone: 8/17 tokens in order, of which 7 were unavoidable proper
+nouns and the date (Kidder, John, in, 1870, Grass, Valley, California).
+Short factual sentences about a named subject are proper-noun-dense by
+nature; at 40% the LCS check was measuring name overlap, not expression
+overlap.
+
+**Decision: `too_close_lcs` 2/5 (40%) → 1/2 (50%).** The shingle and
+verbatim-run signals (unchanged) carry the close-paraphrase load — every
+unit-test true positive still trips on run/shingles, not LCS. Both
+`ParaphraseConfig::default()` and `rules/paraphrase.toml` updated together
+(enforced by `rules_paraphrase_toml_matches_default_thresholds`).
+
 ## Housekeeping
 
 - The MVP-1 design plan's repo-layout block originally annotated LICENSE as
