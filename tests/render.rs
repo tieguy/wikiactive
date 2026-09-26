@@ -50,6 +50,13 @@ fn linter() -> LinterConfig {
     LinterConfig::load(std::path::Path::new("rules/linter.toml")).unwrap()
 }
 
+fn paraphrase() -> wikiloop::checks::paraphrase::ParaphraseConfig {
+    wikiloop::checks::paraphrase::ParaphraseConfig::load(std::path::Path::new(
+        "rules/paraphrase.toml",
+    ))
+    .unwrap()
+}
+
 fn revisions() -> Vec<RevisionEntry> {
     vec![RevisionEntry {
         id: "r1".into(),
@@ -95,6 +102,7 @@ fn ac5_golden_render_against_recorded_parsoid() {
         findings: &[],
         ledger: &ledger,
         linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
         revisions: revisions(),
     })
     .expect("render");
@@ -198,6 +206,7 @@ fn ac5_evidence_rail_quote_resolves_into_ledger() {
         findings: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
         revisions: revisions(),
     })
     .expect("render with evidence");
@@ -256,6 +265,7 @@ fn ac11_failing_evidence_blocks_render_no_artifact() {
         findings: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
         revisions: revisions(),
     })
     .unwrap_err();

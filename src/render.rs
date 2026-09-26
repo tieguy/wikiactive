@@ -61,6 +61,8 @@ pub struct RenderInput<'a> {
     pub findings: &'a [Finding],
     pub ledger: &'a Ledger,
     pub linter_config: &'a LinterConfig,
+    /// Paraphrase-gate thresholds (`rules/paraphrase.toml`, MVP-2 A.2.3).
+    pub paraphrase_config: &'a crate::checks::paraphrase::ParaphraseConfig,
     /// Cumulative revisions registry (previous rounds first, current last).
     pub revisions: Vec<RevisionEntry>,
 }
@@ -96,6 +98,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
         base_wikitext: input.base_wikitext,
         proposed_wikitext: input.proposed_wikitext,
         linter_config: input.linter_config,
+        paraphrase_config: input.paraphrase_config,
     });
     let GateVerdict {
         blocked, reasons, ..
@@ -896,6 +899,13 @@ mod tests {
             .unwrap()
     });
 
+    static PARA: LazyLock<crate::checks::paraphrase::ParaphraseConfig> = LazyLock::new(|| {
+        crate::checks::paraphrase::ParaphraseConfig::from_toml_str(include_str!(
+            "../rules/paraphrase.toml"
+        ))
+        .unwrap()
+    });
+
     fn input<'a>(
         base: &'a str,
         proposed: &'a str,
@@ -914,6 +924,7 @@ mod tests {
             findings,
             ledger,
             linter_config: &LINTER,
+            paraphrase_config: &PARA,
             revisions: vec![RevisionEntry {
                 id: "r1".into(),
                 label: "Round 1".into(),

@@ -545,6 +545,7 @@ async fn render_cmd(
         findings: &findings.findings,
         ledger: &ledger,
         linter_config: &corpus.linter,
+        paraphrase_config: &corpus.paraphrase,
         revisions,
     })
     .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -684,6 +685,7 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
         base_wikitext: &base_wikitext,
         proposed_wikitext: &proposed_wikitext,
         linter_config: &corpus.linter,
+        paraphrase_config: &corpus.paraphrase,
     });
     anyhow::ensure!(
         !verdict.blocked,
@@ -954,6 +956,7 @@ fn check_cmd(slug: &str) -> Result<()> {
         base_wikitext: &base_wikitext,
         proposed_wikitext: &proposed_wikitext,
         linter_config: &corpus.linter,
+        paraphrase_config: &corpus.paraphrase,
     });
     if verdict.blocked {
         print!("{}", crate::checks::gate::format_reasons(&verdict.reasons));

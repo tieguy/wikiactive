@@ -77,6 +77,8 @@ pub struct RulesCorpus {
     /// Cards by slug.
     pub cards: std::collections::HashMap<String, String>,
     pub linter: LinterConfig,
+    /// Paraphrase-gate thresholds (`rules/paraphrase.toml`, MVP-2 A.2.3).
+    pub paraphrase: crate::checks::paraphrase::ParaphraseConfig,
     pub house_rules: HouseRules,
     pub rsp_seed: Vec<RspSeedRow>,
 }
@@ -125,6 +127,9 @@ impl RulesCorpus {
 
         let linter = LinterConfig::load(&rules_dir.join("linter.toml"))
             .map_err(|e| format!("linter.toml: {e}"))?;
+        let paraphrase =
+            crate::checks::paraphrase::ParaphraseConfig::load(&rules_dir.join("paraphrase.toml"))
+                .map_err(|e| format!("paraphrase.toml: {e}"))?;
         let house_text = std::fs::read_to_string(rules_dir.join("house-rules.toml"))
             .map_err(|e| format!("house-rules.toml unreadable: {e}"))?;
         let house_rules: HouseRules =
@@ -137,6 +142,7 @@ impl RulesCorpus {
             card_slugs,
             cards,
             linter,
+            paraphrase,
             house_rules,
             rsp_seed,
         })

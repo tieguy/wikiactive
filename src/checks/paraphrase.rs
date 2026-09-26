@@ -13,29 +13,77 @@
 //! Integer-ratio comparisons only (shared·D ≥ draft·N) — no float ever
 //! decides a verdict.
 
-/// Word-shingle length. 4-grams are the standard close-paraphrase signal:
-/// short enough to catch copied phrase structure, long enough that honest
-/// paraphrase in the same language about the same facts rarely matches.
-pub const SHINGLE_N: usize = 4;
+/// Paraphrase-gate thresholds (MVP-2 A.2.3: extracted from compile-time
+/// consts into `rules/paraphrase.toml` so live-session tuning is
+/// config-only; the defaults below ARE the original constants and are
+/// pinned against the config file by test).
+///
+/// Integer-ratio comparisons only (shared·D ≥ draft·N) — no float ever
+/// decides a verdict.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct ParaphraseConfig {
+    /// Word-shingle length. 4-grams are the standard close-paraphrase
+    /// signal: short enough to catch copied phrase structure, long enough
+    /// that honest paraphrase in the same language about the same facts
+    /// rarely matches.
+    pub shingle_n: usize,
+    /// Too-close when ≥ `too_close_num`/`too_close_den` of the draft's
+    /// shingles occur in the source (6/10 = 60%).
+    pub too_close_num: usize,
+    pub too_close_den: usize,
+    /// Too-close when any unquoted verbatim word-run of this length
+    /// appears.
+    pub too_close_run_words: usize,
+    /// Too-close when ≥ 2/5 (40%) of the draft's tokens match the source
+    /// in order (LCS) — catches synonym-substitution that keeps the
+    /// sentence architecture, which shingles miss.
+    pub too_close_lcs_num: usize,
+    pub too_close_lcs_den: usize,
+    /// No-support when < 1/20 (5%) shingle containment AND < 2/25 (8%)
+    /// content-token LCS — the claimed source shares nothing substantive
+    /// with the prose.
+    pub no_support_num: usize,
+    pub no_support_den: usize,
+    pub no_support_lcs_num: usize,
+    pub no_support_lcs_den: usize,
+}
 
-/// Too-close when ≥ 60% of the draft's shingles occur in the source.
-const TOO_CLOSE_NUM: usize = 6;
-const TOO_CLOSE_DEN: usize = 10;
-/// Too-close when any unquoted verbatim word-run of this length appears.
-const TOO_CLOSE_RUN_WORDS: usize = 10;
-/// Too-close when ≥ 40% of the draft's tokens match the source in order
-/// (LCS) — catches synonym-substitution that keeps the sentence
-/// architecture, which shingles miss.
-const TOO_CLOSE_LCS_NUM: usize = 2;
-const TOO_CLOSE_LCS_DEN: usize = 5;
-/// No-support when < 5% shingle containment AND < 8% content-token LCS — the
-/// claimed source shares nothing substantive with the prose. Content tokens
-/// exclude function words so 1–2 stray "the"/"and" matches cannot defeat the
-/// check.
-const NO_SUPPORT_NUM: usize = 1;
-const NO_SUPPORT_DEN: usize = 20;
-const NO_SUPPORT_LCS_NUM: usize = 2;
-const NO_SUPPORT_LCS_DEN: usize = 25;
+impl Default for ParaphraseConfig {
+    fn default() -> Self {
+        Self {
+            shingle_n: 4,
+            too_close_num: 6,
+            too_close_den: 10,
+            too_close_run_words: 10,
+            too_close_lcs_num: 2,
+            too_close_lcs_den: 5,
+            no_support_num: 1,
+            no_support_den: 20,
+            no_support_lcs_num: 2,
+            no_support_lcs_den: 25,
+        }
+    }
+}
+
+impl ParaphraseConfig {
+    /// Parse from TOML text (`rules/paraphrase.toml`).
+    ///
+    /// # Errors
+    /// Malformed TOML or invalid field values.
+    pub fn from_toml_str(text: &str) -> Result<Self, String> {
+        toml::from_str(text).map_err(|e| format!("paraphrase config: {e}"))
+    }
+
+    /// Load from a path on disk.
+    ///
+    /// # Errors
+    /// Unreadable file or malformed content.
+    pub fn load(path: &std::path::Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        Self::from_toml_str(&text)
+    }
+}
 
 /// English function words excluded from the no-support LCS signal.
 const STOPWORDS: &[&str] = &[
@@ -80,7 +128,11 @@ pub struct ParaphraseAssessment {
 /// with zero counts (nothing to assess; the anchor gate handles missing
 /// quotes separately).
 #[must_use]
-pub fn assess_paraphrase(draft: &str, source: &str) -> ParaphraseAssessment {
+pub fn assess_paraphrase_with(
+    cfg: &ParaphraseConfig,
+    draft: &str,
+    source: &str,
+) -> ParaphraseAssessment {
     let draft_tokens = fold_tokens(draft);
     let source_tokens = fold_tokens(source);
 
@@ -95,21 +147,21 @@ pub fn assess_paraphrase(draft: &str, source: &str) -> ParaphraseAssessment {
     }
 
     let draft_shingles: std::collections::HashSet<&[String]> =
-        draft_tokens.windows(SHINGLE_N).collect();
+        draft_tokens.windows(cfg.shingle_n).collect();
     let source_shingles: std::collections::HashSet<&[String]> =
-        source_tokens.windows(SHINGLE_N).collect();
+        source_tokens.windows(cfg.shingle_n).collect();
     let shared = draft_shingles.intersection(&source_shingles).count();
     let total = draft_shingles.len();
     let run = longest_common_run(&draft_tokens, &source_tokens);
     let lcs = lcs_len(&draft_tokens, &source_tokens);
 
-    let verdict = if run >= TOO_CLOSE_RUN_WORDS
-        || (shared * TOO_CLOSE_DEN >= total * TOO_CLOSE_NUM)
-        || (lcs * TOO_CLOSE_LCS_DEN >= draft_tokens.len() * TOO_CLOSE_LCS_NUM)
+    let verdict = if run >= cfg.too_close_run_words
+        || (shared * cfg.too_close_den >= total * cfg.too_close_num)
+        || (lcs * cfg.too_close_lcs_den >= draft_tokens.len() * cfg.too_close_lcs_num)
     {
         ParaphraseVerdict::TooClose
-    } else if (shared * NO_SUPPORT_DEN < total * NO_SUPPORT_NUM)
-        && no_support_lcs(&draft_tokens, &source_tokens)
+    } else if (shared * cfg.no_support_den < total * cfg.no_support_num)
+        && no_support_lcs(cfg, &draft_tokens, &source_tokens)
     {
         ParaphraseVerdict::NoSupport
     } else {
@@ -123,6 +175,14 @@ pub fn assess_paraphrase(draft: &str, source: &str) -> ParaphraseAssessment {
         longest_common_run: run,
         lcs_tokens: lcs,
     }
+}
+
+/// Assess with the default (original-constant) thresholds — tests and
+/// tools; the gate passes its config-loaded thresholds to
+/// [`assess_paraphrase_with`].
+#[must_use]
+pub fn assess_paraphrase(draft: &str, source: &str) -> ParaphraseAssessment {
+    assess_paraphrase_with(&ParaphraseConfig::default(), draft, source)
 }
 
 /// Fold text into comparison tokens using the quote locator's normalization.
@@ -143,15 +203,19 @@ fn content_tokens(tokens: &[String]) -> Vec<&String> {
 }
 
 /// No-support LCS test: over content tokens only, below the
-/// `NO_SUPPORT_LCS` ratio.
-fn no_support_lcs(draft_tokens: &[String], source_tokens: &[String]) -> bool {
+/// `no_support_lcs` ratio.
+fn no_support_lcs(
+    cfg: &ParaphraseConfig,
+    draft_tokens: &[String],
+    source_tokens: &[String],
+) -> bool {
     let draft_content = content_tokens(draft_tokens);
     if draft_content.is_empty() {
         return false; // no content words: nothing to support-check
     }
     let source_content = content_tokens(source_tokens);
     let lcs = lcs_len(&draft_content, &source_content);
-    lcs * NO_SUPPORT_LCS_DEN < draft_content.len() * NO_SUPPORT_LCS_NUM
+    lcs * cfg.no_support_lcs_den < draft_content.len() * cfg.no_support_lcs_num
 }
 
 /// Longest common subsequence length of two token sequences (order-
@@ -243,7 +307,7 @@ mod tests {
                      construction delays, and the overruns dominated later budgets.";
         let a = assess_paraphrase(draft, SOURCE);
         assert_eq!(a.verdict, ParaphraseVerdict::TooClose, "{a:?}");
-        assert!(a.longest_common_run >= super::TOO_CLOSE_RUN_WORDS);
+        assert!(a.longest_common_run >= super::ParaphraseConfig::default().too_close_run_words);
     }
 
     #[test]

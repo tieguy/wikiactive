@@ -16,7 +16,6 @@
 use crate::checks::linter;
 use crate::checks::linter::LinterConfig;
 use crate::checks::paraphrase;
-use crate::checks::paraphrase::ParaphraseVerdict;
 use crate::checks::quote_anchor::locate_quote;
 use crate::ledger::Ledger;
 use crate::session::Finding;
@@ -221,13 +220,16 @@ pub struct GateVerdict {
     pub reasons: Vec<GateReason>,
 }
 
-/// Gate inputs: ledger, findings, base and proposed wikitext, linter config.
+/// Gate inputs: ledger, findings, base and proposed wikitext, linter and
+/// paraphrase configs.
 pub struct GateInput<'a> {
     pub ledger: &'a Ledger,
     pub findings: &'a [Finding],
     pub base_wikitext: &'a str,
     pub proposed_wikitext: &'a str,
     pub linter_config: &'a LinterConfig,
+    /// Paraphrase thresholds (MVP-2 A.2.3 — `rules/paraphrase.toml`).
+    pub paraphrase_config: &'a crate::checks::paraphrase::ParaphraseConfig,
 }
 
 /// Run the gate. [`GateVerdict::blocked`] is true iff `reasons` is non-empty.
@@ -276,6 +278,32 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
     }
 
     // 2. Paraphrase gate: each claim's prose vs its claimed source texts.
+    paraphrase_reasons(input, &mut reasons);
+
+    // 3. Linter gate: error-severity findings block.
+    for lint in linter::gate(
+        input.base_wikitext,
+        input.proposed_wikitext,
+        input.linter_config,
+    ) {
+        if lint.severity == linter::Severity::Error {
+            reasons.push(GateReason::LinterError {
+                rule: lint.rule,
+                detail: lint.detail,
+                span: (lint.line > 0).then(|| format!("L{}", lint.line)),
+            });
+        }
+    }
+
+    let blocked = !reasons.is_empty();
+    GateVerdict { blocked, reasons }
+}
+
+/// Paraphrase pass of the gate: each claim's prose vs its claimed source
+/// texts (missing quotes/sources are pass 1's business and are skipped).
+fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
+    use paraphrase::ParaphraseVerdict;
+
     for claim in &input.ledger.claims {
         let mut combined_source = String::new();
         let mut missing = false;
@@ -296,7 +324,11 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
             // Quote/source resolution failures are already reported in pass 1.
             continue;
         }
-        let assessment = paraphrase::assess_paraphrase(&claim.prose, &combined_source);
+        let assessment = paraphrase::assess_paraphrase_with(
+            input.paraphrase_config,
+            &claim.prose,
+            &combined_source,
+        );
         let span = crate::render::locate_block_anchor(input.proposed_wikitext, &claim.prose);
         match assessment.verdict {
             ParaphraseVerdict::TooClose => {
@@ -324,24 +356,6 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
             ParaphraseVerdict::Ok => {}
         }
     }
-
-    // 3. Linter gate: error-severity findings block.
-    for lint in linter::gate(
-        input.base_wikitext,
-        input.proposed_wikitext,
-        input.linter_config,
-    ) {
-        if lint.severity == linter::Severity::Error {
-            reasons.push(GateReason::LinterError {
-                rule: lint.rule,
-                detail: lint.detail,
-                span: (lint.line > 0).then(|| format!("L{}", lint.line)),
-            });
-        }
-    }
-
-    let blocked = !reasons.is_empty();
-    GateVerdict { blocked, reasons }
 }
 
 #[cfg(test)]
@@ -395,6 +409,7 @@ mod tests {
             base_wikitext: "Old text.",
             proposed_wikitext: "By 1986 Japanese readers had bought three million copies.",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(!verdict.blocked, "{verdict:?}");
     }
@@ -413,6 +428,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(verdict.blocked);
         assert!(matches!(
@@ -430,6 +446,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(verdict.blocked);
         assert!(matches!(
@@ -443,6 +460,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(matches!(
             verdict.reasons[0],
@@ -460,6 +478,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(verdict.blocked);
         // Re-run (publish side) yields the same verdict.
@@ -469,6 +488,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert_eq!(verdict, again);
     }
@@ -483,6 +503,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "==Life==\nHe was born.",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(verdict.blocked);
         assert!(matches!(verdict.reasons[0], GateReason::LinterError { .. }));
@@ -501,6 +522,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "==Life==\ntext",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(verdict.blocked);
         for r in &verdict.reasons {
@@ -541,6 +563,7 @@ mod tests {
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
         assert!(verdict.blocked, "{verdict:?}");
         assert!(matches!(

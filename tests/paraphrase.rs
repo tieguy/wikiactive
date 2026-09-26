@@ -4,7 +4,6 @@
 
 use wikiloop::checks::paraphrase::ParaphraseVerdict;
 use wikiloop::checks::paraphrase::assess_paraphrase;
-
 const SOURCE: &str = "The Golden Gate Bridge was completed in 1937 after a decade of \
                       construction delays and cost overruns that strained municipal \
                       finances during the Depression.";
@@ -34,4 +33,31 @@ fn ac3_unrelated_text_flags_no_support() {
                  itself.";
     let a = assess_paraphrase(draft, SOURCE);
     assert_eq!(a.verdict, ParaphraseVerdict::NoSupport, "{a:?}");
+}
+
+/// MVP-2 A.2.3 — the thresholds extracted to `rules/paraphrase.toml` are
+/// pinned against the compiled defaults (the original constants): drifting
+/// the config without recording the decision fails here, and the default
+/// path ([`assess_paraphrase`]) agrees with the config-loaded path.
+#[test]
+fn rules_paraphrase_toml_matches_default_thresholds() {
+    let from_file = wikiloop::checks::paraphrase::ParaphraseConfig::load(std::path::Path::new(
+        "rules/paraphrase.toml",
+    ))
+    .expect("paraphrase.toml parses");
+    assert_eq!(
+        from_file,
+        wikiloop::checks::paraphrase::ParaphraseConfig::default(),
+        "rules/paraphrase.toml diverged from the compiled defaults — record the \
+         threshold decision in docs/design-plans/2026-09-25-mvp2-addendum.md"
+    );
+    // The default-config wrapper and the config-loaded path agree on a
+    // canonical input (verdict pinning across the extraction).
+    let draft = "The bridge was finished in 1937 following ten years of construction \
+                 delays and cost overruns that strained city finances in the \
+                 Depression years.";
+    let via_default = assess_paraphrase(draft, SOURCE);
+    let via_file = wikiloop::checks::paraphrase::assess_paraphrase_with(&from_file, draft, SOURCE);
+    assert_eq!(via_default.verdict, via_file.verdict);
+    assert_eq!(via_default, via_file);
 }

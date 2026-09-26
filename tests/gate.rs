@@ -49,6 +49,7 @@ fn ac11_tampered_quote_blocks() {
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
     });
     assert!(verdict.blocked);
     assert!(matches!(
@@ -66,6 +67,7 @@ fn ac11_unknown_quote_id_blocks() {
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
     });
     assert!(verdict.blocked);
     assert!(matches!(
@@ -83,6 +85,7 @@ fn ac11_unanchored_finding_never_reaches_review() {
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
     });
     assert!(verdict.blocked);
     assert!(matches!(
@@ -106,6 +109,7 @@ fn ac11_gate_reruns_identically_before_publish_confirmation() {
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
     });
     let before_publish = run_gate(&GateInput {
         ledger: &ledger,
@@ -113,6 +117,7 @@ fn ac11_gate_reruns_identically_before_publish_confirmation() {
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
     });
     assert!(at_render.blocked);
     assert_eq!(at_render, before_publish, "publish re-check must agree");
@@ -134,6 +139,7 @@ fn ac11_clean_gate_passes() {
         base_wikitext: "base text here",
         proposed_wikitext: "A paraphrase of the fetched source material, properly reworded.",
         linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
     });
     assert!(!verdict.blocked, "{verdict:?}");
 }

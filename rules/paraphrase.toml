@@ -1,0 +1,34 @@
+# Paraphrase-gate thresholds (MVP-2 A.2.3).
+#
+# These were compile-time constants in src/checks/paraphrase.rs; they live
+# here so live-session tuning (Phase-A retrospective) is config-only. The
+# defaults are the ORIGINAL constants and are pinned against
+# ParaphraseConfig::default() by test (tests/paraphrase.rs) — changing a
+# value here is a deliberate threshold decision, recorded in the design
+# addendum.
+#
+# All comparisons are integer ratios (shared·denominator vs total·numerator)
+# — no float ever decides a verdict.
+
+# Word-shingle length. 4-grams are the standard close-paraphrase signal.
+shingle_n = 4
+
+# Too-close (CLOP) when ≥ too_close_num/too_close_den of the draft's
+# shingles occur in the source (6/10 = 60%)...
+too_close_num = 6
+too_close_den = 10
+# ...or any unquoted verbatim word-run of this length appears...
+too_close_run_words = 10
+# ...or ≥ too_close_lcs_num/too_close_lcs_den of the draft's tokens match
+# the source in order (LCS; 2/5 = 40%) — catches synonym-substitution that
+# keeps the sentence architecture.
+too_close_lcs_num = 2
+too_close_lcs_den = 5
+
+# No-support when < no_support_num/no_support_den shingle containment
+# (1/20 = 5%) AND < no_support_lcs_num/no_support_lcs_den content-token LCS
+# (2/25 = 8%): the claimed source shares nothing substantive with the prose.
+no_support_num = 1
+no_support_den = 20
+no_support_lcs_num = 2
+no_support_lcs_den = 25
