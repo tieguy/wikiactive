@@ -43,7 +43,7 @@ Disposition ladder for discovered material: *use in article with attribution →
 ```
 wikiactive/
   Cargo.toml              # single crate `wikiloop` (bin+lib), edition 2024, rust-version 1.96
-  LICENSE                 # GPL-3.0-or-later
+  LICENSE                 # GPL-3.0-only (SP42 copy sets this; corrected 2026-09-25 — was mis-annotated "or-later")
   CLAUDE.md               # repo conventions: product-internalized UA/etiquette rules (docs/api-etiquette.md), PLAYBOOK pointer
   README.md               # setup: rust toolchain, Node>=22 + pinned lavish, OAuth2 consumer runbook, env vars
   PLAYBOOK.md             # the loop driver: session protocol, ladder, per-loop rule packs

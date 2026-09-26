@@ -1,0 +1,77 @@
+/*
+ * enwiki link affordances for the review artifact (vendored adaptation).
+ * DO NOT EDIT BY HAND — see provenance below; update by re-snapshotting the
+ * source and recording the change in vendor/PROVENANCE.md.
+ *
+ * PROVENANCE
+ * ----------
+ * Snapshot date: 2026-09-25
+ * Deployed source (values observed live):
+ *   https://en.wikipedia.org/w/load.php?lang=en&modules=skins.vector.styles
+ *   &only=styles&skin=vector-2022
+ * Upstream sources (license: GPL-2.0-or-later, one-way compatible with this
+ * repo's GPL-3.0-only):
+ *   - mediawiki/core resources/src/mediawiki.skinning/content.links.less
+ *   - Vector (Vector 2022 skin) link rules
+ *   - Codex design tokens (theme-wikimedia-ui.json)
+ * License of this file: GPL-2.0-or-later (derivative of the above).
+ *
+ * Verbatim upstream rules the values come from (Vector 2022, compiled):
+ *   a{text-decoration:none;color:var(--color-progressive,#36c);background:none}
+ *   a:visited{color:var(--color-visited,#6a60b0)}
+ *   a:hover,a:focus{text-decoration:underline}
+ *   a:where(:not([role='button'])):hover{color:var(--color-progressive--hover,#3056a9);text-decoration:underline}
+ *   a:where(:not([role='button'])):active{color:var(--color-progressive--active,#233566);text-decoration:underline}
+ *   a:where(.new:not([role='button'])){color:var(--color-destructive,#bf3c2c)}
+ *   a:where(.new:not([role='button'])):visited{color:var(--color-destructive--visited,#9f5555)}
+ *   :root{--color-progressive:#36c;--color-progressive--hover:#3056a9;
+ *         --color-progressive--active:#233566;--color-visited:#6a60b0;
+ *         --color-destructive:#bf3c2c}
+ *
+ * Adaptation (scoped to the artifact's `.wl` wikilink marker):
+ *   - selectors rewritten from `a` to `.wl` (the artifact renders wikilinks
+ *     and external links as marked spans, not navigable anchors);
+ *   - redlink (`.new`) rules included for the future page-existence case;
+ *   - the Vector external-link icon (an SVG background image) is omitted —
+ *     external links keep the same progressive color, as on enwiki.
+ */
+
+.wl {
+  color: #36c;
+  text-decoration: none;
+  background: none;
+}
+
+.wl:visited {
+  color: #6a60b0;
+}
+
+.wl:hover,
+.wl:focus {
+  color: #3056a9;
+  text-decoration: underline;
+}
+
+.wl:active {
+  color: #233566;
+  text-decoration: underline;
+}
+
+.wl.new {
+  color: #bf3c2c;
+}
+
+.wl.new:visited {
+  color: #9f5555;
+}
+
+.wl.new:hover,
+.wl.new:focus {
+  color: #9f3526;
+  text-decoration: underline;
+}
+
+.wl.new:active {
+  color: #612419;
+  text-decoration: underline;
+}

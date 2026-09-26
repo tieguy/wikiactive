@@ -282,6 +282,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
         anchor_json: &anchor_json,
         revisions_json: &revisions_json,
         round_id: &round_id,
+        wiki_links: include_str!("../vendor/enwiki-link-affordances.css"),
     });
 
     Ok(RenderOutput {
@@ -788,6 +789,9 @@ struct AssembleArgs<'a> {
     anchor_json: &'a str,
     revisions_json: &'a str,
     round_id: &'a str,
+    /// Enwiki link affordances (vendored snapshot,
+    /// `vendor/enwiki-link-affordances.css` — checksum-pinned by test).
+    wiki_links: &'a str,
 }
 
 fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
@@ -818,7 +822,8 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
   .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
   .ctx-sep {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .75rem; text-align: center; padding: .15rem 0; }}
-  .wl {{ text-decoration: underline dotted; text-underline-offset: 2px; }}
+  /* enwiki link affordances: vendored snapshot (see vendor/PROVENANCE.md) */
+{wiki_links}
   .block.heading {{ font-weight: 700; font-family: system-ui, sans-serif; font-size: 1.05em; }}
   .block.listitem {{ padding-left: 1.5rem; }}
   .block.listitem::before {{ content: "\2022  "; color: var(--muted); }}
@@ -860,6 +865,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
         new = a.new_pane,
         evidence = a.evidence_html,
         round_marker = a.round_id,
+        wiki_links = a.wiki_links,
     )
 }
 
@@ -1011,6 +1017,46 @@ mod tests {
             out.artifact_html
                 .contains(&format!("data-wiki-anchor=\"{}\"", entry.wikitext_anchor)),
             "the deleted block carries its anchor attribute"
+        );
+    }
+
+    /// MVP-2 A.1.2 — the enwiki link-affordance snapshot is checksum-pinned:
+    /// editing the vendored file without recording it in
+    /// `vendor/PROVENANCE.md` fails here.
+    #[test]
+    fn enwiki_link_affordance_snapshot_is_checksum_pinned() {
+        use sha2::Digest as _;
+        use std::fmt::Write as _;
+        let css = include_str!("../vendor/enwiki-link-affordances.css");
+        let digest = sha2::Sha256::digest(css.as_bytes());
+        let mut hex = String::with_capacity(digest.len() * 2);
+        for b in digest {
+            let _ = write!(hex, "{b:02x}");
+        }
+        assert_eq!(
+            hex, "2e77dd0634ddd9fd781a0d2dfaffba0d68aae4a9fe58c39213b93dc7ba5a6a50",
+            "vendor/enwiki-link-affordances.css changed — update this pin AND vendor/PROVENANCE.md"
+        );
+    }
+
+    /// MVP-2 A.1.2 — wikilinks carry the wiki's own link affordances, not
+    /// the MVP expedient dotted-underline that read like a misspelling
+    /// mark (operator backlog note, 2026-09-25).
+    #[test]
+    fn wikilinks_use_enwiki_link_affordances() {
+        let ledger = crate::ledger::Ledger::default();
+        let out = render(&input(BASE_WT, PROP_WT, BASE_HTML, PROP_HTML, &ledger, &[])).unwrap();
+        assert!(
+            out.artifact_html.contains(".wl {"),
+            "vendored enwiki link styles inlined into the artifact"
+        );
+        assert!(
+            out.artifact_html.contains("color: #36c;"),
+            "enwiki progressive link color present"
+        );
+        assert!(
+            !out.artifact_html.contains("underline dotted"),
+            "the dotted-underline misspelling-mark styling is gone"
         );
     }
 
