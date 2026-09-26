@@ -131,9 +131,10 @@ pub enum SessionCmd {
         #[arg(long)]
         entry_loop: u8,
         /// Drift-review pin (MVP-2 A.2.2): record this user's last edit to
-        /// the article; analyze embeds the drift diff since. Defaults to
-        /// rules/house-rules.toml [operator] username when omitted.
-        #[arg(long)]
+        /// the article; analyze embeds the drift diff since. Bare flag
+        /// defaults to rules/house-rules.toml [operator] username; an
+        /// explicit value overrides.
+        #[arg(long, num_args = 0..=1, default_missing_value = "")]
         review_since_user: Option<String>,
     },
     /// Show session state.
@@ -273,10 +274,14 @@ async fn session_init(
     std::fs::create_dir_all(&paths.dir).context("create session dir")?;
 
     // Drift-review default: the operator identity from house rules (single
-    // fork-edit point) unless the flag names another user explicitly.
+    // fork-edit point) unless the flag names another user explicitly. A
+    // bare flag (empty value) also selects the configured default.
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let review_user = review_since_user.or_else(|| corpus.house_rules.operator.username.clone());
+    let review_user = match review_since_user {
+        Some(user) if !user.is_empty() => Some(user),
+        _ => corpus.house_rules.operator.username.clone(),
+    };
 
     let wiki = Wikipedia::connect()
         .await

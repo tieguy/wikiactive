@@ -284,27 +284,44 @@ async fn fetch_refuses_redirect_to_private_target() {
 
 // ------------------------------------------------ MVP-2 A.2.2 drift-review pin
 
-/// `wa session init --review-since-user` (MVP-2 A.2.2): the usercontribs
-/// query pins the operator's last-edit revid and the wikitext at that revid
-/// is fetched — the two API halves of the analyze drift bundle. A user who
-/// never edited the title pins nothing (None, not an error).
+/// `wa session init --review-since-user` (MVP-2 A.2.2): usercontribs are
+/// paged newest-first and filtered client-side (the API has no `uctitle`
+/// filter — the first live run pinned the operator's most recent edit
+/// ANYWHERE until this filtering landed). The newest matching entry is the
+/// recorded revid; a user who never edited the title pins nothing (None).
 #[tokio::test]
 async fn review_since_user_records_revid_and_drift_summary() {
     let server = MockServer::start_async().await;
-    let uc_mock = server
+    // Page 2 (created first so the more-specific mock wins): the Sarah
+    // Kidder entry, reached via the continuation cursor.
+    let page2 = server
         .mock_async(|when, then| {
             when.method(httpmock::Method::GET)
-                .query_param("action", "query")
                 .query_param("list", "usercontribs")
                 .query_param("ucuser", "LuisVilla")
-                .query_param("uctitle", "Sarah Kidder")
-                .query_param("uclimit", "1")
-                .query_param("maxlag", "5")
+                .query_param("uccontinue", "2026|1370000000")
                 .header("User-Agent", USER_AGENT);
             then.status(200).json_body(serde_json::json!({
                 "query": {"usercontribs": [
                     {"revid": 8_900_001, "user": "LuisVilla", "title": "Sarah Kidder"}
                 ]}
+            }));
+        })
+        .await;
+    // Page 1: a newer contribution to a DIFFERENT article plus the
+    // continuation cursor — must not be pinned for Sarah Kidder.
+    let page1 = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::GET)
+                .query_param("list", "usercontribs")
+                .query_param("ucuser", "LuisVilla")
+                .query_param("uclimit", "500")
+                .header("User-Agent", USER_AGENT);
+            then.status(200).json_body(serde_json::json!({
+                "query": {"usercontribs": [
+                    {"revid": 1_376_716_598, "user": "LuisVilla", "title": "Temple Fielding"}
+                ]},
+                "continue": {"uccontinue": "2026|1370000000", "continue": "-||"}
             }));
         })
         .await;
@@ -341,14 +358,15 @@ async fn review_since_user_records_revid_and_drift_summary() {
     assert_eq!(
         revid,
         Some(8_900_001),
-        "the operator's last-edit revid is recorded"
+        "the pinned revid is the newest edit TO THE TITLE, not the user's newest edit"
     );
     let prior = wiki
         .wikitext_at_revid("Sarah Kidder", 8_900_001)
         .await
         .expect("wikitext at the pinned revid");
     assert_eq!(prior, "She was a railroad president.");
-    assert_eq!(uc_mock.calls(), 1);
+    assert_eq!(page1.calls(), 1);
+    assert_eq!(page2.calls(), 1);
     assert_eq!(wt_mock.calls(), 1);
 
     // Never edited the title: no pin, no error.

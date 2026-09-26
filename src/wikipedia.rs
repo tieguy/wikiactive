@@ -270,6 +270,10 @@ impl Wikipedia {
     /// user never edited it) — the drift-review pin for
     /// `--review-since-user` (MVP-2 A.2.2).
     ///
+    /// The Action API has no `uctitle` filter for `list=usercontribs`, so
+    /// contributions are paged newest-first and filtered client-side
+    /// (bounded: 10 pages × 500 = 5000 contributions).
+    ///
     /// # Errors
     /// Network/API error or malformed response.
     pub async fn last_edit_revid(
@@ -277,22 +281,41 @@ impl Wikipedia {
         user: &str,
         title: &str,
     ) -> Result<Option<u64>, WikipediaError> {
-        let resp: Value = self
-            .api
-            .get_value([
+        let mut continue_from: Option<String> = None;
+        for _ in 0..10 {
+            let mut params: Vec<(&str, &str)> = vec![
                 ("action", "query"),
                 ("list", "usercontribs"),
                 ("ucuser", user),
-                ("uctitle", title),
-                ("ucprop", "ids"),
-                ("uclimit", "1"),
-            ])
-            .await?;
-        // usercontribs defaults to newest-first: the first entry is the
-        // user's most recent edit to the title.
-        Ok(resp
-            .pointer("/query/usercontribs/0/revid")
-            .and_then(Value::as_u64))
+                ("ucprop", "ids|title"),
+                ("uclimit", "500"),
+            ];
+            if let Some(cursor) = &continue_from {
+                params.push(("uccontinue", cursor));
+            }
+            let resp: Value = self.api.get_value(params).await?;
+            let contribs = resp
+                .pointer("/query/usercontribs")
+                .and_then(Value::as_array)
+                .ok_or_else(|| WikipediaError::BadShape("query.usercontribs".into()))?;
+            // Newest-first: the first matching entry is the last edit.
+            if let Some(revid) = contribs
+                .iter()
+                .find(|c| c.get("title").and_then(Value::as_str) == Some(title))
+                .and_then(|c| c.get("revid"))
+                .and_then(Value::as_u64)
+            {
+                return Ok(Some(revid));
+            }
+            continue_from = resp
+                .pointer("/continue/uccontinue")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            if continue_from.is_none() {
+                return Ok(None);
+            }
+        }
+        Ok(None)
     }
 
     /// Fetch wikitext at a pinned revid (session base).
