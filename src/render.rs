@@ -757,11 +757,12 @@ fn next_line_anchor(wikitext: &str, prop_idx: usize) -> String {
     format!("L{line}:C0-L{line}:C{col_end}")
 }
 
-/// One evidence card: the verbatim quote promoted above the prose (the
-/// reviewer verifies quote→prose mapping first), its source with CLICKABLE
-/// url + archive links, and the attached finding. Review catch (L2 round
-/// 2): a plain-text URL and a quote buried under the fix line made the
-/// evidence unverifiable in the UI.
+/// One evidence card, in reviewer language: the verbatim excerpt first
+/// (the reviewer verifies quote→prose mapping), the source under its real
+/// title with clickable url + archive links, then the finding note and fix.
+/// Internal ids (Q/S/F, ledger refs) live only in element ids and
+/// data-wiki-anchor attributes — never in visible text (operator L2
+/// round-3 catch: "Q1/F1/S1/locator-verified are internal jargon").
 fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
     let mut quotes_html = String::new();
     let mut sources_html = String::new();
@@ -772,34 +773,38 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
                     Some(a) if !a.is_empty() => format!("<a href=\"{}\">{}</a>", esc(a), esc(a)),
                     _ => "(archive pending)".to_string(),
                 };
+                let meta = source.metadata.as_ref();
+                let title = meta.and_then(|m| m.title.as_deref()).unwrap_or("");
+                let work = meta.and_then(|m| m.work.as_deref()).unwrap_or("");
+                let cite = match (title.is_empty(), work.is_empty()) {
+                    (false, false) => format!(" — {work}: “{title}”"),
+                    (false, true) => format!(" — “{title}”"),
+                    (true, false) => format!(" — {work}"),
+                    (true, true) => String::new(),
+                };
                 let _ = writeln!(
                     sources_html,
-                    "<p class=\"src\"><strong>{sid}</strong> <a href=\"{url}\">{url}</a><br>archive: {archive} · accessed {accessed}</p>",
-                    sid = esc(&source.id),
+                    "<p class=\"src\">Source: <a href=\"{url}\">{url}</a>{cite}<br>archive: {archive} · accessed {accessed}</p>",
                     url = esc(&source.url),
+                    cite = cite,
                     archive = archive_html,
                     accessed = esc(&source.access_date),
                 );
             }
             let _ = writeln!(
                 quotes_html,
-                "<p class=\"quote-head\">{qid} — verbatim in {src}'s fetched text (locator-verified by the gate):</p>\n<blockquote data-wiki-anchor=\"ledger:{qid}\">{text}</blockquote>",
-                src = esc(&quote.source_id),
+                "<p class=\"quote-head\">Verbatim excerpt from the source (re-checked automatically against the fetched text):</p>\n<blockquote data-wiki-anchor=\"ledger:{qid}\">{text}</blockquote>",
                 text = esc(&quote.text),
             );
         }
     }
     format!(
         "<div class=\"evidence\" id=\"{ev_id}\" data-wiki-anchor=\"ledger:{primary}\">\n\
-         <span class=\"anchor-tag\">{ev_id} · ledger:{primary}</span>\n\
-         <p class=\"finding\"><strong>{fid}</strong> [{rules}] · loop {loop_id}</p>\n\
+         <span class=\"anchor-tag\">evidence for this edit</span>\n\
          <p class=\"finding\">{note}</p>\n\
          {quotes}\n{sources}\n\
-         <p class=\"fix\">Fix: {fix}</p>\n</div>\n",
+         <p class=\"fix\">Proposed fix: {fix}</p>\n</div>\n",
         primary = finding.evidence[0],
-        fid = esc(&finding.id),
-        rules = esc(&finding.rules.join(", ")),
-        loop_id = finding.loop_id,
         note = esc(&finding.factual_note),
         fix = esc(&finding.proposed_fix),
         sources = sources_html,
