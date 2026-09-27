@@ -757,28 +757,35 @@ fn next_line_anchor(wikitext: &str, prop_idx: usize) -> String {
     format!("L{line}:C0-L{line}:C{col_end}")
 }
 
-/// One evidence card: full source citation, verbatim quotes, archive URL,
-/// attached finding.
+/// One evidence card: the verbatim quote promoted above the prose (the
+/// reviewer verifies quote→prose mapping first), its source with CLICKABLE
+/// url + archive links, and the attached finding. Review catch (L2 round
+/// 2): a plain-text URL and a quote buried under the fix line made the
+/// evidence unverifiable in the UI.
 fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
     let mut quotes_html = String::new();
     let mut sources_html = String::new();
     for qid in &finding.evidence {
         if let Some(quote) = ledger.quote(qid) {
             if let Some(source) = ledger.sources.iter().find(|s| s.id == quote.source_id) {
-                let archive = source.archive_url.as_deref().unwrap_or("(archive pending)");
+                let archive_html = match source.archive_url.as_deref() {
+                    Some(a) if !a.is_empty() => format!("<a href=\"{}\">{}</a>", esc(a), esc(a)),
+                    _ => "(archive pending)".to_string(),
+                };
                 let _ = writeln!(
                     sources_html,
-                    "<p class=\"src\"><strong>{}</strong> {}<br>archive: {} · accessed {}</p>",
-                    esc(&source.id),
-                    esc(&source.url),
-                    esc(archive),
-                    esc(&source.access_date),
+                    "<p class=\"src\"><strong>{sid}</strong> <a href=\"{url}\">{url}</a><br>archive: {archive} · accessed {accessed}</p>",
+                    sid = esc(&source.id),
+                    url = esc(&source.url),
+                    archive = archive_html,
+                    accessed = esc(&source.access_date),
                 );
             }
             let _ = writeln!(
                 quotes_html,
-                "<blockquote data-wiki-anchor=\"ledger:{qid}\">{}</blockquote>",
-                esc(&quote.text)
+                "<p class=\"quote-head\">{qid} — verbatim in {src}'s fetched text (locator-verified by the gate):</p>\n<blockquote data-wiki-anchor=\"ledger:{qid}\">{text}</blockquote>",
+                src = esc(&quote.source_id),
+                text = esc(&quote.text),
             );
         }
     }
@@ -787,8 +794,8 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
          <span class=\"anchor-tag\">{ev_id} · ledger:{primary}</span>\n\
          <p class=\"finding\"><strong>{fid}</strong> [{rules}] · loop {loop_id}</p>\n\
          <p class=\"finding\">{note}</p>\n\
-         <p class=\"fix\">Fix: {fix}</p>\n\
-         {sources}\n{quotes}\n</div>\n",
+         {quotes}\n{sources}\n\
+         <p class=\"fix\">Fix: {fix}</p>\n</div>\n",
         primary = finding.evidence[0],
         fid = esc(&finding.id),
         rules = esc(&finding.rules.join(", ")),
@@ -854,6 +861,8 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .evidence {{ border: 1px solid var(--accent); border-radius: 6px; margin: 1rem 0; padding: .75rem; background: #f6f2fc; overflow: auto; }}
   .evidence blockquote {{ margin: .5rem 0; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: #fff; }}
   .evidence .src, .evidence .finding, .evidence .fix {{ font-size: .85rem; }}
+  .evidence .quote-head {{ font-size: .8rem; color: var(--muted); font-family: ui-monospace, monospace; margin: .4rem 0 .1rem; }}
+  .evidence a {{ color: #36c; }}
   .evidence .fix {{ color: var(--muted); }}
 </style>
 </head>
