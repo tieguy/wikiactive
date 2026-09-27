@@ -801,9 +801,9 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
         };
         let _ = writeln!(
             consulted_html,
-            "<p class=\"src\">{cite} <a href=\"{url}\">{url}</a> — {status}</p>",
-            cite = esc(&source_cite(source)),
+            "<p class=\"src\"><a href=\"{url}\">{text}</a> — {status}</p>",
             url = esc(&source.url),
+            text = esc(&source_link_text(source)),
             status = status,
         );
     }
@@ -816,9 +816,9 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
                 };
                 let _ = writeln!(
                     sources_html,
-                    "<p class=\"src\">Source: <a href=\"{url}\">{url}</a>{cite}<br>archive: {archive} · accessed {accessed}</p>",
+                    "<p class=\"src\">Source: <a href=\"{url}\">{text}</a><br>archive: {archive} · accessed {accessed}</p>",
                     url = esc(&source.url),
-                    cite = esc(&source_cite(source)),
+                    text = esc(&source_link_text(source)),
                     archive = archive_html,
                     accessed = esc(&source.access_date),
                 );
@@ -846,6 +846,20 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
         fix = esc(&finding.proposed_fix),
         sources = sources_html,
         quotes = quotes_html,
+    )
+}
+
+/// Link text for a source: its citation if we have one, else the URL's
+/// host — the raw URL stays in the href only (compactness, operator
+/// round-7 request).
+fn source_link_text(source: &crate::ledger::SourceEntry) -> String {
+    let cite = source_cite(source);
+    if !cite.is_empty() {
+        return cite;
+    }
+    url::Url::parse(&source.url).map_or_else(
+        |_| "(link)".to_string(),
+        |u| u.host_str().unwrap_or("(link)").to_string(),
     )
 }
 
