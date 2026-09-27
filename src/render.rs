@@ -776,6 +776,37 @@ fn next_line_anchor(wikitext: &str, prop_idx: usize) -> String {
 fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
     let mut quotes_html = String::new();
     let mut sources_html = String::new();
+    let mut consulted_html = String::new();
+    let evidence_source_ids: Vec<&str> = finding
+        .evidence
+        .iter()
+        .filter_map(|qid| ledger.quote(qid).map(|q| q.source_id.as_str()))
+        .collect();
+    for source in &ledger.sources {
+        // Every consulted source appears with a link and fetch status —
+        // the reviewer must be able to chase paywalled/403 sources from
+        // the UI (operator round-6 catch: "not enough detail to google
+        // them, no link to the 403").
+        if evidence_source_ids.contains(&source.id.as_str()) {
+            continue;
+        }
+        let status = if source
+            .fetched_text
+            .as_deref()
+            .is_some_and(|t| !t.is_empty())
+        {
+            "fetched"
+        } else {
+            "not fetched (access failed)"
+        };
+        let _ = writeln!(
+            consulted_html,
+            "<p class=\"src\">{cite} <a href=\"{url}\">{url}</a> — {status}</p>",
+            cite = esc(&source_cite(source)),
+            url = esc(&source.url),
+            status = status,
+        );
+    }
     for qid in &finding.evidence {
         if let Some(quote) = ledger.quote(qid) {
             if let Some(source) = ledger.sources.iter().find(|s| s.id == quote.source_id) {
@@ -783,20 +814,11 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
                     Some(a) if !a.is_empty() => format!("<a href=\"{}\">{}</a>", esc(a), esc(a)),
                     _ => "(archive pending)".to_string(),
                 };
-                let meta = source.metadata.as_ref();
-                let title = meta.and_then(|m| m.title.as_deref()).unwrap_or("");
-                let work = meta.and_then(|m| m.work.as_deref()).unwrap_or("");
-                let cite = match (title.is_empty(), work.is_empty()) {
-                    (false, false) => format!(" — {work}: “{title}”"),
-                    (false, true) => format!(" — “{title}”"),
-                    (true, false) => format!(" — {work}"),
-                    (true, true) => String::new(),
-                };
                 let _ = writeln!(
                     sources_html,
                     "<p class=\"src\">Source: <a href=\"{url}\">{url}</a>{cite}<br>archive: {archive} · accessed {accessed}</p>",
                     url = esc(&source.url),
-                    cite = cite,
+                    cite = esc(&source_cite(source)),
                     archive = archive_html,
                     accessed = esc(&source.access_date),
                 );
@@ -808,11 +830,16 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
             );
         }
     }
+    let consulted = if consulted_html.is_empty() {
+        String::new()
+    } else {
+        format!("<p class=\"quote-head\">Also consulted:</p>\n{consulted_html}")
+    };
     format!(
         "<div class=\"evidence\" id=\"{ev_id}\" data-wiki-anchor=\"ledger:{primary}\">\n\
          <span class=\"anchor-tag\">evidence for this edit</span>\n\
          <p class=\"finding\">{note}</p>\n\
-         {quotes}\n{sources}\n\
+         {quotes}\n{sources}\n{consulted}\
          <p class=\"fix\">Proposed fix: {fix}</p>\n</div>\n",
         primary = finding.evidence[0],
         note = esc(&finding.factual_note),
@@ -820,6 +847,19 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
         sources = sources_html,
         quotes = quotes_html,
     )
+}
+
+/// " — Work: “Title”" citation fragment from a source's metadata.
+fn source_cite(source: &crate::ledger::SourceEntry) -> String {
+    let meta = source.metadata.as_ref();
+    let title = meta.and_then(|m| m.title.as_deref()).unwrap_or("");
+    let work = meta.and_then(|m| m.work.as_deref()).unwrap_or("");
+    match (title.is_empty(), work.is_empty()) {
+        (false, false) => format!("{work}: “{title}”"),
+        (false, true) => format!("“{title}”"),
+        (true, false) => work.to_string(),
+        (true, true) => String::new(),
+    }
 }
 
 struct AssembleArgs<'a> {
@@ -881,7 +921,8 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   .evidence blockquote {{ margin: .5rem 0; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: #fff; }}
   .evidence .src, .evidence .finding, .evidence .fix {{ font-size: .85rem; }}
   .evidence .quote-head {{ font-size: .8rem; color: var(--muted); font-family: ui-monospace, monospace; margin: .4rem 0 .1rem; }}
-  .evidence a {{ color: #36c; }}
+  .evidence a {{ color: #36c; word-break: break-all; overflow-wrap: anywhere; }}
+  .evidence .src {{ overflow-wrap: anywhere; }}
   .evidence .fix {{ color: var(--muted); }}
 </style>
 </head>
