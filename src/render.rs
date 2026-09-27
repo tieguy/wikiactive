@@ -131,8 +131,9 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     //    change is visible inside a long paragraph.
     let round_id = format!("r{}", input.round);
     let mut anchor_table: Vec<AnchorEntry> = Vec::new();
-    let mut old_pane = String::new();
-    let mut new_pane = String::new();
+    // Single-column diff (operator round-5 layout request: Word-style
+    // inline diff, evidence rail as a right-hand column).
+    let mut diff_html = String::new();
     let mut counter = 0usize;
     let mut prop_idx = 0usize;
     let mut pending_deletes: Vec<PendingDelete<'_>> = Vec::new();
@@ -146,7 +147,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                 // only the changed paragraphs").
                 flush_pure_deletes(
                     &mut pending_deletes,
-                    &mut old_pane,
+                    &mut diff_html,
                     input.base_wikitext,
                     &round_id,
                     &mut counter,
@@ -156,7 +157,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                 prop_idx += 1;
             }
             similar::ChangeTag::Delete => {
-                emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
+                emit_ctx_sep(&mut diff_html, &mut skipped_equal);
                 let idx = change.old_index().unwrap_or(0);
                 let kind = base_blocks
                     .get(idx)
@@ -168,13 +169,13 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                 });
             }
             similar::ChangeTag::Insert => {
-                emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
+                emit_ctx_sep(&mut diff_html, &mut skipped_equal);
                 let new_text = change.value();
                 let new_kind = change
                     .new_index()
                     .map_or(BlockKind::Paragraph, |i| proposed_blocks[i].kind);
-                let (old_text, old_kind, old_block_idx) = if pending_deletes.is_empty() {
-                    (String::new(), new_kind, 0)
+                let (old_text, _old_kind, old_block_idx) = if pending_deletes.is_empty() {
+                    (String::new(), BlockKind::Paragraph, 0)
                 } else {
                     let texts: Vec<&str> = pending_deletes.iter().map(|d| d.text).collect();
                     let first = pending_deletes[0];
@@ -192,7 +193,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         element_id: id.clone(),
                         wikitext_anchor: anchor.clone(),
                     });
-                    new_pane.push_str(&block_html(
+                    diff_html.push_str(&block_html(
                         Some(&id),
                         Some(&anchor),
                         new_text,
@@ -201,10 +202,11 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         &round_id,
                     ));
                 } else {
-                    // Changed pair: the OLD side gets its own id anchored in
-                    // the BASE wikitext (`base:` prefix) so comments on the
-                    // removed wording resolve.
-                    let (old_inline, new_inline) = inline_word_diff(&old_text, new_text);
+                    // Changed pair → ONE combined block (Word-style inline
+                    // diff). The new side's id anchors the block; the old
+                    // side's id rides the first <del> run (or an empty
+                    // marker span) so comments on removed wording resolve.
+                    let combined = inline_word_diff(&old_text, new_text);
                     counter += 1;
                     let old_id = format!("wa-{counter}");
                     let old_anchor = format!(
@@ -225,32 +227,37 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                         element_id: new_id.clone(),
                         wikitext_anchor: new_anchor.clone(),
                     });
-                    old_pane.push_str(&block_html_inline(
-                        Some(&old_id),
-                        Some(&old_anchor),
-                        &old_inline,
-                        old_kind,
-                        "del",
-                        &round_id,
-                    ));
-                    new_pane.push_str(&block_html_inline(
-                        Some(&new_id),
-                        Some(&new_anchor),
-                        &new_inline,
-                        new_kind,
-                        "add",
-                        &round_id,
-                    ));
+                    let combined = if combined.contains("<del>") {
+                        combined.replacen(
+                            "<del>",
+                            &format!("<del id=\"{old_id}\" data-wiki-anchor=\"{old_anchor}\">"),
+                            1,
+                        )
+                    } else {
+                        format!(
+                            "<span id=\"{old_id}\" data-wiki-anchor=\"{old_anchor}\"></span>\
+                             {combined}"
+                        )
+                    };
+                    let (tag, tag_title) = block_tag(Some(&new_id), Some(&new_anchor), new_kind);
+                    let _ = writeln!(
+                        diff_html,
+                        "<div class=\"block change {}\" id=\"{new_id}\" \
+                         data-wiki-anchor=\"{new_anchor}\" \
+                         data-lavish-revision=\"{round_id}\">\
+                         <span class=\"anchor-tag\"{tag_title}>{tag}</span>{combined}</div>",
+                        new_kind.css(),
+                    );
                 }
             }
         }
     }
     if !pending_deletes.is_empty() {
-        emit_ctx_sep(&mut old_pane, &mut new_pane, &mut skipped_equal);
+        emit_ctx_sep(&mut diff_html, &mut skipped_equal);
     }
     flush_pure_deletes(
         &mut pending_deletes,
-        &mut old_pane,
+        &mut diff_html,
         input.base_wikitext,
         &round_id,
         &mut counter,
@@ -279,8 +286,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     let artifact = assemble_artifact(&AssembleArgs {
         article: &input.article,
         round: input.round,
-        old_pane: &old_pane,
-        new_pane: &new_pane,
+        diff_html: &diff_html,
         evidence_html: &evidence_html,
         anchor_json: &anchor_json,
         revisions_json: &revisions_json,
@@ -487,15 +493,14 @@ fn collapse_ws(s: &str) -> String {
 
 /// One-line collapsed-context separator between change groups: keeps the
 /// reviewer oriented without rendering unchanged blocks.
-fn emit_ctx_sep(old_pane: &mut String, new_pane: &mut String, skipped: &mut usize) {
+fn emit_ctx_sep(out: &mut String, skipped: &mut usize) {
     if *skipped > 0 {
-        let sep = format!(
-            "<div class=\"ctx-sep\">\u{22ef} {} unchanged block{} \u{22ef}</div>\n",
+        let _ = writeln!(
+            out,
+            "<div class=\"ctx-sep\">⋯ {} unchanged block{} ⋯</div>",
             skipped,
             if *skipped == 1 { "" } else { "s" }
         );
-        old_pane.push_str(&sep);
-        new_pane.push_str(&sep);
         *skipped = 0;
     }
 }
@@ -516,7 +521,7 @@ struct PendingDelete<'a> {
 /// deletion anchors.
 fn flush_pure_deletes(
     pending: &mut Vec<PendingDelete<'_>>,
-    old_pane: &mut String,
+    out: &mut String,
     base_wikitext: &str,
     round_id: &str,
     counter: &mut usize,
@@ -535,7 +540,7 @@ fn flush_pure_deletes(
             element_id: id.clone(),
             wikitext_anchor: anchor.clone(),
         });
-        old_pane.push_str(&block_html(
+        out.push_str(&block_html(
             Some(&id),
             Some(&anchor),
             d.text,
@@ -545,9 +550,6 @@ fn flush_pure_deletes(
         ));
     }
 }
-/// Word-level inline diff between the old and new sides of a changed block
-/// pair: returns (`old_html`, `new_html`) with `<del>`/`<ins>` runs around the
-/// changed words (equal words render plain in both).
 /// Split sentinel-marked text into whitespace-separated words carrying a
 /// linked flag.
 fn marked_words(text: &str) -> Vec<String> {
@@ -568,7 +570,11 @@ fn marked_words(text: &str) -> Vec<String> {
     words
 }
 
-fn inline_word_diff(old: &str, new: &str) -> (String, String) {
+/// Word-level inline diff between the old and new sides of a changed block
+/// pair, in ONE combined flow (Word-style "all markup"): deletions render
+/// as `<del>` runs and insertions as `<ins>` runs inline, equal words once.
+/// (Operator round-5 layout request: single-column diff, not two panes.)
+fn inline_word_diff(old: &str, new: &str) -> String {
     let old_words = marked_words(old);
     let new_words = marked_words(new);
     let old_plain: Vec<String> = old_words.iter().map(|w| strip_link_marks(w)).collect();
@@ -577,25 +583,19 @@ fn inline_word_diff(old: &str, new: &str) -> (String, String) {
     let new_texts: Vec<&str> = new_plain.iter().map(String::as_str).collect();
     let diff = similar::TextDiff::from_slices(&old_texts, &new_texts);
     let render = |word: &str| -> String { marked_text_to_html(word) };
-    let mut old_html = String::new();
-    let mut new_html = String::new();
+    let mut html = String::new();
     let mut del_run = String::new();
     let mut ins_run = String::new();
     for change in diff.iter_all_changes() {
-        // Equal runs render PER SIDE: the old pane takes the old token's
-        // formatting sentinels, the new pane the new token's — otherwise an
-        // edit that only REMOVES formatting shows the old formatting in both
-        // panes (operator catch: "no visible change").
+        // Formatting sentinels render PER SIDE so an edit that only removes
+        // formatting still shows the old formatting in the deleted run
+        // (operator catch: "no visible change").
         let piece_old = match change.old_index() {
             Some(i) => render(&old_words[i]),
             None => match change.new_index() {
                 Some(j) => render(&new_words[j]),
                 None => esc(change.value()),
             },
-        };
-        let piece_new = match change.new_index() {
-            Some(j) => render(&new_words[j]),
-            None => piece_old.clone(),
         };
         let glue = " ";
         match change.tag() {
@@ -604,58 +604,38 @@ fn inline_word_diff(old: &str, new: &str) -> (String, String) {
                 del_run.push_str(glue);
             }
             similar::ChangeTag::Insert => {
+                let piece_new = match change.new_index() {
+                    Some(j) => render(&new_words[j]),
+                    None => piece_old.clone(),
+                };
                 ins_run.push_str(&piece_new);
                 ins_run.push_str(glue);
             }
             similar::ChangeTag::Equal => {
                 if !del_run.is_empty() {
                     let trimmed = del_run.trim_end().to_string();
-                    let _ = write!(old_html, "<del>{trimmed}</del> ");
+                    let _ = write!(html, "<del>{trimmed}</del> ");
                     del_run.clear();
                 }
                 if !ins_run.is_empty() {
                     let trimmed = ins_run.trim_end().to_string();
-                    let _ = write!(new_html, "<ins>{trimmed}</ins> ");
+                    let _ = write!(html, "<ins>{trimmed}</ins> ");
                     ins_run.clear();
                 }
-                old_html.push_str(&piece_old);
-                old_html.push(' ');
-                new_html.push_str(&piece_new);
-                new_html.push(' ');
+                html.push_str(&piece_old);
+                html.push(' ');
             }
         }
     }
     if !del_run.is_empty() {
         let trimmed = del_run.trim_end().to_string();
-        let _ = write!(old_html, "<del>{trimmed}</del>");
+        let _ = write!(html, "<del>{trimmed}</del>");
     }
     if !ins_run.is_empty() {
         let trimmed = ins_run.trim_end().to_string();
-        let _ = write!(new_html, "<ins>{trimmed}</ins>");
+        let _ = write!(html, "<ins>{trimmed}</ins>");
     }
-    (old_html, new_html)
-}
-
-/// Wrap one inline-diffed block for a pane (content is pre-escaped HTML with
-/// `<del>`/`<ins>` runs).
-fn block_html_inline(
-    id: Option<&str>,
-    anchor: Option<&str>,
-    inline_html: &str,
-    kind: BlockKind,
-    class: &str,
-    round_id: &str,
-) -> String {
-    let id_attr = id.map_or_else(String::new, |i| format!(" id=\"{i}\""));
-    let anchor_attr = anchor.map_or_else(String::new, |a| format!(" data-wiki-anchor=\"{a}\""));
-    let rev_attr = id.map_or_else(String::new, |_| {
-        format!(" data-lavish-revision=\"{round_id}\"")
-    });
-    let (tag, tag_title) = block_tag(id, anchor, kind);
-    format!(
-        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\"{tag_title}>{tag}</span>{inline_html}</div>\n",
-        kind.css(),
-    )
+    html
 }
 
 /// Block anchor tag in reviewer language: kind plus wikitext line
@@ -845,8 +825,8 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
 struct AssembleArgs<'a> {
     article: &'a str,
     round: u32,
-    old_pane: &'a str,
-    new_pane: &'a str,
+    /// Single-column inline diff (Word-style), changed blocks only.
+    diff_html: &'a str,
     evidence_html: &'a str,
     anchor_json: &'a str,
     revisions_json: &'a str,
@@ -874,13 +854,17 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
   :root {{ --ink:#1a1a1a; --muted:#667; --paper:#faf9f7; --line:#ddd8d0; --add:#e6f4e6; --del:#fde8e8; --accent:#7c5cbf; }}
   * {{ box-sizing: border-box; }}
   body {{ font: 15px/1.6 Georgia, serif; color: var(--ink); background: var(--paper); margin: 0; padding: 2rem; }}
-  main {{ max-width: 1200px; margin: 0 auto; }}
+  main {{ max-width: 1400px; margin: 0 auto; }}
   h1 {{ font-size: 1.4rem; }} h2 {{ font-size: 1.1rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }}
   .meta {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .8rem; }}
-  .pane-pair {{ display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1rem; }}
-  .pane {{ border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 1rem; overflow: auto; max-height: 65vh; }}
-  .pane h3 {{ margin: 0 0 .5rem; font-size: .8rem; font-family: ui-monospace, monospace; color: var(--muted); font-weight: 600; }}
+  /* Word-style single-column diff + right-hand evidence rail (operator
+     round-5 layout request); stacks on narrow viewports. */
+  .layout {{ display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 1.25rem; align-items: start; }}
+  @media (max-width: 980px) {{ .layout {{ grid-template-columns: 1fr; }} }}
+  .diff-col {{ border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 1rem; }}
+  .evidence-col h2 {{ margin-top: 0; }}
   .block {{ border: 1px solid var(--line); border-radius: 6px; padding: .75rem; margin: .5rem 0; position: relative; overflow: auto; }}
+  .block.change {{ border-left: 3px solid var(--accent); }}
   .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
   .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
   .ctx-sep {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .75rem; text-align: center; padding: .15rem 0; }}
@@ -904,18 +888,17 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
 <body>
 <main>
   <h1>wikiloop review — {article}</h1>
-  <p class="meta">round {round} · one logical edit per round · comments anchor to ledger quotes and wikitext ranges</p>
-  <h2>Proposed edit (old → new)</h2>
-  <div class="pane-pair">
-    <section class="pane" id="pane-old"><h3>old</h3>
-{old}
+  <p class="meta">round {round} · one logical edit per round · deletions struck, insertions highlighted · comments anchor to the excerpt or the wikitext</p>
+  <div class="layout">
+    <section class="diff-col">
+      <h2>Proposed edit</h2>
+{diff}
     </section>
-    <section class="pane" id="pane-new"><h3>new (proposed)</h3>
-{new}
-    </section>
-  </div>
-  <h2>Evidence rail</h2>
+    <aside class="evidence-col">
+      <h2>Evidence</h2>
 {evidence}
+    </aside>
+  </div>
   <p class="meta">current round marker: {round_marker} · anchor table embedded as #wa-anchor-table</p>
 </main>
 </body>
@@ -925,8 +908,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
         round = a.round,
         revisions = a.revisions_json,
         anchors = a.anchor_json,
-        old = a.old_pane,
-        new = a.new_pane,
+        diff = a.diff_html,
         evidence = a.evidence_html,
         round_marker = a.round_id,
         wiki_links = a.wiki_links,
@@ -1168,8 +1150,8 @@ mod tests {
         let ledger = crate::ledger::Ledger::default();
         let out = render(&input(BASE_WT, PROP_WT, BASE_HTML, PROP_HTML, &ledger, &[])).unwrap();
         assert!(
-            out.artifact_html.contains("<del>1937.</del>"),
-            "old side must mark the removed words; got artifact lacking del run"
+            out.artifact_html.contains("1937.</del>"),
+            "removed words must render as an inline del run (Word-style combined block)"
         );
         assert!(
             out.artifact_html
