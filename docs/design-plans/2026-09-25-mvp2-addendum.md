@@ -58,6 +58,12 @@ unit-test true positive still trips on run/shingles, not LCS. Both
 `ParaphraseConfig::default()` and `rules/paraphrase.toml` updated together
 (enforced by `rules_paraphrase_toml_matches_default_thresholds`).
 
+## Review-surface backlog (operator, 2026-09-27, live L2 session)
+
+- Fetch-status icons for sources ("fetched + relied on" / "fetched but not
+  relied on" / "fetch failed") — deferred at operator request; the card
+  currently uses placement (Source: vs Also consulted:) + a text status.
+
 ## Housekeeping
 
 - The MVP-1 design plan's repo-layout block originally annotated LICENSE as
