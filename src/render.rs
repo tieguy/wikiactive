@@ -14,7 +14,10 @@
 //! Parsoid via [`crate::wikipedia`], recorded fixtures in tests).
 
 use std::fmt::Write as _;
+use std::sync::LazyLock;
 
+use regex::Regex;
+use serde::Deserialize;
 use serde::Serialize;
 
 use crate::checks::gate::GateInput;
@@ -36,7 +39,7 @@ pub struct RevisionEntry {
 }
 
 /// One anchor-table row.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AnchorEntry {
     /// Artifact element id (`wa-N` or `ev-N`).
     pub element_id: String,
@@ -694,47 +697,63 @@ fn block_html(
 /// whose content matches the block text's opening words. Returns
 /// `L<s>:C<col>-L<e>:C<col2>`. Also used by the gate to span-locate claim
 /// prose in the proposed wikitext (MVP-2 A.2.1).
+///
+/// Parsoid renders maintenance templates and ref backlinks as bracketed
+/// annotations glued to words ("Ohio[citation needed]", "1870.[7]"): strip
+/// them before matching, and try progressively shorter prefixes (6→4
+/// words) — one line still containing a 4-word run is strong evidence
+/// (live L2 round-1 catch: the moved {{Cn}} poisoned the 6-word prefix and
+/// the block mis-located to its fallback line).
 pub(crate) fn locate_block_anchor(wikitext: &str, block_text: &str) -> Option<String> {
+    static ANNOTATION: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\[[^\]]*\]").expect("valid regex"));
     let norm = |s: &str| {
         s.to_lowercase()
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ")
     };
-    let block_norm = norm(&strip_link_marks(block_text));
+    let block_norm = norm(&ANNOTATION.replace_all(&strip_link_marks(block_text), " "));
     if block_norm.is_empty() {
         return None;
     }
-    let prefix: String = block_norm.split(' ').take(6).collect::<Vec<_>>().join(" ");
-    if prefix.is_empty() {
-        return None;
-    }
-    // Search per line: a normalized-line containment is strong evidence.
-    let mut lines_and_starts = Vec::new();
-    let mut byte = 0usize;
-    for line in wikitext.split('\n') {
-        lines_and_starts.push((byte, line));
-        byte += line.len() + 1;
-    }
-    for (line_no, (_start, line)) in lines_and_starts.iter().enumerate() {
-        let line_norm = norm(line);
-        if line_norm.contains(&prefix) {
-            let col_end = line.chars().count();
-            return Some(format!("L{}:C0-L{}:C{}", line_no + 1, line_no + 1, col_end));
+    let words: Vec<&str> = block_norm.split(' ').collect();
+    let lines: Vec<String> = wikitext.split('\n').map(norm).collect();
+    for take in (4..=6).rev() {
+        if words.len() < take {
+            continue;
+        }
+        let prefix = words[..take].join(" ");
+        if prefix.is_empty() {
+            continue;
+        }
+        for (line_no, line_norm) in lines.iter().enumerate() {
+            if line_norm.contains(&prefix) {
+                let col_end = wikitext
+                    .split('\n')
+                    .nth(line_no)
+                    .map_or(0, |l| l.chars().count());
+                return Some(format!("L{}:C0-L{}:C{}", line_no + 1, line_no + 1, col_end));
+            }
         }
     }
     None
 }
 
 /// Anchor for the n-th surviving proposed line (fallback for unmatched
-/// blocks). Always non-empty per AC.5.
+/// blocks). Always non-empty per AC.5: a blank line would yield a
+/// zero-width range, so step to the nearest non-blank line (live L2
+/// round-1 catch: the reflist pair anchored L16:C0-L16:C0 on a blank).
 fn next_line_anchor(wikitext: &str, prop_idx: usize) -> String {
-    let total = wikitext.lines().count().max(1);
-    let line = (prop_idx + 1).clamp(1, total);
-    let col_end = wikitext
-        .lines()
-        .nth(line - 1)
-        .map_or(0, |l| l.chars().count());
+    let lines: Vec<&str> = wikitext.lines().collect();
+    let total = lines.len().max(1);
+    let start = (prop_idx + 1).clamp(1, total);
+    let non_blank = |i: usize| lines.get(i - 1).is_some_and(|l| !l.trim().is_empty());
+    let line = (start..=total)
+        .find(|i| non_blank(*i))
+        .or_else(|| (1..start).rev().find(|i| non_blank(*i)))
+        .unwrap_or(start);
+    let col_end = lines.get(line - 1).map_or(0, |l| l.chars().count());
     format!("L{line}:C0-L{line}:C{col_end}")
 }
 
@@ -1067,6 +1086,34 @@ mod tests {
             !out.artifact_html.contains("underline dotted"),
             "the dotted-underline misspelling-mark styling is gone"
         );
+    }
+
+    /// Live L2 round-1 catch (Sarah Kidder): Parsoid glues bracketed
+    /// annotations to words ("Ohio[citation needed]", "1870.[7]"); the
+    /// match prefix must ignore them or the block mis-locates to its
+    /// fallback line.
+    #[test]
+    fn locate_ignores_bracketed_annotations() {
+        let wt = "Lead sentence.\n\n== History ==\nBorn Sarah A. Clark in Ohio, Kidder married in 1870.\n";
+        let anchor = super::locate_block_anchor(
+            wt,
+            "Born Sarah A. Clark in Ohio[citation needed], Kidder married in 1870.[7]",
+        )
+        .expect("locates despite annotations");
+        assert!(anchor.starts_with("L4:"), "{anchor}");
+    }
+
+    /// Live L2 round-1 catch: the fallback anchor must never land on a
+    /// blank line (zero-width range).
+    #[test]
+    fn fallback_anchor_never_lands_on_blank_line() {
+        let wt = "a\n\n\nb\n";
+        let anchor = super::next_line_anchor(wt, 1);
+        assert!(
+            anchor.starts_with("L4:"),
+            "steps to the non-blank line: {anchor}"
+        );
+        assert!(!anchor.ends_with("C0"), "non-empty range: {anchor}");
     }
 
     /// Review feedback (TF round 1): a one-word change inside a long

@@ -664,7 +664,23 @@ fn read_anchor_table(review_html: &std::path::Path) -> Vec<(String, String)> {
     let Some(end) = html[start..].find("</script>").map(|j| start + j) else {
         return Vec::new();
     };
-    serde_json::from_str::<Vec<(String, String)>>(html[start..end].trim()).unwrap_or_default()
+    // The table is a JSON array of AnchorEntry objects (element_id +
+    // wikitext_anchor). Parse loudly: a silent empty table made every poll
+    // comment UNRESOLVED (live L2 round-1 catch).
+    let text = html[start..end].trim();
+    match serde_json::from_str::<Vec<crate::render::AnchorEntry>>(text) {
+        Ok(entries) => entries
+            .into_iter()
+            .map(|e| (e.element_id, e.wikitext_anchor))
+            .collect(),
+        Err(e) => {
+            eprintln!(
+                "warning: anchor table unparsable in {}: {e}",
+                review_html.display()
+            );
+            Vec::new()
+        }
+    }
 }
 
 fn print_lavish_output(output: &std::process::Output) -> Result<()> {
