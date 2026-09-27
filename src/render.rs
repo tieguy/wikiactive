@@ -651,14 +651,47 @@ fn block_html_inline(
     let rev_attr = id.map_or_else(String::new, |_| {
         format!(" data-lavish-revision=\"{round_id}\"")
     });
-    let tag = id.map_or_else(
-        || format!("[{}]", kind.label()),
-        |i| format!("{i} · {} · {}", anchor.unwrap_or("-"), kind.label()),
-    );
+    let (tag, tag_title) = block_tag(id, anchor, kind);
     format!(
-        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{inline_html}</div>\n",
+        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\"{tag_title}>{tag}</span>{inline_html}</div>\n",
         kind.css(),
     )
+}
+
+/// Block anchor tag in reviewer language: kind plus wikitext line
+/// ("paragraph · line 11"; "original line 11" for old-side base anchors).
+/// The technical wa-N + range string becomes a hover tooltip only — raw
+/// anchor text in the visible UI is cruft (operator round-4 catch).
+fn block_tag(id: Option<&str>, anchor: Option<&str>, kind: BlockKind) -> (String, String) {
+    let label = kind.label();
+    let visible = match anchor.and_then(human_line) {
+        Some(line) => format!("{label} · {line}"),
+        None => label.to_string(),
+    };
+    let title = match (id, anchor) {
+        (Some(i), Some(a)) => format!(" title=\"{i} · {a}\""),
+        _ => String::new(),
+    };
+    (visible, title)
+}
+
+/// "L11:…" / "base:L11:…" anchor → "line 11" / "original line 11".
+fn human_line(anchor: &str) -> Option<String> {
+    let (base, rest) = match anchor.strip_prefix("base:") {
+        Some(r) => (true, r),
+        None => (false, anchor),
+    };
+    let line = rest
+        .split(&[':', '-'][..])
+        .next()?
+        .strip_prefix('L')?
+        .parse::<usize>()
+        .ok()?;
+    Some(if base {
+        format!("original line {line}")
+    } else {
+        format!("line {line}")
+    })
 }
 
 /// HTML-escape text.
@@ -683,12 +716,9 @@ fn block_html(
     let rev_attr = id.map_or_else(String::new, |_| {
         format!(" data-lavish-revision=\"{round_id}\"")
     });
-    let tag = id.map_or_else(
-        || format!("[{}]", kind.label()),
-        |i| format!("{i} · {} · {}", anchor.unwrap_or("-"), kind.label()),
-    );
+    let (tag, tag_title) = block_tag(id, anchor, kind);
     format!(
-        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\">{tag}</span>{}</div>\n",
+        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\"{tag_title}>{tag}</span>{}</div>\n",
         kind.css(),
         marked_text_to_html(text),
     )
