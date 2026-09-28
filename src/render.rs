@@ -830,6 +830,25 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
             );
         }
     }
+    let rules_html = if finding.rules.is_empty() {
+        String::new()
+    } else {
+        let links: Vec<String> = finding
+            .rules
+            .iter()
+            .map(|r| {
+                format!(
+                    "<a href=\"https://en.wikipedia.org/wiki/{}\">{}</a>",
+                    esc(&r.replace(' ', "_")),
+                    esc(r)
+                )
+            })
+            .collect();
+        format!(
+            "<p class=\"rules\">Relevant guidance: {}</p>",
+            links.join(" · ")
+        )
+    };
     let consulted = if consulted_html.is_empty() {
         String::new()
     } else {
@@ -839,10 +858,12 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
         "<div class=\"evidence\" id=\"{ev_id}\" data-wiki-anchor=\"ledger:{primary}\">\n\
          <span class=\"anchor-tag\">evidence for this edit</span>\n\
          <p class=\"finding\">{note}</p>\n\
+         <p class=\"rules\">{rules}</p>\n\
          {quotes}\n{sources}\n{consulted}\
          <p class=\"fix\">Proposed fix: {fix}</p>\n</div>\n",
         primary = finding.evidence[0],
         note = esc(&finding.factual_note),
+        rules = rules_html,
         fix = esc(&finding.proposed_fix),
         sources = sources_html,
         quotes = quotes_html,

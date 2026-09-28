@@ -305,6 +305,20 @@ fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
     use paraphrase::ParaphraseVerdict;
 
     for claim in &input.ledger.claims {
+        // Scope: the gate assesses DRAFTED prose. A claim whose prose
+        // already exists in the base wikitext is pre-existing article text
+        // gaining a citation — not ours to paraphrase-check (operator MOS
+        // catch: attributing a well-sourced fact is Words-to-watch
+        // hedging; the plain sentence just needs its ref).
+        let claim_norm = claim.prose.split_whitespace().collect::<Vec<_>>().join(" ");
+        let base_norm = input
+            .base_wikitext
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        if base_norm.contains(&claim_norm) {
+            continue;
+        }
         let mut combined_source = String::new();
         let mut missing = false;
         for quote_id in &claim.quote_ids {
@@ -544,6 +558,34 @@ mod tests {
         assert!(report.contains("NEEDS ANCHOR"), "{report}");
         assert!(report.contains("HARD BLOCK"), "{report}");
         assert!(report.contains("[at L7:C0-L7:C40]"), "{report}");
+    }
+
+    /// Operator MOS catch (live L2 edit 2): citing pre-existing article
+    /// text is not drafting — the paraphrase gate skips claim prose that
+    /// already exists in the base wikitext.
+    #[test]
+    fn inherited_claim_prose_skips_paraphrase_gate() {
+        let (mut ledger, cfg) = setup();
+        let qid = ledger.add_quote("S1", "sold millions of copies").unwrap();
+        ledger
+            .add_claim(
+                "Temple Fielding's travel guides sold millions of copies.",
+                vec![qid],
+            )
+            .unwrap();
+        let base = "Temple Fielding's travel guides sold millions of copies.\n";
+        let verdict = run_gate(&GateInput {
+            ledger: &ledger,
+            findings: &[],
+            base_wikitext: base,
+            proposed_wikitext: "text",
+            linter_config: &cfg,
+            paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
+        });
+        assert!(
+            !verdict.blocked,
+            "inherited claim must not be assessed: {verdict:?}"
+        );
     }
 
     #[test]
