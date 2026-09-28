@@ -807,7 +807,7 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
             diffs.join(" ")
         };
         let entry = format!(
-            "* '''{date}''' — [[{article}]] (assisted editing session). AI assistance: {model} (initial drafting and tooling implementation; every edit human-reviewed and confirmed). Diffs: {diffs_text}",
+            "* '''{date}''' — [[{article}]]. AI assistance: {model} (initial drafting and tooling implementation; every edit human-reviewed and confirmed). Diffs: {diffs_text}",
             date = chrono::Utc::now().date_naive(),
             article = meta.article,
             model = model,
