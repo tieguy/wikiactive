@@ -133,7 +133,8 @@ pub fn assess_paraphrase_with(
     draft: &str,
     source: &str,
 ) -> ParaphraseAssessment {
-    let draft_tokens = fold_tokens(draft);
+    let (draft_stripped, had_attributed_quote) = strip_attributed_quotes(draft);
+    let draft_tokens = fold_tokens(&draft_stripped);
     let source_tokens = fold_tokens(source);
 
     if draft_tokens.is_empty() || source_tokens.is_empty() {
@@ -160,7 +161,8 @@ pub fn assess_paraphrase_with(
         || (lcs * cfg.too_close_lcs_den >= draft_tokens.len() * cfg.too_close_lcs_num)
     {
         ParaphraseVerdict::TooClose
-    } else if (shared * cfg.no_support_den < total * cfg.no_support_num)
+    } else if !had_attributed_quote
+        && (shared * cfg.no_support_den < total * cfg.no_support_num)
         && no_support_lcs(cfg, &draft_tokens, &source_tokens)
     {
         ParaphraseVerdict::NoSupport
@@ -175,6 +177,44 @@ pub fn assess_paraphrase_with(
         longest_common_run: run,
         lcs_tokens: lcs,
     }
+}
+
+/// Strip attributed quotations ("…" spans, straight or curly, bounded to
+/// ~200 chars) from the DRAFT side before assessment: a cited, attributed
+/// short quote is proper encyclopedia form for canonical-phrase facts
+/// (superlatives), not close paraphrase — CLOP governs our own prose, not
+/// our quotations (live L2 edit-2 rationale, recorded in the addendum).
+fn strip_attributed_quotes(draft: &str) -> (String, bool) {
+    let mut out = String::with_capacity(draft.len());
+    let mut in_quote = false;
+    let mut quote_len = 0usize;
+    let mut had_quote = false;
+    for ch in draft.chars() {
+        let is_open = !in_quote && (ch == '"' || ch == '“');
+        let is_close = in_quote && (ch == '"' || ch == '”');
+        if is_open {
+            in_quote = true;
+            quote_len = 0;
+            had_quote = true;
+            continue;
+        }
+        if is_close {
+            in_quote = false;
+            continue;
+        }
+        if in_quote {
+            quote_len += 1;
+            if quote_len > 200 {
+                // Degenerate/unterminated: keep the text (never silently
+                // drop long spans).
+                in_quote = false;
+                out.push(ch);
+            }
+            continue;
+        }
+        out.push(ch);
+    }
+    (out, had_quote)
 }
 
 /// Assess with the default (original-constant) thresholds — tests and
@@ -312,15 +352,31 @@ mod tests {
 
     #[test]
     fn quoted_passage_is_still_too_close_this_gate_is_about_prose() {
-        // The paraphrase gate measures prose against source; whether the text
-        // is marked as a quotation is an authoring concern — the gate still
-        // reports too-close so the author decides quote vs rewrite.
+        // UNMARKED quote-like text still flags: without quotation marks the
+        // passage is prose for CLOP purposes and the author must decide
+        // quote vs rewrite (marked, attributed quotes are exempt — see
+        // attributed_marked_quote_is_exempt_from_clop).
         let a = assess_paraphrase(
             "As the history puts it: completed in 1937 after a decade of construction \
              delays and cost overruns.",
             SOURCE,
         );
         assert_eq!(a.verdict, ParaphraseVerdict::TooClose, "{a:?}");
+    }
+
+    /// Live L2 edit-2 (Sarah Kidder lead): a quotation-marked, attributed
+    /// span is exempt from CLOP — a cited short quote is proper
+    /// encyclopedia form for canonical-phrase facts (superlatives), and
+    /// the quote-anchor gate separately guarantees ledger quotes are
+    /// verbatim.
+    #[test]
+    fn attributed_marked_quote_is_exempt_from_clop() {
+        let a = assess_paraphrase(
+            "She was described in 2007 as \"the first woman in the world to ever head a railroad.\"",
+            "it was a good show by the first woman in the world to ever head a railroad. \
+             Petticoat Railroading Sarah Clark Kidder and her husband John were married in 1870.",
+        );
+        assert_eq!(a.verdict, ParaphraseVerdict::Ok, "{a:?}");
     }
 
     #[test]

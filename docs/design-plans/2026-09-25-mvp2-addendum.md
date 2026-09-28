@@ -58,6 +58,22 @@ unit-test true positive still trips on run/shingles, not LCS. Both
 `ParaphraseConfig::default()` and `rules/paraphrase.toml` updated together
 (enforced by `rules_paraphrase_toml_matches_default_thresholds`).
 
+## A.3 — Attributed quotes exempt from the paraphrase gate (2026-09-27)
+
+The Sarah Kidder lead's superlative ("first female railroad president in
+the world") is a canonical-phrase fact: every faithful paraphrase shares
+most tokens with the source's phrasing ("the first woman in the world to
+ever head a railroad"), so the gate blocked all honest wordings — while
+the *correct* encyclopedia form is an attributed, quotation-marked short
+quote with the citation.
+
+**Decision:** `assess_paraphrase` strips quotation-marked spans (≤ ~200
+chars) from the DRAFT side before assessment; unmarked quote-like text
+still flags (the author must choose quote vs rewrite), and when a marked
+quote is present the no-support leg is skipped — the quote-anchor gate
+separately verifies the quoted span verbatim in the fetched source. CLOP
+governs our own prose, not our citations-as-quotes.
+
 ## Review-surface backlog (operator, 2026-09-27, live L2 session)
 
 - Fetch-status icons for sources ("fetched + relied on" / "fetched but not
