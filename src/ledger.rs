@@ -265,7 +265,9 @@ impl Ledger {
     }
 
     /// First `text/html` part of an MHTML document (headers stripped,
-    /// boundary-truncated; quoted-printable is decoded by the caller).
+    /// truncated at the declared MIME boundary — a generic `\n--` cut
+    /// truncates inside URLs like CDNC's `-------en--` query params, a
+    /// live catch; quoted-printable is decoded by the caller).
     #[must_use]
     fn html_part_of_mhtml(raw: &str) -> String {
         let lower = raw.to_ascii_lowercase();
@@ -278,9 +280,31 @@ impl Ledger {
             |p| p + 4,
         );
         let body = &rest[body_start..];
-        // Truncate at the next MIME boundary if present.
-        let end = body.find("\n--").unwrap_or(body.len());
+        let boundary = Self::mhtml_boundary(raw);
+        let end = boundary
+            .as_deref()
+            .and_then(|b| {
+                body.find(&format!("\n--{b}"))
+                    .or_else(|| body.find(&format!("\r\n--{b}")))
+            })
+            .unwrap_or(body.len());
         body[..end].to_string()
+    }
+
+    /// The `boundary="..."` parameter of a Content-Type header, if present.
+    #[must_use]
+    fn mhtml_boundary(raw: &str) -> Option<String> {
+        let lower = raw.to_ascii_lowercase();
+        let pos = lower.find("boundary=")?;
+        let rest = raw[pos + "boundary=".len()..].trim_start();
+        let quoted = rest.starts_with('"');
+        let s = if quoted { &rest[1..] } else { rest };
+        let end = if quoted {
+            s.find('"')?
+        } else {
+            s.find([' ', ';', '\r', '\n'])?
+        };
+        Some(s[..end].to_string())
     }
 
     /// Minimal quoted-printable decode (RFC 2045 §6.2 subset: =XX hex,
