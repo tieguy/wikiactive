@@ -134,6 +134,19 @@ pub fn assess_paraphrase_with(
     source: &str,
 ) -> ParaphraseAssessment {
     let (draft_stripped, had_attributed_quote) = strip_attributed_quotes(draft);
+    if had_attributed_quote {
+        // A bounded, quotation-marked span IS the evidence: the
+        // quote-anchor gate separately enforces that it locates verbatim
+        // in the fetched source, so the paraphrase gate defers (the
+        // attribution frame is boilerplate, not prose to paraphrase).
+        return ParaphraseAssessment {
+            verdict: ParaphraseVerdict::Ok,
+            shared_shingles: 0,
+            draft_shingles: 0,
+            longest_common_run: 0,
+            lcs_tokens: 0,
+        };
+    }
     let draft_tokens = fold_tokens(&draft_stripped);
     let source_tokens = fold_tokens(source);
 
@@ -161,8 +174,7 @@ pub fn assess_paraphrase_with(
         || (lcs * cfg.too_close_lcs_den >= draft_tokens.len() * cfg.too_close_lcs_num)
     {
         ParaphraseVerdict::TooClose
-    } else if !had_attributed_quote
-        && (shared * cfg.no_support_den < total * cfg.no_support_num)
+    } else if (shared * cfg.no_support_den < total * cfg.no_support_num)
         && no_support_lcs(cfg, &draft_tokens, &source_tokens)
     {
         ParaphraseVerdict::NoSupport

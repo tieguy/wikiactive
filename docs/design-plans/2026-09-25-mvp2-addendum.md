@@ -67,12 +67,11 @@ ever head a railroad"), so the gate blocked all honest wordings — while
 the *correct* encyclopedia form is an attributed, quotation-marked short
 quote with the citation.
 
-**Decision:** `assess_paraphrase` strips quotation-marked spans (≤ ~200
-chars) from the DRAFT side before assessment; unmarked quote-like text
-still flags (the author must choose quote vs rewrite), and when a marked
-quote is present the no-support leg is skipped — the quote-anchor gate
-separately verifies the quoted span verbatim in the fetched source. CLOP
-governs our own prose, not our citations-as-quotes.
+**Decision:** `assess_paraphrase` detects quotation-marked spans (≤ ~200
+chars) in the DRAFT and defers entirely to the quote-anchor gate, which
+enforces the quoted span verbatim in the fetched source. Unmarked
+quote-like text still flags (the author must choose quote vs rewrite).
+CLOP governs our own prose, not our citations-as-quotes.
 
 ## Review-surface backlog (operator, 2026-09-27, live L2 session)
 
