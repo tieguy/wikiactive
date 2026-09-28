@@ -810,8 +810,17 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
     for qid in &finding.evidence {
         if let Some(quote) = ledger.quote(qid) {
             if let Some(source) = ledger.sources.iter().find(|s| s.id == quote.source_id) {
+                let is_archive_snapshot = source.url.contains("web.archive.org/");
                 let archive_html = match source.archive_url.as_deref() {
                     Some(a) if !a.is_empty() => format!("<a href=\"{}\">{}</a>", esc(a), esc(a)),
+                    _ if is_archive_snapshot => {
+                        // The source URL is itself an archived snapshot (a
+                        // dead live page registered from Wayback) — no
+                        // separate archive exists or is needed (operator
+                        // catch: "the archive is there and has been since
+                        // 2013").
+                        "this link is the archived snapshot".to_string()
+                    }
                     _ => "(archive pending)".to_string(),
                 };
                 let _ = writeln!(
