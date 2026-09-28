@@ -603,6 +603,28 @@ fn read_registry(review_html: &std::path::Path) -> Vec<crate::render::RevisionEn
     serde_json::from_str(html[start..end].trim()).unwrap_or_default()
 }
 
+/// Archive the session's findings to `findings-archive.jsonl` (one line per
+/// finding, annotated with the published diff url) and reset `findings.json`
+/// for the next edit.
+fn archive_findings(paths: &SessionPaths, diff_url: &str) -> Result<()> {
+    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    if !findings.findings.is_empty() {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(paths.dir.join("findings-archive.jsonl"))
+            .context("open findings archive")?;
+        for f in &findings.findings {
+            let mut archived = serde_json::to_value(f)?;
+            archived["published_diff"] = serde_json::Value::String(diff_url.to_string());
+            writeln!(file, "{archived}")?;
+        }
+    }
+    FindingsFile::default()
+        .save(&paths.findings())
+        .map_err(|e| anyhow::anyhow!("{e}"))
+}
+
 fn append_round(paths: &SessionPaths, entry: &RoundEntry) -> Result<()> {
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -752,6 +774,11 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
     meta.last_published_diff_url = Some(outcome.diff_url.clone());
     std::fs::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
     std::fs::write(paths.base(), &proposed_wikitext)?;
+    // Publishing consumes the session's findings: archive them with the
+    // diff link (audit trail) and reset — the next edit's artifact must
+    // show only ITS evidence, not stale cards from published edits
+    // (operator catch: "evidence for this edit seems cached").
+    archive_findings(&paths, &outcome.diff_url)?;
     let entry = RoundEntry {
         round: 0,
         timestamp: now_iso(),
