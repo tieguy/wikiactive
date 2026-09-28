@@ -202,9 +202,15 @@ impl Ledger {
                 .is_some_and(|e| e.eq_ignore_ascii_case(ext))
         };
         let trimmed = raw.trim_start();
+        // Blink saves MHTML under .html filenames with a "From:" preamble
+        // before MIME-Version — sniff by content signature too.
+        let head = &raw[..raw.len().min(1024)];
+        let looks_mhtml = trimmed.starts_with("MIME-Version:")
+            || trimmed.starts_with("From: ")
+            || head.contains("Content-Type: multipart");
         let format = if has_ext("warc") || trimmed.starts_with("WARC/1.") {
             "warc"
-        } else if has_ext("mht") || has_ext("mhtml") || trimmed.starts_with("MIME-Version:") {
+        } else if has_ext("mht") || has_ext("mhtml") || looks_mhtml {
             "mhtml"
         } else if has_ext("html") || has_ext("htm") || trimmed.starts_with('<') {
             "html"
@@ -519,6 +525,12 @@ mod tests {
         assert_eq!(fmt, "html");
         let (text, fmt) = Ledger::text_from_capture("note.txt", "plain words");
         assert_eq!((text.as_str(), fmt.as_str()), ("plain words", "text"));
+        // Blink saves MHTML under .html filenames with a From: preamble —
+        // content sniffing must route it to the MHTML extractor.
+        let blink = "From: <Saved by Blink>\nSnapshot-Content-Location: https://example.com/x\nMIME-Version: 1.0\nContent-Type: multipart/related;\n\tboundary=\"--B\"\n\n--B\nContent-Type: text/html\r\n\r\n<p>died 1901=2C Grass Valley.</p>=\r\n--B--\n";
+        let (text, fmt) = Ledger::text_from_capture("Saved Page.html", blink);
+        assert_eq!(fmt, "mhtml");
+        assert!(text.contains("died 1901, Grass Valley."), "{text}");
     }
 
     #[test]
