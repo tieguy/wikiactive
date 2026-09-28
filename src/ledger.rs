@@ -165,7 +165,8 @@ impl Ledger {
 
     /// Attach operator-provided text (paywalled, bot-protected, or
     /// lending-gated sources the fetcher cannot reach): same verification
-    /// standing as an auto-fetch, with the provenance recorded.
+    /// standing as an auto-fetch, with the provenance recorded (`via`
+    /// describes the capture: "operator", "operator:warc", …).
     ///
     /// # Errors
     /// [`LedgerError::UnknownSource`] when the id is not registered.
@@ -173,6 +174,7 @@ impl Ledger {
         &mut self,
         source_id: &str,
         text: impl Into<String>,
+        via: &str,
     ) -> Result<(), LedgerError> {
         let entry = self
             .sources
@@ -180,8 +182,135 @@ impl Ledger {
             .find(|s| s.id == source_id)
             .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
         entry.fetched_text = Some(text.into());
-        entry.fetched_via = Some("operator".to_string());
+        entry.fetched_via = Some(via.to_string());
         Ok(())
+    }
+
+    /// Extract ledger text from an operator-saved capture. Supported
+    /// formats (sniffed by path hint, then content): WARC (the ISO 28500
+    /// archival standard — the largest text/html response record is used),
+    /// MHTML (Chromium "Web Page, Single File" — first text/html part,
+    /// quoted-printable decoded), single-file HTML, and plain text. The
+    /// same `html_to_text` conversion the auto-fetcher uses keeps
+    /// quote-anchoring uniform. OCR of image-only captures is a separate
+    /// (future) concern.
+    #[must_use]
+    pub fn text_from_capture(path_hint: &str, raw: &str) -> (String, String) {
+        let has_ext = |ext: &str| {
+            std::path::Path::new(path_hint)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case(ext))
+        };
+        let trimmed = raw.trim_start();
+        let format = if has_ext("warc") || trimmed.starts_with("WARC/1.") {
+            "warc"
+        } else if has_ext("mht") || has_ext("mhtml") || trimmed.starts_with("MIME-Version:") {
+            "mhtml"
+        } else if has_ext("html") || has_ext("htm") || trimmed.starts_with('<') {
+            "html"
+        } else {
+            "text"
+        };
+        let text = match format {
+            "warc" => crate::ledger::net::html_to_text(&Self::largest_html_from_warc(raw)),
+            "mhtml" => {
+                crate::ledger::net::html_to_text(&Self::decode_qp(&Self::html_part_of_mhtml(raw)))
+            }
+            "html" => crate::ledger::net::html_to_text(raw),
+            _ => raw.to_string(),
+        };
+        (text, format.to_string())
+    }
+
+    /// Largest `text/html` response body in a (plain, uncompressed) WARC
+    /// stream. Record boundaries follow Content-Length when present.
+    #[must_use]
+    fn largest_html_from_warc(raw: &str) -> String {
+        let mut best = String::new();
+        let mut idx = 0usize;
+        while let Some(pos) = raw[idx..].find("WARC/1.") {
+            let start = idx + pos;
+            let Some(hdr_end) = raw[start..].find("\r\n\r\n") else {
+                break;
+            };
+            let headers = &raw[start..start + hdr_end];
+            let body_start = start + hdr_end + 4;
+            let is_html = headers.to_ascii_lowercase().contains("text/html");
+            let len = headers.lines().find_map(|l| {
+                let (k, v) = l.split_once(':')?;
+                k.trim()
+                    .eq_ignore_ascii_case("content-length")
+                    .then(|| v.trim().parse::<usize>().ok())?
+            });
+            let Some(len) = len else {
+                idx = body_start;
+                continue;
+            };
+            let end = (body_start + len).min(raw.len());
+            if is_html {
+                let body = &raw[body_start..end];
+                if body.len() > best.len() {
+                    best = body.to_string();
+                }
+            }
+            idx = end.max(body_start);
+        }
+        best
+    }
+
+    /// First `text/html` part of an MHTML document (headers stripped,
+    /// boundary-truncated; quoted-printable is decoded by the caller).
+    #[must_use]
+    fn html_part_of_mhtml(raw: &str) -> String {
+        let lower = raw.to_ascii_lowercase();
+        let Some(ct) = lower.find("content-type: text/html") else {
+            return String::new();
+        };
+        let rest = &raw[ct..];
+        let body_start = rest.find("\r\n\r\n").map_or_else(
+            || rest.find("\n\n").map_or(rest.len(), |p| p + 2),
+            |p| p + 4,
+        );
+        let body = &rest[body_start..];
+        // Truncate at the next MIME boundary if present.
+        let end = body.find("\n--").unwrap_or(body.len());
+        body[..end].to_string()
+    }
+
+    /// Minimal quoted-printable decode (RFC 2045 §6.2 subset: =XX hex,
+    /// soft line breaks; other bytes pass through, lossy on non-UTF-8).
+    #[must_use]
+    fn decode_qp(s: &str) -> String {
+        let bytes = s.as_bytes();
+        let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+        let mut i = 0usize;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'=' if bytes.get(i + 1).is_some_and(u8::is_ascii_hexdigit)
+                    && bytes.get(i + 2).is_some_and(u8::is_ascii_hexdigit) =>
+                {
+                    let hex = |b: u8| {
+                        let d = (b as char).to_digit(16).unwrap_or(0);
+                        u8::try_from(d).unwrap_or(0)
+                    };
+                    out.push(hex(bytes[i + 1]) * 16 + hex(bytes[i + 2]));
+                    i += 3;
+                }
+                b'=' if bytes.get(i + 1) == Some(&b'\r') || bytes.get(i + 1) == Some(&b'\n') => {
+                    // Soft break.
+                    i += if bytes.get(i + 1) == Some(&b'\r') {
+                        2
+                    } else {
+                        1
+                    };
+                }
+                b => {
+                    out.push(b);
+                    i += 1;
+                }
+            }
+        }
+        String::from_utf8_lossy(&out).to_string()
     }
 
     /// Record the archive.org URL for a source (after save-page-now).
@@ -353,14 +482,12 @@ mod tests {
         assert_eq!(ledger.claim(&cid).unwrap().quote_ids, vec![qid]);
     }
 
-    /// Operator-attached text (paywalled/bot-protected sources) has the
-    /// same verification standing as an auto-fetch, with provenance.
     #[test]
     fn operator_attached_text_verifies_quotes_and_records_provenance() {
         let mut ledger = Ledger::default();
         let sid = ledger.register_source("https://paywall.example/article", "2026-09-28", None);
         ledger
-            .attach_operator_text(&sid, SOURCE_TEXT)
+            .attach_operator_text(&sid, SOURCE_TEXT, "operator")
             .expect("attach");
         let src = ledger.source_text(&sid).expect("text present");
         assert!(src.contains("millions of copies"));
@@ -371,6 +498,27 @@ mod tests {
             .add_quote(&sid, "sold millions of copies")
             .expect("verbatim quote locates in operator text");
         assert!(qid.starts_with('Q'));
+    }
+
+    /// Capture-format extraction: WARC (largest text/html record), MHTML
+    /// (first text/html part, QP-decoded), and single-file HTML all land
+    /// as `html_to_text` output; plain text passes through.
+    #[test]
+    fn text_from_capture_extracts_each_format() {
+        let warc = "WARC/1.0\r\nWARC-Type: response\r\nContent-Type: text/html\r\nContent-Length: 44\r\n\r\n<p>John Kidder married Sarah Clark in 1870.</p>\r\n\r\n";
+        let (text, fmt) = Ledger::text_from_capture("capture.warc", warc);
+        assert_eq!(fmt, "warc");
+        assert!(text.contains("married Sarah Clark in 1870"), "{text}");
+
+        let mhtml = "MIME-Version: 1.0\r\nContent-Type: multipart/related; boundary=\"BB\"\r\n\r\n--BB\r\nContent-Type: text/html\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n<p>died April 11, 1901=2C aged 71.</p>=\r\n--BB--\r\n";
+        let (text, fmt) = Ledger::text_from_capture("page.mhtml", mhtml);
+        assert_eq!(fmt, "mhtml");
+        assert!(text.contains("died April 11, 1901, aged 71."), "{text}");
+
+        let (_, fmt) = Ledger::text_from_capture("p.html", "<p>html page</p>");
+        assert_eq!(fmt, "html");
+        let (text, fmt) = Ledger::text_from_capture("note.txt", "plain words");
+        assert_eq!((text.as_str(), fmt.as_str()), ("plain words", "text"));
     }
 
     #[test]

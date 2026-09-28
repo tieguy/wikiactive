@@ -791,7 +791,9 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
             continue;
         }
         let status = match (&source.fetched_text, source.fetched_via.as_deref()) {
-            (Some(t), Some("operator")) if !t.is_empty() => "fetched (operator-provided)",
+            (Some(t), Some(via)) if !t.is_empty() && via.starts_with("operator") => {
+                "fetched (operator-provided)"
+            }
             (Some(t), _) if !t.is_empty() => "fetched",
             _ => "not fetched (access failed)",
         };

@@ -963,15 +963,21 @@ fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
     } else {
         std::fs::read_to_string(file).with_context(|| format!("--file {file} unreadable"))?
     };
-    anyhow::ensure!(!text.trim().is_empty(), "attached text is empty");
+    anyhow::ensure!(!text.trim().is_empty(), "attached capture is empty");
+    let (extracted, format) = Ledger::text_from_capture(file, &text);
+    anyhow::ensure!(
+        !extracted.trim().is_empty(),
+        "no extractable text in {file} (format {format})"
+    );
     let mut ledger = Ledger::load(&paths.ledger())?;
+    let via = format!("operator:{format}");
     ledger
-        .attach_operator_text(source, &text)
+        .attach_operator_text(source, &extracted, &via)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     ledger.save(&paths.ledger())?;
     println!(
-        "attached operator text to {source} ({} chars) — quotes verify against it as usual",
-        text.chars().count()
+        "attached {format} capture to {source} ({} chars extracted) — quotes verify against it as usual",
+        extracted.chars().count()
     );
     Ok(())
 }
