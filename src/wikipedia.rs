@@ -186,7 +186,10 @@ impl Wikipedia {
     /// # Errors
     /// Client construction failure.
     pub async fn connect() -> Result<Self, WikipediaError> {
-        let oauth2_token = std::env::var(OAUTH2_TOKEN_ENV).ok();
+        let oauth2_token = std::env::var(OAUTH2_TOKEN_ENV)
+            .ok()
+            .filter(|t| !t.trim().is_empty())
+            .or_else(Self::resolve_oauth2_token_from_bws);
         let botpassword = std::env::var(BOTPASSWORD_ENV).ok();
         let mut builder = ApiClient::builder(ENWIKI_API)
             .set_user_agent(crate::USER_AGENT)
@@ -228,6 +231,32 @@ impl Wikipedia {
         Ok(Self {
             api: builder.build().await?,
         })
+    }
+
+    /// Bitwarden Secrets secret id holding the owner-only `OAuth2` token —
+    /// an
+    /// identifier, not a secret (pinned like the UA constant; the operator's
+    /// secrets live in bws, operator direction 2026-09-27: "we should be
+    /// getting that from bws"). Env var always wins.
+    const BWS_SECRET_ID: &str = "1f6f7860-1ae7-4a31-a6d1-b4d0003768dc";
+
+    /// Fallback token source: `bws secret get` (Bitwarden Secrets CLI) when
+    /// the env var is unset. Returns None when bws is absent or fails — the
+    /// caller then proceeds unauthenticated (read-only) exactly as before.
+    fn resolve_oauth2_token_from_bws() -> Option<String> {
+        let out = std::process::Command::new("bws")
+            .args(["secret", "get", Self::BWS_SECRET_ID, "--output", "json"])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let value: String = serde_json::from_slice::<serde_json::Value>(&out.stdout)
+            .ok()?
+            .get("value")?
+            .as_str()?
+            .to_string();
+        (!value.trim().is_empty()).then_some(value)
     }
 
     /// The underlying mwapi client (for REST/parsoid and tests).
