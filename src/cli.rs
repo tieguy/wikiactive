@@ -186,6 +186,18 @@ pub enum LedgerCmd {
         #[arg(long)]
         text: String,
     },
+    /// Attach operator-provided text for a source the fetcher cannot reach
+    /// (paywalled, bot-protected, or lending-gated). Quotes against it are
+    /// verbatim-verified exactly like auto-fetched text — operator fetches
+    /// in their browser, the tool keeps the guarantee.
+    Attach {
+        slug: String,
+        #[arg(long)]
+        source: String,
+        /// Path to the saved text ('-' = stdin).
+        #[arg(long)]
+        file: String,
+    },
     /// Bind prose to quote ids (the claim ↔ quotes record).
     Claim {
         slug: String,
@@ -247,6 +259,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             LedgerCmd::Fetch { slug, source } => ledger_fetch(&slug, &source).await,
             LedgerCmd::Archive { slug, source } => ledger_archive(&slug, &source).await,
             LedgerCmd::Quote { slug, source, text } => ledger_quote(&slug, &source, &text),
+            LedgerCmd::Attach { slug, source, file } => ledger_attach(&slug, &source, &file),
             LedgerCmd::Claim {
                 slug,
                 prose,
@@ -936,6 +949,30 @@ fn ledger_quote(slug: &str, source: &str, text: &str) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     ledger.save(&paths.ledger())?;
     println!("quote {id} verified and stored");
+    Ok(())
+}
+
+/// `wa ledger attach` — ingest operator-fetched text for an unreachable
+/// source; quotes against it verify verbatim exactly like auto-fetches.
+fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let text = if file == "-" {
+        let mut buf = String::new();
+        std::io::stdin().read_to_string(&mut buf)?;
+        buf
+    } else {
+        std::fs::read_to_string(file).with_context(|| format!("--file {file} unreadable"))?
+    };
+    anyhow::ensure!(!text.trim().is_empty(), "attached text is empty");
+    let mut ledger = Ledger::load(&paths.ledger())?;
+    ledger
+        .attach_operator_text(source, &text)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    ledger.save(&paths.ledger())?;
+    println!(
+        "attached operator text to {source} ({} chars) — quotes verify against it as usual",
+        text.chars().count()
+    );
     Ok(())
 }
 

@@ -51,6 +51,10 @@ pub struct SourceEntry {
     pub archive_url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fetched_text: Option<String>,
+    /// How the text arrived: absent (auto-fetch) or "operator" (attached
+    /// from operator-provided bytes for paywalled/bot-protected sources).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetched_via: Option<String>,
     /// ISO-8601 access date.
     pub access_date: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -134,6 +138,7 @@ impl Ledger {
             url: url.into(),
             archive_url: None,
             fetched_text: None,
+            fetched_via: None,
             access_date: access_date.into(),
             metadata,
         });
@@ -155,6 +160,27 @@ impl Ledger {
             .find(|s| s.id == source_id)
             .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
         entry.fetched_text = Some(text.into());
+        Ok(())
+    }
+
+    /// Attach operator-provided text (paywalled, bot-protected, or
+    /// lending-gated sources the fetcher cannot reach): same verification
+    /// standing as an auto-fetch, with the provenance recorded.
+    ///
+    /// # Errors
+    /// [`LedgerError::UnknownSource`] when the id is not registered.
+    pub fn attach_operator_text(
+        &mut self,
+        source_id: &str,
+        text: impl Into<String>,
+    ) -> Result<(), LedgerError> {
+        let entry = self
+            .sources
+            .iter_mut()
+            .find(|s| s.id == source_id)
+            .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
+        entry.fetched_text = Some(text.into());
+        entry.fetched_via = Some("operator".to_string());
         Ok(())
     }
 
@@ -325,6 +351,26 @@ mod tests {
             .add_claim("His guides sold millions of copies.", vec![qid.clone()])
             .expect("claim added");
         assert_eq!(ledger.claim(&cid).unwrap().quote_ids, vec![qid]);
+    }
+
+    /// Operator-attached text (paywalled/bot-protected sources) has the
+    /// same verification standing as an auto-fetch, with provenance.
+    #[test]
+    fn operator_attached_text_verifies_quotes_and_records_provenance() {
+        let mut ledger = Ledger::default();
+        let sid = ledger.register_source("https://paywall.example/article", "2026-09-28", None);
+        ledger
+            .attach_operator_text(&sid, SOURCE_TEXT)
+            .expect("attach");
+        let src = ledger.source_text(&sid).expect("text present");
+        assert!(src.contains("millions of copies"));
+        let entry = ledger.sources.iter().find(|s| s.id == sid).unwrap();
+        assert_eq!(entry.fetched_via.as_deref(), Some("operator"));
+        // Quotes verify against operator text exactly like auto-fetches.
+        let qid = ledger
+            .add_quote(&sid, "sold millions of copies")
+            .expect("verbatim quote locates in operator text");
+        assert!(qid.starts_with('Q'));
     }
 
     #[test]

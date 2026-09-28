@@ -790,14 +790,10 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
         if evidence_source_ids.contains(&source.id.as_str()) {
             continue;
         }
-        let status = if source
-            .fetched_text
-            .as_deref()
-            .is_some_and(|t| !t.is_empty())
-        {
-            "fetched"
-        } else {
-            "not fetched (access failed)"
+        let status = match (&source.fetched_text, source.fetched_via.as_deref()) {
+            (Some(t), Some("operator")) if !t.is_empty() => "fetched (operator-provided)",
+            (Some(t), _) if !t.is_empty() => "fetched",
+            _ => "not fetched (access failed)",
         };
         let _ = writeln!(
             consulted_html,
