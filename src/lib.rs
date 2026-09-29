@@ -18,6 +18,7 @@ pub mod ledger;
 pub mod render;
 pub mod rules;
 pub mod session;
+pub mod sweep;
 pub mod wikipedia;
 
 /// User-Agent used for every outbound HTTP request to Wikimedia (and, with

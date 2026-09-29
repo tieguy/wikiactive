@@ -119,6 +119,12 @@ pub enum Command {
         #[arg(long)]
         marker: String,
     },
+    /// Source sweep (plan-003 B.3): fetch-or-dispose every cited source
+    /// before textual analysis.
+    Sweep {
+        #[command(subcommand)]
+        cmd: SweepCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -139,6 +145,37 @@ pub enum SessionCmd {
     },
     /// Show session state.
     Show { slug: String },
+}
+
+#[derive(Subcommand)]
+pub enum SweepCmd {
+    /// Inventory the base wikitext's citation apparatus into ledger
+    /// candidates (pending). URL-less books/ISBNs are auto-dispositioned
+    /// `print: no web text`.
+    Inventory {
+        slug: String,
+        /// Offline/tests: parse this wikitext file instead of the
+        /// session's base.
+        #[arg(long)]
+        wikitext: Option<PathBuf>,
+    },
+    /// Batch fetch + classify pending sources (`fetched` / `needs_operator`
+    /// / `snapshot_available` / `no_text`). Dead links get a Wayback CDX check.
+    Fetch { slug: String },
+    /// Record an operator-signed disposition on a source (resolves the
+    /// sweep gate).
+    Dispose {
+        slug: String,
+        /// Source id (S3, …).
+        #[arg(long)]
+        source: String,
+        /// Free-form operator disposition, e.g. "attested-unreachable",
+        /// "dropped: paywall".
+        #[arg(long)]
+        disposition: String,
+    },
+    /// Show the sweep manifest (per-source status + disposition).
+    Status { slug: String },
 }
 
 #[derive(Subcommand)]
@@ -226,6 +263,16 @@ pub async fn run(cli: Cli) -> Result<()> {
         Command::Findings { cmd } => match cmd {
             FindingsCmd::Add { slug, json } => findings_add(&slug, &json),
             FindingsCmd::List { slug } => findings_list(&slug),
+        },
+        Command::Sweep { cmd } => match cmd {
+            SweepCmd::Inventory { slug, wikitext } => sweep_inventory(&slug, wikitext.as_deref()),
+            SweepCmd::Fetch { slug } => sweep_fetch(&slug).await,
+            SweepCmd::Dispose {
+                slug,
+                source,
+                disposition,
+            } => sweep_dispose(&slug, &source, &disposition),
+            SweepCmd::Status { slug } => sweep_status(&slug),
         },
         Command::Render {
             slug,
@@ -508,6 +555,126 @@ fn findings_list(slug: &str) -> Result<()> {
             f.loop_id,
             f.proposed_fix
         );
+    }
+    Ok(())
+}
+
+fn sweep_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let wikitext = match wikitext_path {
+        Some(p) => std::fs::read_to_string(p).with_context(|| format!("read {}", p.display()))?,
+        None => std::fs::read_to_string(paths.base())?,
+    };
+    let candidates = crate::sweep::parse_citations(&wikitext);
+    let mut ledger = Ledger::load(&paths.ledger())?;
+    println!(
+        "sweep inventory: {} distinct cited sources",
+        candidates.len()
+    );
+    for c in &candidates {
+        let key = c
+            .ledger_url()
+            .ok_or_else(|| anyhow::anyhow!("candidate without url or isbn"))?;
+        let metadata = if c.title.is_some() || c.work.is_some() {
+            Some(crate::ledger::SourceMetadata {
+                title: c.title.clone(),
+                work: c.work.clone(),
+                ..Default::default()
+            })
+        } else {
+            None
+        };
+        let (id, added) = ledger.register_sweep_source(&key, metadata);
+        let disp = ledger
+            .sources
+            .iter()
+            .find(|s| s.id == id)
+            .and_then(|s| s.disposition.clone())
+            .unwrap_or_default();
+        println!(
+            "  {id} {}{key}{} {disp}",
+            if added { "registered " } else { "already     " },
+            if c.dead_original.is_some() {
+                " (dead original; archive is the fetch target)"
+            } else {
+                ""
+            }
+        );
+    }
+    ledger.save(&paths.ledger())?;
+    println!(
+        "next: `wa sweep fetch {slug}` (network) then resolve the rest by capture or disposition"
+    );
+    Ok(())
+}
+
+async fn sweep_fetch(slug: &str) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let config = crate::sweep::SweepConfig::load(std::path::Path::new("rules/sweep.toml"))
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let fetcher = crate::ledger::SourceFetcher::new()?;
+    let cdx = crate::ledger::net::CdxClient::default();
+    let mut ledger = Ledger::load(&paths.ledger())?;
+    let pending: Vec<String> = ledger
+        .sources
+        .iter()
+        .filter(|s| s.sweep_status.as_deref() == Some(crate::sweep::status::PENDING))
+        .map(|s| s.id.clone())
+        .collect();
+    if pending.is_empty() {
+        println!("nothing pending — run `wa sweep inventory {slug}` first");
+        return Ok(());
+    }
+    println!("sweeping {} pending sources…", pending.len());
+    for id in pending {
+        let url = ledger
+            .sources
+            .iter()
+            .find(|s| s.id == id)
+            .map(|s| s.url.clone())
+            .unwrap_or_default();
+        match crate::sweep::sweep_fetch_one(&fetcher, &cdx, &mut ledger, &id, &config).await {
+            Ok(outcome) => {
+                println!("  {id} -> {} {url}", outcome.status);
+                if let Some(note) = outcome.note {
+                    println!("        {note}");
+                }
+            }
+            Err(e) => println!("  {id} -> ERROR ({e}) — left pending"),
+        }
+    }
+    ledger.save(&paths.ledger())?;
+    println!("manifest: `wa sweep status {slug}`");
+    Ok(())
+}
+
+fn sweep_dispose(slug: &str, source: &str, disposition: &str) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let mut ledger = Ledger::load(&paths.ledger())?;
+    ledger.set_disposition(source, disposition)?;
+    ledger.save(&paths.ledger())?;
+    println!("disposition recorded on {source}: {disposition}");
+    Ok(())
+}
+
+fn sweep_status(slug: &str) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let ledger = Ledger::load(&paths.ledger())?;
+    if !ledger.has_sweep_state() {
+        println!("no sweep state (run `wa sweep inventory {slug}`)");
+        return Ok(());
+    }
+    let unresolved = ledger.sweep_unresolved().len();
+    println!("sweep manifest ({unresolved} unresolved):");
+    for s in &ledger.sources {
+        let status = s.sweep_status.clone().unwrap_or_else(|| "—".into());
+        let disp = s.disposition.clone().unwrap_or_else(|| "—".into());
+        let text = if s.fetched_text.is_some() {
+            "text✓"
+        } else {
+            "    "
+        };
+        println!("  {} [{status}] {text} disp: {disp} — {}", s.id, s.url);
     }
     Ok(())
 }

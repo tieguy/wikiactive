@@ -72,6 +72,14 @@ pub enum GateReason {
         detail: String,
         span: Option<String>,
     },
+    /// Source-sweep completeness (plan-003 B.3): a swept source has
+    /// neither fetched text nor a disposition. Opt-in per session —
+    /// ledgers without sweep state never produce this reason.
+    SweepSourceUnresolved {
+        source_id: String,
+        status: String,
+        url: String,
+    },
 }
 
 impl GateReason {
@@ -82,7 +90,8 @@ impl GateReason {
         match self {
             Self::FindingWithoutEvidence { .. }
             | Self::UnknownQuoteId { .. }
-            | Self::SourceNotFetched { .. } => Disposition::NeedsAnchor,
+            | Self::SourceNotFetched { .. }
+            | Self::SweepSourceUnresolved { .. } => Disposition::NeedsAnchor,
             Self::QuoteDoesNotLocate { .. }
             | Self::ClaimParaphraseTooClose { .. }
             | Self::ClaimParaphraseNoSupport { .. }
@@ -101,6 +110,7 @@ impl GateReason {
             | Self::ClaimParaphraseTooClose { span, .. }
             | Self::ClaimParaphraseNoSupport { span, .. }
             | Self::LinterError { span, .. } => span.as_deref(),
+            Self::SweepSourceUnresolved { .. } => None,
         }
     }
 }
@@ -209,6 +219,16 @@ impl std::fmt::Display for GateReason {
             Self::LinterError { rule, detail, .. } => {
                 write!(f, "linter [{rule}]: {detail}")
             }
+            Self::SweepSourceUnresolved {
+                source_id,
+                status,
+                url,
+            } => {
+                write!(
+                    f,
+                    "sweep source {source_id} unresolved ({status}): {url} — fetch it, attach an operator capture (wa ledger attach), or record a disposition (wa sweep dispose)"
+                )
+            }
         }
     }
 }
@@ -291,6 +311,19 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
                 rule: lint.rule,
                 detail: lint.detail,
                 span: (lint.line > 0).then(|| format!("L{}", lint.line)),
+            });
+        }
+    }
+
+    // 4. Sweep completeness (plan-003 B.3): opt-in per session. A swept
+    //    source without fetched text and without a disposition blocks —
+    //    fetch-or-dispose every cited source BEFORE textual analysis.
+    if input.ledger.has_sweep_state() {
+        for (entry, status) in input.ledger.sweep_unresolved() {
+            reasons.push(GateReason::SweepSourceUnresolved {
+                source_id: entry.id.clone(),
+                status: status.to_string(),
+                url: entry.url.clone(),
             });
         }
     }

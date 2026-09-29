@@ -1,0 +1,20 @@
+{
+  "comment": "Hand-enumerated expected sources for the frozen pre-session Kidder base (oldid 1370213000), pinned by tests/sweep.rs (plan-003 AC.2): every distinct cited source the citation apparatus must yield. url is the fetch target (for the dead True West link, the citation's own archive-url, as the live session registered it). The URL-less book is auto-dispositioned print: no web text at inventory time.",
+  "expected_count": 14,
+  "sources": [
+    {"url": "https://www.theunion.com/news/sarah-kidder-she-ran-the-narrow-gauge-railroad-for-twelve-golden-years/", "work": "The Union"},
+    {"url": "https://books.google.com/books?id=546cAAAAMAAJ&pg=PA192", "title": "Constructing a Very High Railway Bridge"},
+    {"url": "http://www.pacificng.com/template.php?page=roads/ca/ncng/index.htm", "work": "Pacific Coast Narrow Gauge"},
+    {"url": "https://web.archive.org/web/20130202035759/http://www.truewestmagazine.com/jcontent/true-westerners/true-westerners/western-women-we-love/5014-the-traditional-sarah-kidder-surprised-everyone-with-her-success", "dead_original": "http://www.truewestmagazine.com/jcontent/true-westerners/true-westerners/western-women-we-love/5014-the-traditional-sarah-kidder-surprised-everyone-with-her-success", "title": "Railroad's First Lady"},
+    {"url": "https://cdnc.ucr.edu/?a=d&d=SSTR19130501.2.9&srpos=7&e=-------en--20--1--txt-txIN-%22sarah+kidder%22-------1"},
+    {"url": "https://cdnc.ucr.edu/?a=d&d=SFC19010411.2.43&srpos=2&e=-------en--20-SFC-1--txt-txIN-john+kidder-------1", "title": "John F. Kidder's long struggle against death is at an end"},
+    {"url": "https://www.theunion.com/news/local-news/students-solve-110-year-mystery-of-final-resting-place-of-countys-narrow-gauge-railroads-first-family/"},
+    {"url": "https://timesmachine.nytimes.com/timesmachine/1905/09/21/101829292.pdf"},
+    {"url": "https://books.google.com/books?id=jccnAAAAYAAJ&pg=PA314"},
+    {"url": "https://www.theunion.com/news/a-familys-arboreal-home-on-clamper-square/"},
+    {"url": "http://www.ecv5917.com/dutchman_plaques/1995%20Plaque%20Book/1995%20Plaque%20Book.html"},
+    {"url": "http://ncngrrmuseum.org/rolling-stock.html"},
+    {"url": "https://archive.org/details/shesbeenworkingo00levi", "isbn": "9780525675457"},
+    {"isbn": "0961526106", "auto_disposition": "print: no web text"}
+  ]
+}

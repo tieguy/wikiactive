@@ -39,6 +39,10 @@ pub struct SourceMetadata {
     /// complement-only | deny.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tier: Option<String>,
+    /// Wayback snapshot URL found by the sweep's CDX availability check
+    /// (the original URL was dead; the snapshot is the fetch target).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_url: Option<String>,
 }
 
 /// One registered source.
@@ -59,6 +63,16 @@ pub struct SourceEntry {
     pub access_date: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<SourceMetadata>,
+    /// Sweep lifecycle (plan-003 B.3): `pending` | `fetched` |
+    /// `needs_operator` | `snapshot_available` | `no_text`. Absent on
+    /// pre-sweep ledgers — serde defaults keep version-1 files loadable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sweep_status: Option<String>,
+    /// The once-and-for-all disposition: auto (`print: no web text`) or
+    /// operator-signed (`attested-unreachable`, `dropped: paywall`, …).
+    /// A disposition (or attached text) resolves the sweep gate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disposition: Option<String>,
 }
 
 /// One verbatim quote from a ledger source.
@@ -141,8 +155,121 @@ impl Ledger {
             fetched_via: None,
             access_date: access_date.into(),
             metadata,
+            sweep_status: None,
+            disposition: None,
         });
         id
+    }
+
+    /// Register a source from the sweep inventory, deduplicating by URL:
+    /// a source already in the ledger keeps its id (and any fetched
+    /// text). Returns the id and whether it was newly added. URL-less
+    /// inventory entries (books/ISBNs) use an `isbn:<n>` pseudo-URL and
+    /// carry the auto disposition `print: no web text` — the gate never
+    /// dead-ends on non-web sources.
+    pub fn register_sweep_source(
+        &mut self,
+        url: &str,
+        metadata: Option<SourceMetadata>,
+    ) -> (String, bool) {
+        if let Some(existing) = self.sources.iter().find(|s| s.url == url) {
+            return (existing.id.clone(), false);
+        }
+        let url_is_web = url.starts_with("http://") || url.starts_with("https://");
+        let id = format!("S{}", self.sources.len() + 1);
+        self.sources.push(SourceEntry {
+            id: id.clone(),
+            url: url.to_string(),
+            archive_url: None,
+            fetched_text: None,
+            fetched_via: None,
+            access_date: chrono::Utc::now().date_naive().to_string(),
+            metadata,
+            sweep_status: Some(if url_is_web {
+                "pending".into()
+            } else {
+                "no_text".into()
+            }),
+            disposition: if url_is_web {
+                None
+            } else {
+                Some("print: no web text".into())
+            },
+        });
+        (id, true)
+    }
+
+    /// Set a source's sweep status (idempotent).
+    ///
+    /// # Errors
+    /// Unknown source id.
+    pub fn set_sweep_status(&mut self, source_id: &str, status: &str) -> Result<(), LedgerError> {
+        let entry = self
+            .sources
+            .iter_mut()
+            .find(|s| s.id == source_id)
+            .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
+        entry.sweep_status = Some(status.to_string());
+        Ok(())
+    }
+
+    /// Record a disposition on a source (operator-signed or auto).
+    ///
+    /// # Errors
+    /// Unknown source id.
+    pub fn set_disposition(
+        &mut self,
+        source_id: &str,
+        disposition: &str,
+    ) -> Result<(), LedgerError> {
+        let entry = self
+            .sources
+            .iter_mut()
+            .find(|s| s.id == source_id)
+            .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
+        entry.disposition = Some(disposition.to_string());
+        Ok(())
+    }
+
+    /// Record the Wayback snapshot URL a CDX availability check found.
+    ///
+    /// # Errors
+    /// Unknown source id.
+    pub fn set_snapshot_url(
+        &mut self,
+        source_id: &str,
+        snapshot_url: &str,
+    ) -> Result<(), LedgerError> {
+        let entry = self
+            .sources
+            .iter_mut()
+            .find(|s| s.id == source_id)
+            .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
+        let metadata = entry.metadata.get_or_insert_with(SourceMetadata::default);
+        metadata.snapshot_url = Some(snapshot_url.to_string());
+        Ok(())
+    }
+
+    /// Sweep sources still unresolved: swept (status recorded), no
+    /// fetched text, and no disposition. These block the gate (B.3.3).
+    #[must_use]
+    pub fn sweep_unresolved(&self) -> Vec<(&SourceEntry, &str)> {
+        self.sources
+            .iter()
+            .filter_map(
+                |s| match (&s.sweep_status, &s.disposition, &s.fetched_text) {
+                    (Some(status), None, None) => Some((s, status.as_str())),
+                    _ => None,
+                },
+            )
+            .collect()
+    }
+
+    /// Whether any sweep state exists (gates only fire for swept
+    /// sessions — sweep is opt-in per session).
+    #[must_use]
+    pub fn has_sweep_state(&self) -> bool {
+        self.sources.iter().any(|s| s.sweep_status.is_some())
     }
 
     /// Attach fetched full text to a source.

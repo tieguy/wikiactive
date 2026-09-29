@@ -1,0 +1,25 @@
+# Source-sweep classification markers (plan-003 B.3).
+#
+# Bounded by design: classification uses HTTP status classes plus these
+# marker strings — nothing open-ended. Marker misses degrade to `fetched`
+# or `no_text` and remain visible in the manifest for the operator, whose
+# override is always `wa sweep dispose`.
+#
+# Defaults here ARE `SweepConfig::default()` (pinned by test). A fork
+# edits this file for its own sources; the httpmock tests pin marker
+# behavior only, not specific real-world strings.
+
+paywall_markers = [
+    "subscribe to continue reading",
+    "subscribe now to read",
+    "create a free account to continue",
+    "already a subscriber? sign in",
+    "subscribe today",
+]
+
+lending_markers = [
+    "borrow this book",
+    "lending library",
+    "log in to borrow",
+    "register to read",
+]

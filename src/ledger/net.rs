@@ -422,6 +422,94 @@ pub struct EarwigClient {
     pub base: String,
 }
 
+/// Wayback CDX availability client (`web.archive.org/cdx/search/cdx`),
+/// used by the source sweep (plan-003 B.3) to find the closest snapshot
+/// of a dead citation URL. Same request-shape/UA/redirect contract as
+/// Earwig and SPN.
+pub struct CdxClient {
+    http: reqwest::Client,
+    /// Base endpoint (tests point this at a mock server).
+    pub base: String,
+}
+
+impl Default for CdxClient {
+    fn default() -> Self {
+        Self {
+            http: http_client().expect("reqwest client builds"),
+            base: "https://web.archive.org/cdx/search/cdx".to_string(),
+        }
+    }
+}
+
+impl CdxClient {
+    /// Construct with a custom endpoint (tests).
+    ///
+    /// # Panics
+    /// If the shared reqwest client cannot be constructed.
+    #[must_use]
+    pub fn with_base(base: &str) -> Self {
+        Self {
+            http: http_client().expect("reqwest client builds"),
+            base: base.to_string(),
+        }
+    }
+
+    /// Closest archived snapshot of `url`, as a playable
+    /// `https://web.archive.org/web/<timestamp>/<original>` URL, or `None`
+    /// when the Wayback Machine has no capture. Requests the two output
+    /// fields (`timestamp,original`) with `limit=1` and
+    /// `filter=statuscode:200` — one small GET per dead link, honoring
+    /// the shared etiquette client.
+    ///
+    /// # Errors
+    /// Transport or non-ok status; `None` (no snapshot) is NOT an error.
+    pub async fn closest_snapshot(&self, url: &str) -> Result<Option<String>, NetError> {
+        let resp = self
+            .http
+            .get(&self.base)
+            .query(&[
+                ("url", url),
+                ("output", "json"),
+                ("fl", "timestamp,original"),
+                ("filter", "statuscode:200"),
+                ("limit", "1"),
+                ("closest", "now"),
+            ])
+            .send()
+            .await
+            .map_err(|e| NetError::Transport(e.to_string()))?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(NetError::Status {
+                status: status.as_u16(),
+                url: url.to_string(),
+            });
+        }
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| NetError::Transport(e.to_string()))?;
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+        let rows: Vec<Vec<String>> = serde_json::from_str(trimmed)
+            .map_err(|e| NetError::Json(format!("cdx body not a JSON table: {e}")))?;
+        // CDX JSON output leads with a header row; data rows follow.
+        let mut data = rows
+            .iter()
+            .filter(|row| row.len() >= 2)
+            .filter(|row| !(row[0] == "timestamp" && row[1] == "original"));
+        let Some(row) = data.next_back() else {
+            return Ok(None);
+        };
+        Ok(Some(format!(
+            "https://web.archive.org/web/{}/{}",
+            row[0], row[1]
+        )))
+    }
+}
+
 impl Default for EarwigClient {
     fn default() -> Self {
         Self {

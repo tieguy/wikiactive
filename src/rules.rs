@@ -277,6 +277,30 @@ pub fn build_context_bundle(
             finding.factual_note
         );
     }
+    // Sweep manifest (plan-003 B.3): informational in the bundle — the
+    // mechanical enforcement lives in the gate (SweepSourceUnresolved).
+    if ledger.has_sweep_state() {
+        let unresolved = ledger.sweep_unresolved();
+        let _ = write!(
+            text,
+            "\n## Source sweep manifest\n\n- warning: {} unresolved source(s) — the gate blocks render/publish until each is fetched, captured, or dispositioned (`wa sweep fetch` / `wa ledger attach` / `wa sweep dispose`)\n",
+            unresolved.len()
+        );
+        for s in &ledger.sources {
+            let status = s.sweep_status.as_deref().unwrap_or("—");
+            let disposition = s.disposition.as_deref().unwrap_or("—");
+            let text_state = if s.fetched_text.is_some() {
+                "text✓"
+            } else {
+                "no text"
+            };
+            let _ = writeln!(
+                text,
+                "- {} [{status}] ({text_state}, disposition: {disposition}) {}",
+                s.id, s.url
+            );
+        }
+    }
     Ok(ContextBundle { text })
 }
 

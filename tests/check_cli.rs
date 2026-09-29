@@ -169,3 +169,143 @@ fn review_since_drift_embedded_in_analyze_bundle() {
         "diff content embedded: {ctx}"
     );
 }
+
+// ------------------------------------------- plan-003 AC.4 sweep gate (B.3)
+
+fn wa_args(dir: &Path, args: &[&str]) -> std::process::Output {
+    Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+fn write_ledger_with_sweep(dir: &Path, status: &str) {
+    let ledger = format!(
+        r#"{{"schema_version":1,"sources":[{{"id":"S1","url":"https://example.com/paywalled","access_date":"2026-09-29","sweep_status":"{status}"}}],"quotes":[],"claims":[]}}"#
+    );
+    std::fs::write(dir.join("sessions/test-article/ledger.json"), ledger).unwrap();
+}
+
+/// A swept session with an unresolved source blocks at `wa check` with a
+/// `SweepSourceUnresolved` reason naming source and status, grouped as
+/// anchor work; the operator's `wa sweep dispose` unblocks.
+#[test]
+fn sweep_unresolved_blocks_check_and_dispose_unblocks() {
+    let dir = setup_session(
+        r#"{"findings":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    write_ledger_with_sweep(&dir, "pending");
+
+    let out = wa(&dir);
+    assert!(!out.status.success(), "unresolved sweep source blocks");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("sweep source S1 unresolved (pending)"),
+        "reason names source and status: {stdout}"
+    );
+    assert!(
+        stdout.contains("NEEDS ANCHOR"),
+        "grouped as anchor work: {stdout}"
+    );
+    assert!(
+        stdout.contains("wa sweep dispose"),
+        "the reason says how to resolve: {stdout}"
+    );
+
+    let out = wa_args(
+        &dir,
+        &[
+            "sweep",
+            "dispose",
+            "test-article",
+            "--source",
+            "S1",
+            "--disposition",
+            "dropped: paywall",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "dispose succeeds: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let out = wa(&dir);
+    assert!(
+        out.status.success(),
+        "disposition unblocks: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+/// Attaching operator-captured text (`wa ledger attach`) resolves the
+/// sweep by supplying the text — the Kidder SF-Call path.
+#[test]
+fn sweep_attach_text_unblocks() {
+    let dir = setup_session(
+        r#"{"findings":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    write_ledger_with_sweep(&dir, "needs_operator");
+    let capture = dir.join("capture.txt");
+    std::fs::write(
+        &capture,
+        "The operator's browser captured this paywalled text verbatim.\n",
+    )
+    .unwrap();
+
+    let out = wa(&dir);
+    assert!(
+        !out.status.success(),
+        "needs_operator blocks until resolved"
+    );
+
+    let out = wa_args(
+        &dir,
+        &[
+            "ledger",
+            "attach",
+            "test-article",
+            "--source",
+            "S1",
+            "--file",
+            "capture.txt",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "attach succeeds: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let out = wa(&dir);
+    assert!(
+        out.status.success(),
+        "attached text unblocks: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+/// A source the sweep auto-dispositioned (`print: no web text`) never
+/// blocks — the gate must not dead-end on non-web sources.
+#[test]
+fn sweep_auto_dispositioned_print_source_passes() {
+    let dir = setup_session(
+        r#"{"findings":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    std::fs::write(
+        dir.join("sessions/test-article/ledger.json"),
+        r#"{"schema_version":1,"sources":[{"id":"S1","url":"isbn:0961526106","access_date":"2026-09-29","sweep_status":"no_text","disposition":"print: no web text"}],"quotes":[],"claims":[]}"#,
+    )
+    .unwrap();
+    let out = wa(&dir);
+    assert!(
+        out.status.success(),
+        "auto-dispositioned print source passes: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+}
