@@ -1,0 +1,17 @@
+HTTP/2 200 
+date: Tue, 29 Sep 2026 18:49:52 GMT
+content-type: application/json; charset=UTF-8
+content-length: 5915
+alt-svc: h3=":443"; ma=3600
+set-cookie: [redacted for commit]
+ga-traceid: f4656255b59515889520de9f549b7f2f
+vary: Origin
+vary: Access-Control-Request-Method
+vary: Access-Control-Request-Headers
+x-log-id: 202609300249366db21460d5944e12
+vary: Origin
+vary: Access-Control-Request-Method
+vary: Access-Control-Request-Headers
+x-request-id: 4bdbbc67-40a5-4f20-9248-6faa2edce699
+vary: Origin
+

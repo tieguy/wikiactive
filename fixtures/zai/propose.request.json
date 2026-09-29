@@ -1,0 +1,8 @@
+{
+  "model": "glm-5.3",
+  "messages": [
+    {"role": "system", "content": "You draft one scoped Wikipedia edit from an approved finding. Output JSON: {proposed_wikitext_block, edit_summary}. Change only what the finding scopes; reuse the article's existing sentence structure and citation style. Output JSON only."},
+    {"role": "user", "content": "Finding F3 (loop 2): restore the marriage year to 1874 cited to the existing sfcall ref; remove the Ohio {{Citation needed}} (same source); add an {{efn}} recording True West's 1870 with a {{notelist}}. Base wikitext line: \"Born Sarah A. Clark in Ohio{{Citation needed|date=April 2019}}, Kidder married [[civil engineer]] [[John Flint Kidder]] in 1870.<ref name=\\\"truewestmagazine\\\" />\". Available named refs: sfcall, truewestmagazine."}
+  ],
+  "temperature": 0.2
+}
