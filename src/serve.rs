@@ -57,6 +57,10 @@ struct PendingConfirm {
 pub struct ServeState {
     confirmations: Mutex<HashMap<String, PendingConfirm>>,
     outcomes: Mutex<HashMap<String, String>>,
+    /// Per-slug completed-run counter: the publish POST waits for the
+    /// pending confirmation OR the next outcome before responding, so the
+    /// page the operator lands on always shows what happened.
+    runs: Mutex<HashMap<String, u64>>,
     /// Test hook: override the wiki API endpoint (`None` in production —
     /// the live operator never sets it).
     api_override: Option<String>,
@@ -131,9 +135,28 @@ impl ServeState {
             .lock()
             .expect("outcomes")
             .insert(slug.to_string(), outcome.to_string());
+        let mut runs = self.runs.lock().expect("runs");
+        *runs.entry(slug.to_string()).or_default() += 1;
         // Persist too: a failed publish's error must be diagnosable from
         // the session directory, not only from the live server's memory.
         let _ = std::fs::write(session_dir(slug).join("last-run.txt"), outcome);
+    }
+
+    fn run_count(&self, slug: &str) -> u64 {
+        self.runs
+            .lock()
+            .expect("runs")
+            .get(slug)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    fn has_pending_for(&self, slug: &str) -> bool {
+        self.confirmations
+            .lock()
+            .expect("confirmations")
+            .values()
+            .any(|p| p.slug == slug)
     }
 
     async fn connect_wiki(&self) -> anyhow::Result<Wikipedia> {
@@ -625,6 +648,7 @@ async fn publish(
     Path(slug): Path<String>,
     Form(form): Form<PublishForm>,
 ) -> Redirect {
+    let runs_before = state.run_count(&slug);
     let state_for_task = Arc::clone(&state);
     let slug_for_task = slug.clone();
     let summary = form.summary;
@@ -632,6 +656,17 @@ async fn publish(
         let outcome = run_publish(&state_for_task, &slug_for_task, &summary).await;
         state_for_task.note_outcome(&slug_for_task, &outcome);
     });
+    // B.6 operator catch ("doesn't seem to allow me to confirm"): the
+    // pending confirmation registers a beat after the redirect — land on
+    // a page that already shows it (or the failure outcome), never an
+    // empty one. Bounded wait; the flow itself is unaffected.
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    while std::time::Instant::now() < deadline {
+        if state.has_pending_for(&slug) || state.run_count(&slug) > runs_before {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
     Redirect::to(&format!("/sessions/{slug}"))
 }
 
