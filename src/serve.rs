@@ -60,6 +60,8 @@ pub struct ServeState {
     /// Test hook: override the wiki API endpoint (`None` in production —
     /// the live operator never sets it).
     api_override: Option<String>,
+    /// Test hook for the z.ai model endpoint (`None` in production).
+    zai_override: Option<String>,
     confirm_timeout: Option<Duration>,
 }
 
@@ -73,19 +75,37 @@ impl ServeState {
         let api_override = std::env::var("WIKIACTIVE_SERVE_TEST_API")
             .ok()
             .filter(|s| !s.trim().is_empty());
+        let zai_override = std::env::var("WIKIACTIVE_SERVE_TEST_ZAI")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
         Self {
             api_override,
+            zai_override,
             ..Self::default()
         }
     }
 
-    /// Test state: a fixed API endpoint and short confirm timeout.
+    /// Test state: fixed wiki and z.ai endpoints and a short confirm
+    /// timeout.
     #[must_use]
     pub fn with_api_override(api_url: &str, confirm_timeout: Duration) -> Self {
         Self {
             api_override: Some(api_url.to_string()),
             confirm_timeout: Some(confirm_timeout),
             ..Self::default()
+        }
+    }
+
+    /// The z.ai client for the driver judgment points (env credentials;
+    /// the test hook points at a mock).
+    fn zai_client(
+        &self,
+    ) -> Result<crate::driver::model::ZaiClient, crate::driver::model::ZaiError> {
+        match &self.zai_override {
+            Some(base) => Ok(crate::driver::model::ZaiClient::with_base(
+                base, "glm-5.3", "test-key",
+            )),
+            None => crate::driver::model::ZaiClient::from_env("glm-5.3"),
         }
     }
 
@@ -337,6 +357,11 @@ async fn session_page(
     let _ = writeln!(
         page,
         "<h2>Publish</h2>\
+         <form method=post action=\"/sessions/{slug}/driver/findings\"><button>driver: author findings (model)</button></form>\
+         <form method=post action=\"/sessions/{slug}/driver/propose\"><button>driver: draft proposal (model)</button></form>\
+         <form method=post action=\"/sessions/{slug}/render\">\
+         <input name=round value=1 size=3><input name=summary size=40 placeholder=\"round summary\">\
+         <button>render review artifact</button></form>\
          <form method=post action=\"/sessions/{slug}/publish\">\
          <input name=summary size=60 placeholder=\"scoped edit summary\">\
          <button>start publish (gate → confirmation)</button></form>"
@@ -390,6 +415,159 @@ async fn attach(Path(slug): Path<String>, Form(form): Form<AttachForm>) -> Redir
 #[derive(serde::Deserialize)]
 struct PublishForm {
     summary: String,
+}
+
+/// POST /sessions/{slug}/driver/findings — judgment point 1: the model
+/// authors findings from the swept ledger; output goes through the SAME
+/// schema-validated admission as `wa findings add` (the step validates
+/// before this handler appends).
+async fn driver_findings(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+) -> Redirect {
+    let outcome = run_driver_findings(&state, &slug).await;
+    state.note_outcome(&slug, &outcome);
+    Redirect::to(&format!("/sessions/{slug}"))
+}
+
+async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
+    use crate::driver::steps::FindingsContext;
+    use crate::driver::steps::SourceDigest;
+    let dir = session_dir(slug);
+    let Ok(ledger) = Ledger::load(&dir.join("ledger.json")) else {
+        return "driver findings: no ledger".into();
+    };
+    let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
+        return "driver findings: no base wikitext".into();
+    };
+    let Ok(meta) = serde_json::from_str::<SessionMeta>(
+        &std::fs::read_to_string(dir.join("session.json")).unwrap_or_default(),
+    ) else {
+        return "driver findings: no session meta".into();
+    };
+    let ctx = FindingsContext {
+        article: meta.article,
+        base_wikitext: base,
+        sources: ledger
+            .sources
+            .iter()
+            .filter(|s| s.fetched_text.is_some())
+            .map(|s| SourceDigest {
+                id: s.id.clone(),
+                title: s
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.title.clone())
+                    .unwrap_or_else(|| s.url.clone()),
+                text: s.fetched_text.clone().unwrap_or_default(),
+                quotes: ledger
+                    .quotes
+                    .iter()
+                    .filter(|q| q.source_id == s.id)
+                    .map(|q| (q.id.clone(), q.text.clone()))
+                    .collect(),
+            })
+            .collect(),
+        quote_ids: ledger.quotes.iter().map(|q| q.id.clone()).collect(),
+        entry_loop: meta.entry_loop,
+        max_findings: 3,
+    };
+    let zai = match state.zai_client() {
+        Ok(z) => z,
+        Err(e) => return format!("driver findings: {e}"),
+    };
+    match crate::driver::steps::author_findings(&zai, &ctx).await {
+        Ok(findings) => {
+            // Same admission as `wa findings add`: validate (the step
+            // already did) and append without duplicate ids.
+            let path = dir.join("findings.json");
+            let mut file = crate::session::FindingsFile::load(&path).unwrap_or_default();
+            for f in findings {
+                if file.findings.iter().any(|e| e.id == f.id) {
+                    continue;
+                }
+                file.findings.push(f);
+            }
+            match file.save(&path) {
+                Ok(()) => format!("driver findings: {} in the session", file.findings.len()),
+                Err(e) => format!("driver findings: save failed: {e}"),
+            }
+        }
+        Err(e) => format!("driver findings: {e}"),
+    }
+}
+
+/// POST /sessions/{slug}/driver/propose — judgment point 2: draft the
+/// scoped edit for the session's first finding and write
+/// `proposed.wikitext` (the gate runs at render/publish as always).
+async fn driver_propose(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+) -> Redirect {
+    let outcome = run_driver_propose(&state, &slug).await;
+    state.note_outcome(&slug, &outcome);
+    Redirect::to(&format!("/sessions/{slug}"))
+}
+
+async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
+    let dir = session_dir(slug);
+    let Ok(file) = crate::session::FindingsFile::load(&dir.join("findings.json")) else {
+        return "driver propose: no findings".into();
+    };
+    let Some(finding) = file.findings.first() else {
+        return "driver propose: no findings".into();
+    };
+    let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
+        return "driver propose: no base wikitext".into();
+    };
+    // The named refs on the page (offer them to the model).
+    let named: Vec<String> = base
+        .match_indices("<ref name=")
+        .filter_map(|(i, _)| base[i..].split('"').nth(1).map(str::to_string))
+        .collect();
+    let zai = match state.zai_client() {
+        Ok(z) => z,
+        Err(e) => return format!("driver propose: {e}"),
+    };
+    match crate::driver::steps::draft_proposal(&zai, finding, &base, &named).await {
+        Ok(proposal) => {
+            let anchor_line = finding
+                .wikitext_anchor
+                .split([':', '-'])
+                .next()
+                .unwrap_or("L1")
+                .trim_start_matches('L');
+            let line_no: usize = anchor_line.parse().unwrap_or(1);
+            let lines: Vec<&str> = base.lines().collect();
+            if line_no == 0 || line_no > lines.len() {
+                return "driver propose: anchor line out of range".into();
+            }
+            let mut out = lines.clone();
+            out[line_no - 1] = &proposal.proposed_wikitext_block;
+            let proposed = out.join("\n");
+            match std::fs::write(dir.join("proposed.wikitext"), proposed) {
+                Ok(()) => format!(
+                    "driver propose: block drafted ({}); render it, then review + publish",
+                    proposal.edit_summary
+                ),
+                Err(e) => format!("driver propose: write failed: {e}"),
+            }
+        }
+        Err(e) => format!("driver propose: {e}"),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct RenderForm {
+    round: u32,
+    summary: String,
+}
+
+/// POST /sessions/{slug}/render — gate + render the artifact (the
+/// session page links the live lavish review URL).
+async fn render(Path(slug): Path<String>, Form(form): Form<RenderForm>) -> Redirect {
+    let _ = crate::cli::render_cmd(&slug, form.round, None, None, &form.summary, true, false).await;
+    Redirect::to(&format!("/sessions/{slug}"))
 }
 
 /// POST /sessions/{slug}/publish — start the shared publish flow with a
@@ -495,6 +673,9 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/sweep-dispose", post(sweep_dispose))
         .route("/sessions/{slug}/sweep-fetch", post(sweep_fetch_route))
         .route("/sessions/{slug}/attach", post(attach))
+        .route("/sessions/{slug}/driver/findings", post(driver_findings))
+        .route("/sessions/{slug}/driver/propose", post(driver_propose))
+        .route("/sessions/{slug}/render", post(render))
         .route("/sessions/{slug}/publish", post(publish))
         .route("/confirmations", get(confirmations))
         .route("/confirmations/{id}", post(confirm))

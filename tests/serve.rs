@@ -64,6 +64,7 @@ fn setup_session(resolve_sweep: bool) -> PathBuf {
     std::fs::write(session.join("base.wikitext"), "The tower is old.\n").unwrap();
     std::fs::write(session.join("proposed.wikitext"), "The tower is old.\n").unwrap();
     copy_dir(Path::new("rules"), &dir.join("rules"));
+    copy_dir(Path::new("prompts"), &dir.join("prompts"));
     dir
 }
 
@@ -370,6 +371,61 @@ async fn declined_confirmation_never_edits() {
     assert_eq!(edit_mock.calls(), 0, "a decline never edits");
     let meta = std::fs::read_to_string(dir.join("sessions/test-article/session.json")).unwrap();
     assert!(meta.contains("\"base_revid\":500"), "no re-pin: {meta}");
+
+    let _ = child.kill();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The driver judgment point through the app: `POST driver/findings`
+/// calls the (mocked) model, and the validated finding lands in the
+/// session's findings.json via the same admission as `wa findings add`.
+#[tokio::test]
+async fn driver_findings_endpoint_runs_the_model_and_admits_findings() {
+    let dir = setup_session(true);
+    // Give S1 fetched text + a quote so the model has evidence to cite.
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("ledger.json"),
+        r#"{"schema_version":1,"sources":[
+            {"id":"S1","url":"https://example.com/paywalled","access_date":"2026-09-29","sweep_status":"fetched","fetched_text":"The tower was built in stages.","metadata":{"title":"Tower History"}},
+            {"id":"S2","url":"isbn:0961526106","access_date":"2026-09-29","sweep_status":"no_text","disposition":"print: no web text"}],
+           "quotes":[{"id":"Q1","source_id":"S1","text":"The tower was built in stages.","located_at":0}],
+           "claims":[]}"#,
+    )
+    .unwrap();
+
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST).path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content":
+                    "[{\"id\":\"F1\",\"wikitext_anchor\":\"L1:C0-L1:C19\",\"rules\":[\"WP:V\"],\"evidence\":[\"Q1\"],\"factual_note\":\"The history supports the age claim.\",\"proposed_fix\":\"Cite the age.\",\"loop\":2}]"}}]
+        }));
+    })
+    .await;
+
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/findings",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+
+    let findings = std::fs::read_to_string(session.join("findings.json")).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&findings).unwrap();
+    let f1 = &parsed["findings"][0];
+    assert_eq!(f1["id"], "F1", "{findings}");
+    assert_eq!(f1["evidence"][0], "Q1", "{findings}");
 
     let _ = child.kill();
     let _ = std::fs::remove_dir_all(&dir);
