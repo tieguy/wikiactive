@@ -682,8 +682,34 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .with_state(state)
 }
 
-/// Bind loopback-only and serve. The port comes from the caller; the host
-/// is fixed.
+/// Resolve this machine's Tailscale address (IPv4 + `MagicDNS` name) via
+/// the tailscale CLI — for operators on thin clients whose browser
+/// reaches this machine over the tailnet, not localhost.
+fn tsnet_address() -> Option<(std::net::Ipv4Addr, String)> {
+    let ip_out = std::process::Command::new("tailscale")
+        .args(["ip", "-4"])
+        .output()
+        .ok()?;
+    let ip: std::net::Ipv4Addr = String::from_utf8_lossy(&ip_out.stdout)
+        .trim()
+        .parse()
+        .ok()?;
+    let name_out = std::process::Command::new("tailscale")
+        .args(["status", "--json"])
+        .output()
+        .ok()?;
+    let name_json: serde_json::Value = serde_json::from_slice(&name_out.stdout).ok()?;
+    let dns = name_json
+        .pointer("/Self/DNSName")?
+        .as_str()?
+        .trim_end_matches('.')
+        .to_string();
+    Some((ip, dns))
+}
+
+/// Bind and serve. Default: loopback only. `tsnet` (explicit operator
+/// opt-in for thin-client setups) binds the machine's TAILNET interface
+/// only — the operator's private tailnet, never the LAN at large.
 ///
 /// # Errors
 /// Bind or serve failures.
@@ -691,17 +717,27 @@ pub fn router(state: Arc<ServeState>) -> Router {
 /// # Panics
 /// Never in practice: the loopback literal always parses (the expect is
 /// on a compile-time constant).
-pub async fn run(port: u16) -> anyhow::Result<()> {
-    let addr = std::net::SocketAddr::from((
+pub async fn run(port: u16, tsnet: bool) -> anyhow::Result<()> {
+    let ip = if tsnet {
+        match tsnet_address() {
+            Some((ip, dns)) => {
+                eprintln!(
+                    "wa serve: binding the TAILNET interface {dns} ({ip}) — operator opt-in (--tsnet); the default remains loopback-only"
+                );
+                ip
+            }
+            None => anyhow::bail!("--tsnet needs the tailscale CLI (`tailscale ip -4` must work)"),
+        }
+    } else {
         LOOPBACK_HOST
             .parse::<std::net::Ipv4Addr>()
-            .expect("literal loopback parses"),
-        port,
-    ));
+            .expect("literal loopback parses")
+    };
+    let addr = std::net::SocketAddr::from((ip, port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     // Port 0 binds an ephemeral port; report the actual bound address.
     let bound = listener.local_addr()?;
-    println!("wa serve listening on http://{bound} (loopback only)");
+    println!("wa serve listening on http://{bound}");
     let app = router(Arc::new(ServeState::new()));
     axum::serve(listener, app)
         .await

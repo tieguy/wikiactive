@@ -97,7 +97,7 @@ fn spawn_serve(dir: &Path, env: &[(&str, &str)]) -> (Child, u16) {
         }
     });
     let line = rx.recv().expect("listening line");
-    // "wa serve listening on http://127.0.0.1:PORT (loopback only)"
+    // "wa serve listening on http://127.0.0.1:PORT"
     let port: u16 = line
         .rsplit("127.0.0.1:")
         .next()
@@ -105,6 +105,7 @@ fn spawn_serve(dir: &Path, env: &[(&str, &str)]) -> (Child, u16) {
         .split([' ', '('])
         .next()
         .unwrap_or_default()
+        .trim()
         .parse()
         .unwrap_or_else(|_| panic!("could not parse listening line: {line}"));
     (child, port)

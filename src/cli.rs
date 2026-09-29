@@ -127,11 +127,16 @@ pub enum Command {
         cmd: SweepCmd,
     },
     /// Local web console (plan-003 B.4): session console, sweep manifest,
-    /// publish confirmation. Loopback-only bind.
+    /// publish confirmation. Loopback-only bind by default; `--tsnet`
+    /// (thin-client setups) binds the machine's TAILNET interface only.
     Serve {
-        /// Port (default 7427). The host is fixed to 127.0.0.1.
+        /// Port (default 7427).
         #[arg(long)]
         port: Option<u16>,
+        /// Bind the Tailscale interface instead of loopback (operator
+        /// opt-in; the browser reaches this machine via the tailnet).
+        #[arg(long)]
+        tsnet: bool,
     },
 }
 
@@ -282,7 +287,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             } => sweep_dispose(&slug, &source, &disposition),
             SweepCmd::Status { slug } => sweep_status(&slug),
         },
-        Command::Serve { port } => crate::serve::run(port.unwrap_or(7427)).await,
+        Command::Serve { port, tsnet } => crate::serve::run(port.unwrap_or(7427), tsnet).await,
         Command::Render {
             slug,
             round,
