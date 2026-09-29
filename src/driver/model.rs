@@ -133,8 +133,12 @@ pub struct ZaiClient {
 }
 
 impl ZaiClient {
-    /// Build from the environment: `ZAI_API_KEY` required,
-    /// `ZAI_BASE_URL` optional (default the standard v4 endpoint).
+    /// Build from the environment + fork configuration: `ZAI_API_KEY`
+    /// required (env only — keys never live in config), base URL resolved
+    /// as `ZAI_BASE_URL` (one-off override) → `rules/house-rules.toml`
+    /// `[zai] base_url` (the fork's configured endpoint — no shell ritual)
+    /// → the standard v4 default. The model id comes from the caller (the
+    /// corpus's `[zai] model` / `disclosure.drafting_model`).
     ///
     /// # Errors
     /// [`ZaiError::MissingApiKey`] or client construction failure.
@@ -146,6 +150,11 @@ impl ZaiClient {
         let base = std::env::var(ZAI_BASE_URL_ENV)
             .ok()
             .filter(|b| !b.trim().is_empty())
+            .or_else(|| {
+                crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
+                    .ok()
+                    .and_then(|c| c.house_rules.zai.map(|z| z.base_url))
+            })
             .unwrap_or_else(|| ZAI_DEFAULT_BASE.to_string());
         Ok(Self::with_base(&base, model, &api_key))
     }

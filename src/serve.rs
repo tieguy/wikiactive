@@ -96,16 +96,21 @@ impl ServeState {
         }
     }
 
-    /// The z.ai client for the driver judgment points (env credentials;
-    /// the test hook points at a mock).
+    /// The z.ai client for the driver judgment points (key from env;
+    /// endpoint from house-rules `[zai]`, env overriding; the test hook
+    /// points at a mock).
     fn zai_client(
         &self,
     ) -> Result<crate::driver::model::ZaiClient, crate::driver::model::ZaiError> {
+        let model = crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
+            .ok()
+            .and_then(|c| c.house_rules.zai.and_then(|z| z.model))
+            .unwrap_or_else(|| "glm-5.3".to_string());
         match &self.zai_override {
             Some(base) => Ok(crate::driver::model::ZaiClient::with_base(
-                base, "glm-5.3", "test-key",
+                base, &model, "test-key",
             )),
-            None => crate::driver::model::ZaiClient::from_env("glm-5.3"),
+            None => crate::driver::model::ZaiClient::from_env(&model),
         }
     }
 

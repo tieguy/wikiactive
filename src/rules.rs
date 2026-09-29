@@ -22,11 +22,26 @@ pub struct HouseRules {
     /// Operator identity (default username for `--review-since-user`).
     #[serde(default)]
     pub operator: OperatorRules,
+    /// Model driver endpoint config (`[zai]` in house-rules.toml).
+    #[serde(default)]
+    pub zai: Option<ZaiRules>,
     #[serde(default)]
     pub citevar: Option<serde_json::Value>,
     pub user_agent: UserAgentRules,
     #[serde(default)]
     pub etiquette: Option<serde_json::Value>,
+}
+
+/// `[zai]`: the model driver's endpoint — fork configuration, not shell
+/// ritual (plan-003 B.6 operator catch: "why am I doing shell exports?
+/// Those should be configuration"). Env still overrides for one-offs.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, Default)]
+pub struct ZaiRules {
+    /// Base URL (e.g. the Coding-Plan endpoint this fork's key uses).
+    pub base_url: String,
+    /// Model id at the three judgment points.
+    #[serde(default)]
+    pub model: Option<String>,
 }
 
 /// `[operator]` in `rules/house-rules.toml` — the on-wiki operator

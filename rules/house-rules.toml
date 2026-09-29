@@ -3,6 +3,17 @@
 # the code enforces; this file mirrors them for maintainers and is kept in
 # exact sync by tests/integrations.rs::house_rules_match_compiled_constants.
 
+[zai]
+# The model driver's endpoint (plan-003 B.0: this fork's key is a
+# Coding-Plan key — its quota lives on the coding endpoint; the standard
+# api.z.ai/api/paas/v4 base returns "no resource package" for it).
+# ZAI_API_KEY comes from the environment (never config); ZAI_BASE_URL
+# still overrides this for one-off runs.
+base_url = "https://api.z.ai/api/coding/paas/v4"
+# The model called at the three judgment points (also recorded in
+# disclosure entries as the drafting model).
+model = "glm-5.3"
+
 [disclosure]
 # Appended to every published edit summary. Format checked by tests/publish.rs.
 suffix = "LLM-Disclosure: [[User:LuisVilla/wikiactive]]"
