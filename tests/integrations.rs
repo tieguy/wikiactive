@@ -377,3 +377,161 @@ async fn review_since_user_records_revid_and_drift_summary() {
         None
     );
 }
+
+// ------------------------------------------------ plan-003 AC.5 z.ai client
+
+use std::time::Duration;
+use wikiloop::driver::model::ChatMessage;
+use wikiloop::driver::model::ZaiClient;
+use wikiloop::driver::model::ZaiError;
+
+fn zai_ok_body() -> serde_json::Value {
+    serde_json::json!({
+        "choices": [{"finish_reason": "stop", "index": 0,
+            "message": {"role": "assistant", "content": "{\"ok\":true}",
+                        "reasoning_content": "thinking…"}}],
+        "usage": {"total_tokens": 42}
+    })
+}
+
+/// AC.5: bearer auth, model id in the body, identifying UA on the z.ai
+/// call site, response parsed (content + reasoning + usage).
+#[tokio::test]
+async fn zai_chat_contract_shape() {
+    let server = MockServer::start_async().await;
+    let mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions")
+                .header("Authorization", "Bearer test-key")
+                .header("User-Agent", USER_AGENT)
+                .json_body(serde_json::json!({
+                    "model": "glm-5.3",
+                    "temperature": 0.2,
+                    "messages": [
+                        {"role": "system", "content": "sys"},
+                        {"role": "user", "content": "ctx"}
+                    ]
+                }));
+            then.status(200).json_body(zai_ok_body());
+        })
+        .await;
+
+    let client =
+        ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key").with_retry_delays(vec![]);
+    let resp = client
+        .chat(&[ChatMessage::system("sys"), ChatMessage::user("ctx")], 0.2)
+        .await
+        .expect("chat succeeds");
+    assert_eq!(resp.content, "{\"ok\":true}");
+    assert_eq!(resp.reasoning.as_deref(), Some("thinking…"));
+    assert_eq!(resp.total_tokens, Some(42));
+    assert_eq!(mock.calls(), 1);
+}
+
+/// AC.5: a rate-limit 429 (no 1113) is retried per the schedule and then
+/// succeeds. httpmock has no per-hit response sequences, so the reject
+/// mock (created first — first match wins) is deleted after its first
+/// hit; the generous retry delay makes the delete land first.
+#[tokio::test]
+async fn zai_backs_off_on_429_then_succeeds() {
+    let server = MockServer::start_async().await;
+    let reject = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(429)
+                .header("Retry-After", "0")
+                .json_body(serde_json::json!({"error": {"code": "1001", "message": "rate"}}));
+        })
+        .await;
+    let accept = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(200).json_body(zai_ok_body());
+        })
+        .await;
+
+    let client = ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key")
+        .with_retry_delays(vec![Duration::from_millis(250)]);
+    let task = tokio::spawn(async move { client.chat(&[ChatMessage::user("x")], 0.2).await });
+    while reject.calls() == 0 {
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+    let reject_hits = reject.calls();
+    reject.delete_async().await;
+    let resp = task.await.expect("task joins").expect("retry succeeds");
+    assert_eq!(resp.content, "{\"ok\":true}");
+    assert_eq!(reject_hits, 1);
+    assert_eq!(accept.calls(), 1);
+}
+
+/// AC.5 / B.0: 429 with error code 1113 (no resource package) is TERMINAL
+/// — exactly one request, no retries, a [`ZaiError::NoPackage`] with the
+/// Coding-Plan hint.
+#[tokio::test]
+async fn zai_no_package_429_is_terminal_not_retried() {
+    let server = MockServer::start_async().await;
+    let mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(429).json_body(serde_json::json!({
+                "error": {"code": "1113",
+                          "message": "Insufficient balance or no resource package."}
+            }));
+        })
+        .await;
+
+    let client = ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key")
+        .with_retry_delays(vec![Duration::from_millis(1); 3]);
+    let err = client
+        .chat(&[ChatMessage::user("x")], 0.2)
+        .await
+        .expect_err("1113 is terminal");
+    assert!(matches!(err, ZaiError::NoPackage { .. }));
+    assert!(err.to_string().contains("ZAI_BASE_URL"));
+    assert_eq!(mock.calls(), 1, "terminal 429 must not be retried");
+}
+
+/// AC.5: exhausted retries surface [`ZaiError::RateLimited`]; non-retryable
+/// 4xx surfaces [`ZaiError::Http`].
+#[tokio::test]
+async fn zai_error_mapping() {
+    let server = MockServer::start_async().await;
+    let rate = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(429).json_body(serde_json::json!({
+                "error": {"code": "1001", "message": "rate"}}));
+        })
+        .await;
+
+    let client = ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key")
+        .with_retry_delays(vec![Duration::from_millis(1); 2]);
+    let err = client
+        .chat(&[ChatMessage::user("x")], 0.2)
+        .await
+        .expect_err("always 429");
+    assert!(matches!(err, ZaiError::RateLimited { attempts: 3 }));
+    assert_eq!(rate.calls(), 3);
+
+    let server2 = MockServer::start_async().await;
+    let unauthorized = server2
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(401).body("denied");
+        })
+        .await;
+    let client2 = ZaiClient::with_base(&server2.url(""), "glm-5.3", "test-key")
+        .with_retry_delays(vec![Duration::from_millis(1); 2]);
+    let err2 = client2
+        .chat(&[ChatMessage::user("x")], 0.2)
+        .await
+        .expect_err("401");
+    assert!(matches!(err2, ZaiError::Http { status: 401, .. }));
+    assert_eq!(unauthorized.calls(), 1, "4xx is not retried");
+}
