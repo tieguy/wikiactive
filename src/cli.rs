@@ -693,7 +693,13 @@ fn sweep_status(slug: &str) -> Result<()> {
     Ok(())
 }
 
-async fn render_cmd(
+/// Gate + render the review artifact (driver-facing surface: the e2e
+/// session runner and `wa serve` call the same path as the CLI).
+///
+/// # Errors
+/// Session/rules IO, a blocked gate (no artifact is written), or lavish
+/// open failures.
+pub async fn render_cmd(
     slug: &str,
     round: u32,
     html_base: Option<PathBuf>,
@@ -919,7 +925,8 @@ fn disclosure_entry(date: &str, article: &str, model: &str, diffs_text: &str) ->
 #[allow(clippy::too_many_lines)]
 /// What a completed publish did (shared by the CLI prints and the
 /// `wa serve` session state).
-pub(crate) struct PublishOutcome {
+#[derive(Debug)]
+pub struct PublishOutcome {
     /// Diff URL of the published revision.
     pub diff_url: String,
     /// The new revid (0 when the edit was a no-change).
@@ -941,7 +948,7 @@ pub(crate) struct PublishOutcome {
 /// # Errors
 /// Gate blocked, wiki/edit errors (including [`crate::wikipedia::WikipediaError::Declined`]),
 /// or session IO failures.
-pub(crate) async fn publish_core(
+pub async fn publish_core(
     slug: &str,
     summary: &str,
     wiki: &Wikipedia,
@@ -1189,8 +1196,12 @@ fn ledger_quote(slug: &str, source: &str, text: &str) -> Result<()> {
 }
 
 /// `wa ledger attach` — ingest operator-fetched text for an unreachable
-/// source; quotes against it verify verbatim exactly like auto-fetches.
-pub(crate) fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
+/// source; quotes against it verify verbatim exactly like auto-fetches
+/// (driver-facing surface).
+///
+/// # Errors
+/// Unknown session/source, unreadable capture, or unknown format.
+pub fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let text = if file == "-" {
         let mut buf = String::new();
