@@ -983,6 +983,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
     </aside>
   </div>
   <p class="meta">current round marker: {round_marker} · anchor table embedded as #wa-anchor-table</p>
+  <p class="meta">looks right? <strong>end this review session</strong> (ending = review done, nothing is published) and approve the publish in the console · want changes? select text and send comments — they reach the loop</p>
 </main>
 </body>
 </html>
