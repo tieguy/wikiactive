@@ -25,6 +25,7 @@ use axum::Router;
 use axum::extract::Path;
 use axum::extract::State;
 use axum::response::Html;
+use axum::response::IntoResponse as _;
 use axum::response::Redirect;
 use axum::routing::get;
 use axum::routing::post;
@@ -294,25 +295,23 @@ async fn session_page(
         meta.entry_loop
     );
     if let Some(url) = review_url {
-        // lavish-axi 0.1.78 dies after 30 idle minutes and the state file
-        // keeps the stale URL — probe before presenting a link; a dead
-        // server gets a one-click re-open instead (the planned serve-side
-        // wrap of `render --reopen`).
-        let live = probe_url(&url).await;
-        if live {
-            let _ = writeln!(
-                page,
-                "<p><a href=\"{}\">open the live review session</a></p>",
-                esc(&url)
-            );
-        } else {
-            let _ = writeln!(
-                page,
-                "<p>review server not running (lavish idles out) — \
-                 <form method=post action=\"/sessions/{slug}/review-reopen\">\
-                 <button>re-open the review session</button></form></p>"
-            );
-        }
+        // B.6 operator catches: the lavish server can be alive while the
+        // SESSION is ended ("session is already over"), so don't try to be
+        // clever — always offer both the link and a re-open, and the
+        // in-app artifact link above needs none of this.
+        let _ = writeln!(
+            page,
+            "<p><a href=\"/sessions/{slug}/review\">open the review artifact (in-app)</a> \
+             · <a href=\"{}\">lavish review + comments</a> \
+             <form method=post action=\"/sessions/{slug}/review-reopen\" style=display:inline>\
+             <button>lavish says over? re-open</button></form></p>",
+            esc(&url)
+        );
+    } else {
+        let _ = writeln!(
+            page,
+            "<p><a href=\"/sessions/{slug}/review\">open the review artifact (in-app)</a> — render first; lavish is only needed to leave comments</p>"
+        );
     }
     if let Some(last) = meta.last_published_diff_url {
         let _ = writeln!(
@@ -414,16 +413,16 @@ async fn session_page(
     Html(page)
 }
 
-/// Any HTTP response (even 404) proves the review server is alive; only
-/// connection errors mean dead.
-async fn probe_url(url: &str) -> bool {
-    let Ok(client) = reqwest::Client::builder()
-        .timeout(Duration::from_secs(2))
-        .build()
-    else {
-        return false;
-    };
-    client.get(url).send().await.is_ok()
+/// GET /sessions/{slug}/review — the review artifact, served in-app.
+/// The artifact is self-contained HTML; reading it never needs the lavish
+/// server (B.6 operator catch: reading the diff was chained through
+/// lavish's lifecycle — "session is already over" — for no reason).
+async fn review_artifact(Path(slug): Path<String>) -> axum::response::Response {
+    let path = session_dir(&slug).join("review.html");
+    match std::fs::read_to_string(&path) {
+        Ok(html) => Html(html).into_response(),
+        Err(_) => axum::http::StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 /// POST /sessions/{slug}/review-reopen — revive a user-ended or idled-out
@@ -792,6 +791,7 @@ pub fn router(state: Arc<ServeState>) -> Router {
     Router::new()
         .route("/", get(console))
         .route("/sessions/{slug}", get(session_page))
+        .route("/sessions/{slug}/review", get(review_artifact))
         .route("/sessions/{slug}/sweep-dispose", post(sweep_dispose))
         .route("/sessions/{slug}/sweep-fetch", post(sweep_fetch_route))
         .route("/sessions/{slug}/attach", post(attach))
