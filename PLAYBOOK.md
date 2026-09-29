@@ -13,13 +13,14 @@ session init ─► [step 0] analyze ─► triage (already done at init) ─►
                     │                                                │
                     │      ledger work: register/fetch/archive/quote/claim
                     │                                                │
-                    │      wa render ──► GATE ──► review.html ──► lavish open
+                    │      wa render ──► GATE ──► review.html (in-app)
                     │                    │                            │
-                    │                 blocked                        poll
-                    │                    │                            │
-                    │              fix + re-render               comments
+                    │                 blocked                   leave comments
+                    │                    │                     (session page,
+                    │              fix + re-render               one per block)
                     │                                                 │
-                    │      resolve comments (anchors.rs) ──► revise ──┘
+                    │      driver: apply review comments ──► revise ──┘
+                    │          (queue → model → splice → resolution note)
                     │
                     └──► operator confirms ──► wa publish ──► GATE re-run
                                                   │                │
@@ -107,14 +108,25 @@ dropped.
    with the offending wikitext span.
 6. **Render** — `wa render <slug> --round <n> --summary "<one line>"`. The
    gate runs as mandatory pre-flight; blocked = no artifact, all reasons
-   listed. On success: review.html opens in lavish.
-7. **Review** — the operator reads the two-pane diff with the evidence
-   rail; comments anchor to `wa-N` (wikitext ranges) and `ev-N` (ledger
-   quotes).
-8. **Poll** — `wa poll <slug>` (or re-poll with `--agent-reply "<msg>"`
-   after applying feedback). Comments resolve to anchors; quote the
-   resolved span back in your reply so mis-maps are visible.
-9. **Revise → re-render → re-poll** until the operator is satisfied.
+   listed. On success: review.html (read it in-app on the session page).
+7. **Review** — the operator reads the single-column diff with the
+   evidence rail and leaves comments on the **session page**, one per
+   changed block (plus one per evidence card). Anchoring is exact: the
+   form's hidden target IS the block's `wikitext_anchor` from the
+   artifact's embedded anchor table — a plain `L..:C..-L..:C..` range
+   (new side), `base:`-prefixed (removed wording), or `ledger:Q<n>`
+   (evidence). An optional "words you mean" field carries highlighted
+   wording (the text-selection substitute).
+8. **Resolve** — **driver: apply review comments** (session page) maps
+   the OPEN queue entries through the model, grouped by enclosing changed
+   block (both sides of a pair go in ONE call), splices the revised
+   blocks into `proposed.wikitext` once per group, and writes each
+   group's applied/rejected/reply note back to the queue. Or resolve by
+   hand: `wa comments resolve <slug> --id K1 --note "…"` (evidence
+   comments are about sources, not wikitext — always manual).
+9. **Re-render → re-comment** until the operator is satisfied (each
+   resolution note says what was done: applied/rejected lines plus the
+   model's reply).
 10. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
     gate re-runs; then the ONE human gate: a `/dev/tty` confirmation. The
     model never self-publishes. On success the base re-pins.
@@ -122,7 +134,7 @@ dropped.
     note; disclosure-page session-log append; screenshots for the
     disclosure page (operator, manual Commons upload).
 
-### Comment conventions (lavish)
+### Comment conventions
 
 - **Edit summaries name a rule only when verified.** "per MOS:PROSE" style
   attributions require the rule to actually say what the edit does — check
@@ -131,16 +143,19 @@ dropped.
   attributed to the MOS; describe such edits plainly ("split a
   semicolon-joined sentence for readability") or as house style.
 
-- Comments on **changed blocks** (`wa-N`) resolve to wikitext ranges — fix
-  in proposed.wikitext. A **plain** range (`L..:C..-L..:C..`) points into
+- Comments on **changed blocks** target wikitext ranges — fix in
+  proposed.wikitext. A **plain** range (`L..:C..-L..:C..`) points into
   the *proposed* wikitext (new side); a **`base:`-prefixed** range
   (`base:L..:C..-L..:C..`) points into the *base* wikitext (old side —
   the removed wording, including pure deletions). When acting on a
-  `base:` anchor, quote the base span in your reply.
-- Comments on **evidence cards** (`ev-N`) resolve to ledger quotes — the
-  comment is about the source/quote, not the prose: swap sources, adjust
-  quotes (re-verify!), or note the dispute.
-- Always reply with the resolved anchor and the span text you acted on.
+  `base:` anchor, the resolution quotes the base span.
+- Comments on **evidence cards** (`ledger:Q<n>`) are about the
+  source/quote, not the prose: swap sources, adjust quotes (re-verify!),
+  or note the dispute. They resolve manually — the driver never edits
+  wikitext on their say-so.
+- The queue (`sessions/<slug>/comments.jsonl`) is the record: every
+  resolution persists its note there (applied/rejected lines + the
+  model's reply); the session page renders that, not in-memory state.
 
 ### Publish gate invariant
 
@@ -149,14 +164,17 @@ interactive tty confirmation. If either fails: nothing is written. The
 edit summary must be non-empty; the disclosure suffix is appended
 mechanically (`LLM-Disclosure: U:LuisVilla/wikiactive`).
 
-## Driver mode — `wa serve` (plan-003 Phase B)
+## Driver mode — `wa serve` (plan-003 Phase B, plan-004)
 
 The loop, self-served in the browser, with the model called at exactly
 the three judgment points (findings authoring, proposal drafting,
 comment resolution — `prompts/` is the versioned, checksum-pinned
 prompt set; the disclosure page's "exact code including model prompts"
 promise is mechanical). Everything else — loop control, the ledger, the
-gate, the publish confirmation — is deterministic Rust.
+gate, the review comments, the publish confirmation — is deterministic
+Rust. One process, zero external server lifecycles (plan-004 cut the
+lavish interlink out of the default loop; see the addendum's decision
+record).
 
 ```
 ./target/debug/wa serve            # loopback only (default)
@@ -166,13 +184,15 @@ gate, the publish confirmation — is deterministic Rust.
 Protocol: init the session CLI-side (`wa session init …`), then in the
 console — sweep fetch + resolve (dispositions, pasted captures), **driver:
 author findings**, review what the model proposed against the manifest,
-**driver: draft proposal**, **render review artifact** (the session page
-links the lavish review; a dead review server gets a one-click
-re-open — lavish 0.1.78 idles out after 30 min), leave comments in
-lavish (resolved via `wa poll`), then **start publish** and
-approve/decline the pending confirmation, which shows the exact prompt.
-Comment resolution (judgment point 3) runs through `wa poll
---agent-reply` as before.
+**driver: draft proposal**, **render review artifact** (in-app: the
+session page links it, no external review server), leave comments in the
+session page's **Review comments** section (one per changed block + one
+per evidence card; the queue is `sessions/<slug>/comments.jsonl`), then
+**driver: apply review comments** (judgment point 3: open comments →
+model, grouped per changed block → spliced revisions + per-group notes),
+re-render, and finally **start publish** and approve/decline the pending
+confirmation, which shows the exact prompt. The whole loop runs in this
+one process — no Node, no review-server lifecycle.
 
 Invariants preserved: no auto-publish (the edit posts only on the
 explicit approve click — pinned by tests/serve.rs), the same gate runs
@@ -218,12 +238,22 @@ Opus 5.5 drafting quirk).
 
 ### Known limitations (by design)
 
-- The lavish revisions legend lists **at most 6 rounds**; the registry in
-  the artifact keeps every round, rounds beyond 6 just don't appear in the
-  legend.
+- The revisions registry embedded in the artifact keeps every round; the
+  on-page legend was a lavish feature (legacy CLI path) and listed at
+  most 6 rounds — the registry itself is unbounded.
 - Wikitext anchors are line-based (`L..:C..`); col are char columns.
 - The linter is regex-level; no `<nowiki>` handling, refs spanning lines
   attribute to the opening line.
+- Comment fidelity is block-level, not text-selection: mitigated by the
+  "words you mean" field and the resolution's applied/rejected + reply
+  notes (acceptable for a single-reviewer tool — operator's call,
+  plan-004).
+- Block anchors are single-line ranges: the driver's revised block
+  splices by the anchor's line, so a multi-line block (multi-paragraph
+  pair, table) is resolved and spliced at its anchor line, not over its
+  full extent.
+- Legacy CLI: `wa render` (lavish open) and `wa poll` still work for the
+  tty path, but the default loop and the app UI no longer use them.
 
 ## Per-loop rule packs (what `wa analyze` loads)
 

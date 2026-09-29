@@ -236,3 +236,42 @@ session — a stale URL presented as a live link was a B.6 operator catch
 (the old smoke session). `wa serve` now probes before linking and
 offers a one-click re-open (the serve-side wrap of `render --reopen`);
 `wa poll` remains the keep-alive pattern for tty sessions.
+
+## B.6 shakedown verdict + the plan-004 decision (2026-09-29, operator's call)
+
+**Verdict: the lavish-interlinked loop was not usable.** Every failure in
+the B.6 live shakedown lived in the lavish interlink — never in the
+artifact, the gate, the ledger, or the driver steps:
+
+- **Idle death**: lavish 0.1.78 idles out after 30 min; the review leg
+  silently expired mid-session.
+- **Ended-session links**: the state file keeps URLs of ended sessions;
+  the session page linked a dead URL as if live (probe + re-open was a
+  patch, not a fix).
+- **Wrong-session polls**: `wa poll` resolved against whatever session
+  the state file last recorded — comments from another article's review
+  surfaced in the wrong loop.
+- **"Agent not listening"**: the push model required the agent to be
+  long-polling at the moment the operator commented; the review was
+  gated on the tool's lifecycle, not the operator's.
+
+**Decision (plan-004, operator's call): cut lavish out of the default
+loop.** The review leg becomes in-app: block-anchored comments on the
+session page, persisted to a session-local queue
+(`sessions/<slug>/comments.jsonl`), resolved by a driver action that
+groups comments per changed block (both sides of a pair in ONE model
+call), splices the revised blocks, and writes applied/rejected/reply
+notes back to the queue. The whole loop — sweep → findings → proposal →
+render → review comments → resolution → publish approval — runs in ONE
+process (`wa serve`), zero external server lifecycles, no Node.
+
+Trade-off accepted: comment fidelity drops from text-selection to block
+anchors + a free-text "words you mean" field (mitigated by resolution
+notes quoting the acted-on span) — acceptable for a single-reviewer
+tool. `wa render`'s lavish open and `wa poll` remain working legacy CLI
+commands (tests intact); the documented loop and the app UI no longer
+touch them.
+
+What survived from B.6 (prerequisites, not waste): the publish-
+confirmation wait, gate-in-web, the in-app artifact link, config-based
+z.ai, and `--tsnet`.

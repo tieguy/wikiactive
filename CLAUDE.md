@@ -4,7 +4,8 @@
 
 `wikiloop` (binary `wa`) drives a structured Wikipedia improvement loop:
 one logical edit at a time, every content change quote-anchored to a
-fetched source, human review via a lavish-axi artifact, publish only on
+fetched source, human review via the in-app console (`wa serve`:
+block-anchored comments on the session page), publish only on
 interactive confirmation. Read `PLAYBOOK.md` before doing any session work;
 read `docs/design-plans/2026-09-24-mvp1-structured-loop.md` for the design.
 
@@ -47,7 +48,7 @@ wa sweep inventory|fetch|status <slug>   # fetch-or-dispose before analysis
 wa sweep dispose <slug> --source S3 --disposition "..."
 wa render <slug> --round 1 --summary "..."
 wa check <slug>            # standalone gate preflight (no artifact)
-wa poll <slug> [--agent-reply "..."]
+wa comments list|add|resolve <slug> ...   # the review comment queue
 wa publish <slug> --summary "..."
 wa serve [--tsnet] [--port N]  # local web console (loopback default)
 wa lint <wikitext-file>

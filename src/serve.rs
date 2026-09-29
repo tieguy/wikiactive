@@ -226,6 +226,17 @@ fn read_meta(slug: &str) -> Option<SessionMeta> {
     serde_json::from_str(&text).ok()
 }
 
+/// Write-route gate (plan-004 review finding): the slug comes from the
+/// URL path and axum percent-decodes it, so an unvalidated slug can
+/// traverse outside `sessions/` (and browser form POSTs are "simple
+/// requests" — any site can fire them at loopback). Every mutating route
+/// must reference a session that actually exists on disk.
+fn known_session(slug: &str) -> bool {
+    !slug.contains(['/', '\\'])
+        && !slug.split('/').any(|seg| seg == ".." || seg == ".")
+        && read_meta(slug).is_some()
+}
+
 fn list_sessions() -> Vec<String> {
     let mut slugs: Vec<String> = std::fs::read_dir("sessions")
         .map(|rd| {
@@ -285,7 +296,6 @@ async fn session_page(
     };
     let dir = session_dir(&slug);
     let ledger = Ledger::load(&dir.join("ledger.json")).ok();
-    let review_url = crate::lavish::session_url(&dir.join("review.html"));
 
     let mut page = format!(
         "<h1>{}</h1><p>slug {} · base revid {} · entry loop L{}</p>",
@@ -294,25 +304,14 @@ async fn session_page(
         meta.base_revid,
         meta.entry_loop
     );
-    if let Some(url) = review_url {
-        // B.6 operator catches: the lavish server can be alive while the
-        // SESSION is ended ("session is already over"), so don't try to be
-        // clever — always offer both the link and a re-open, and the
-        // in-app artifact link above needs none of this.
-        let _ = writeln!(
-            page,
-            "<p><a href=\"/sessions/{slug}/review\">open the review artifact (in-app)</a> \
-             · <a href=\"{}\">lavish review + comments</a> \
-             <form method=post action=\"/sessions/{slug}/review-reopen\" style=display:inline>\
-             <button>lavish says over? re-open</button></form></p>",
-            esc(&url)
-        );
-    } else {
-        let _ = writeln!(
-            page,
-            "<p><a href=\"/sessions/{slug}/review\">open the review artifact (in-app)</a> — render first; lavish is only needed to leave comments</p>"
-        );
-    }
+    // The review surface is the in-app artifact + this page's comment
+    // forms — no external review server, no lifecycle (plan-004).
+    let _ = writeln!(
+        page,
+        "<p><a href=\"/sessions/{slug}/review\">open the review artifact (in-app)</a> · \
+         leave comments below (one per block)</p>"
+    );
+    page.push_str(&review_comments_section(&slug));
     if let Some(last) = meta.last_published_diff_url {
         let _ = writeln!(
             page,
@@ -425,17 +424,216 @@ async fn review_artifact(Path(slug): Path<String>) -> axum::response::Response {
     }
 }
 
-/// POST /sessions/{slug}/review-reopen — revive a user-ended or idled-out
-/// lavish review session for the existing artifact (the serve-side wrap
-/// of `wa render --reopen`).
-async fn review_reopen(Path(slug): Path<String>) -> Redirect {
-    let artifact = session_dir(&slug).join("review.html");
-    if artifact.exists() {
-        let _ =
-            tokio::task::spawn_blocking(move || crate::lavish::open_session(&artifact, true, true))
-                .await;
+/// The "Review comments" section (plan-004 P.2): one comment form per
+/// changed block (built from the artifact's embedded anchor table — the
+/// hidden `target` is the block's `wikitext_anchor` VERBATIM, so comment
+/// anchoring is exact by construction), old-side forms for removed
+/// wording, evidence-card forms labeled by the source's citation text,
+/// and the queue itself — open first (highlighted), then resolved with
+/// their notes. Built as its own helper: `session_page` is at the
+/// `too_many_lines` ceiling.
+fn review_comments_section(slug: &str) -> String {
+    let dir = session_dir(slug);
+    let mut html = String::from("\n<h2>Review comments</h2>\n");
+    match std::fs::read_to_string(dir.join("review.html")) {
+        Ok(text) => html.push_str(&comment_forms(slug, &text)),
+        Err(_) => html.push_str("<p>no review artifact yet — render one first</p>\n"),
     }
-    Redirect::to(&format!("/sessions/{slug}"))
+    html.push_str(&queue_html(slug, &dir));
+    html
+}
+
+/// One comment form group: per-changed-block forms (plus old-side forms
+/// for removed wording) and evidence-card forms labeled by the source's
+/// citation text — never the Q-id (evidence comments are about sources).
+fn comment_forms(slug: &str, artifact: &str) -> String {
+    let blocks = crate::render::review_targets(artifact);
+    let evidence = crate::render::evidence_targets(artifact);
+    if blocks.is_empty() && evidence.is_empty() {
+        return "<p>no changed blocks in this artifact — nothing to comment on</p>\n".into();
+    }
+    let mut html = String::new();
+    for block in &blocks {
+        let _ = writeln!(
+            html,
+            "<div class=\"cform\">\
+             <form method=post action=\"/sessions/{slug}/comments\">\
+             <input type=hidden name=target value=\"{}\">\
+             <span class=\"cform-label\">change · {}</span>\
+             <textarea name=text rows=2 cols=70 placeholder=\"comment on this block\"></textarea>\
+             <input name=quoted size=30 placeholder=\"words you mean (optional)\">\
+             <button>comment</button></form></div>",
+            esc(&block.wikitext_anchor),
+            esc(&block.label)
+        );
+        for old in &block.old_sides {
+            let label = old.label.clone().unwrap_or_else(|| {
+                crate::render::human_line_label(&old.wikitext_anchor)
+                    .unwrap_or_else(|| old.element_id.clone())
+            });
+            let _ = writeln!(
+                html,
+                "<div class=\"cform cform-old\">\
+                 <form method=post action=\"/sessions/{slug}/comments\">\
+                 <input type=hidden name=target value=\"{}\">\
+                 <span class=\"cform-label\">removed wording · {}</span>\
+                 <textarea name=text rows=2 cols=70 placeholder=\"comment on the removed wording\"></textarea>\
+                 <input name=quoted size=30 placeholder=\"words you mean (optional)\">\
+                 <button>comment</button></form></div>",
+                esc(&old.wikitext_anchor),
+                esc(&label)
+            );
+        }
+    }
+    if !evidence.is_empty() {
+        html.push_str("<h3>On the sources (evidence)</h3>\n");
+        for ev in &evidence {
+            let _ = writeln!(
+                html,
+                "<div class=\"cform\">\
+                 <form method=post action=\"/sessions/{slug}/comments\">\
+                 <input type=hidden name=target value=\"{}\">\
+                 <span class=\"cform-label\">source · {}</span>\
+                 <textarea name=text rows=2 cols=70 placeholder=\"about this source or its quotes\"></textarea>\
+                 <input name=quoted size=30 placeholder=\"words you mean (optional)\">\
+                 <button>comment</button></form></div>",
+                esc(&ev.wikitext_anchor),
+                esc(&ev.label)
+            );
+        }
+    }
+    html
+}
+
+/// The queue: open comments highlighted (each with its resolve form and
+/// the shared driver button), resolved ones with their notes.
+fn queue_html(slug: &str, dir: &std::path::Path) -> String {
+    let mut html = String::new();
+    let queue = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+        Ok(queue) if queue.comments.is_empty() => {
+            return "<p>queue empty</p>\n".into();
+        }
+        Ok(queue) => queue,
+        Err(e) => return format!("<p class=error>comment queue: {e}</p>\n"),
+    };
+    let open = queue.open();
+    if !open.is_empty() {
+        let _ = writeln!(
+            html,
+            "<h3>Open ({})</h3><form method=post action=\"/sessions/{slug}/driver/resolve\">\
+             <button>driver: apply review comments (model)</button></form>",
+            open.len()
+        );
+        for c in open {
+            let _ = writeln!(
+                html,
+                "<div class=\"comment comment-open\"><strong>{} OPEN</strong> → <code>{}</code><br>{}{}\
+                 <form method=post action=\"/sessions/{slug}/comments/resolve\" class=inline>\
+                 <input type=hidden name=id value=\"{}\">\
+                 <input name=note size=50 placeholder=\"resolution note\">\
+                 <button>resolve manually</button></form></div>",
+                esc(&c.id),
+                esc(&c.target),
+                esc(&c.text),
+                c.quoted
+                    .as_ref()
+                    .map(|q| format!("<br><em>highlighted:</em> {}", esc(q)))
+                    .unwrap_or_default(),
+                esc(&c.id)
+            );
+        }
+    }
+    let resolved: Vec<_> = queue
+        .comments
+        .iter()
+        .filter(|c| c.status == crate::comments::CommentStatus::Resolved)
+        .collect();
+    if !resolved.is_empty() {
+        html.push_str("<h3>Resolved</h3>\n");
+        for c in resolved {
+            let _ = writeln!(
+                html,
+                "<div class=\"comment comment-resolved\"><strong>{}</strong> → <code>{}</code><br>{}\
+                 <br><em>resolution:</em> {}</div>",
+                esc(&c.id),
+                esc(&c.target),
+                esc(&c.text),
+                esc(c.resolution.as_deref().unwrap_or("(none recorded)"))
+            );
+        }
+    }
+    html
+}
+
+#[derive(serde::Deserialize)]
+struct CommentForm {
+    target: String,
+    text: String,
+    #[serde(default)]
+    quoted: Option<String>,
+}
+
+/// POST /sessions/{slug}/comments — append to the queue (the form's hidden
+/// target is the block's wikitext anchor, verbatim from the artifact's
+/// anchor table). Queue errors SURFACE: a malformed queue must never
+/// silently become empty and re-allocate duplicate ids.
+async fn comments_add(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+    Form(form): Form<CommentForm>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    let dir = session_dir(&slug);
+    match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+        Ok(mut queue) => {
+            let comment = crate::comments::Comment::new(
+                &form.target,
+                &form.text,
+                form.quoted.as_deref(),
+                &crate::comments::now_iso(),
+            );
+            match queue.append(&dir.join("comments.jsonl"), comment) {
+                Ok(id) => {
+                    state.note_outcome(&slug, &format!("comment {id} queued → {}", form.target));
+                }
+                Err(e) => state.note_outcome(&slug, &format!("comment queue write failed: {e}")),
+            }
+        }
+        Err(e) => state.note_outcome(&slug, &format!("comment queue: {e}")),
+    }
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct CommentResolveForm {
+    id: String,
+    note: String,
+}
+
+/// POST /sessions/{slug}/comments/resolve — manual resolution (the
+/// evidence-card path and anything handled outside the driver step).
+async fn comments_resolve(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+    Form(form): Form<CommentResolveForm>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    let dir = session_dir(&slug);
+    let outcome = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+        Ok(mut queue) => match queue.resolve(&dir.join("comments.jsonl"), &form.id, &form.note) {
+            Ok(()) => format!("comment {} resolved manually", form.id),
+            Err(e) => format!("comment resolve failed: {e}"),
+        },
+        Err(e) => format!("comment queue: {e}"),
+    };
+    state.note_outcome(&slug, &outcome);
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -445,7 +643,14 @@ struct DisposeForm {
 }
 
 /// POST /sessions/{slug}/sweep-dispose — operator-signed disposition.
-async fn sweep_dispose(Path(slug): Path<String>, Form(form): Form<DisposeForm>) -> Redirect {
+async fn sweep_dispose(
+    Path(slug): Path<String>,
+    Form(form): Form<DisposeForm>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
     let dir = session_dir(&slug);
     if let Ok(mut ledger) = Ledger::load(&dir.join("ledger.json"))
         && ledger
@@ -454,13 +659,17 @@ async fn sweep_dispose(Path(slug): Path<String>, Form(form): Form<DisposeForm>) 
     {
         let _ = ledger.save(&dir.join("ledger.json"));
     }
-    Redirect::to(&format!("/sessions/{slug}"))
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 /// POST /sessions/{slug}/sweep-fetch — batch fetch + classify (network).
-async fn sweep_fetch_route(Path(slug): Path<String>) -> Redirect {
+async fn sweep_fetch_route(Path(slug): Path<String>) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
     let _ = crate::cli::sweep_fetch(&slug).await;
-    Redirect::to(&format!("/sessions/{slug}"))
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -471,14 +680,21 @@ struct AttachForm {
 
 /// POST /sessions/{slug}/attach — ingest pasted operator-captured text
 /// for one source (same ingestion as `wa ledger attach`).
-async fn attach(Path(slug): Path<String>, Form(form): Form<AttachForm>) -> Redirect {
+async fn attach(
+    Path(slug): Path<String>,
+    Form(form): Form<AttachForm>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
     let dir = session_dir(&slug);
     let tmp = dir.join("attach-upload.txt");
     if std::fs::write(&tmp, &form.text).is_ok() {
         let _ = crate::cli::ledger_attach(&slug, &form.source, &tmp.to_string_lossy());
         let _ = std::fs::remove_file(&tmp);
     }
-    Redirect::to(&format!("/sessions/{slug}"))
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -626,16 +842,497 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
     }
 }
 
+/// POST /sessions/{slug}/driver/resolve — judgment point 3, in-app: the
+/// queue's OPEN comments mapped through the B.2 `resolve_comments` step
+/// (reused verbatim), grouped by the enclosing changed block, with
+/// applied/rejected/reply written back per group.
+async fn driver_resolve(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse as _;
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    let outcome = run_driver_resolve(&state, &slug).await;
+    state.note_outcome(&slug, &outcome);
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
+}
+
+/// `L{s}:C{a}-L{e}:C{b}` (optionally `base:`-prefixed) → 1-based
+/// inclusive line range.
+fn anchor_line_range(anchor: &str) -> Option<(usize, usize)> {
+    let rest = anchor.strip_prefix("base:").unwrap_or(anchor);
+    let mut parts = rest.split('-');
+    let start = parts
+        .next()?
+        .strip_prefix('L')?
+        .split(':')
+        .next()?
+        .parse()
+        .ok()?;
+    let end = parts
+        .next()?
+        .strip_prefix('L')?
+        .split(':')
+        .next()?
+        .parse()
+        .ok()?;
+    if end < start {
+        return None;
+    }
+    Some((start, end))
+}
+
+/// One comment group = one changed block: a changed pair's old-side
+/// (`base:`-anchored) and new-side (`wa-N`) comments MERGE into one group
+/// — both sides of a pair share the same line, and splicing per
+/// element-id would silently clobber one of the two.
+struct CommentGroup {
+    /// The block's new-side anchor (`None` for pure deletions).
+    new_anchor: Option<String>,
+    /// The pair's old-side `base:` anchor (`None` for pure insertions).
+    old_anchor: Option<String>,
+    /// Queue ids of this group's open comments.
+    ids: Vec<String>,
+}
+
+/// The lines `s..=e` (1-based, inclusive) or `None` when out of range.
+fn slice_lines(lines: &[&str], s: usize, e: usize) -> Option<String> {
+    if s >= 1 && e >= s && e <= lines.len() {
+        Some(lines[s - 1..e].join("\n"))
+    } else {
+        None
+    }
+}
+
+async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
+    let dir = session_dir(slug);
+    let Ok(artifact) = std::fs::read_to_string(dir.join("review.html")) else {
+        return "driver resolve: no review artifact — render first".into();
+    };
+    let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
+        return "driver resolve: no base wikitext".into();
+    };
+    let Ok(mut proposed) = std::fs::read_to_string(dir.join("proposed.wikitext")) else {
+        return "driver resolve: no proposed wikitext".into();
+    };
+    let mut queue = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+        Ok(q) => q,
+        Err(e) => return format!("driver resolve: {e}"),
+    };
+    if queue.open().is_empty() {
+        return "driver resolve: no open comments".into();
+    }
+
+    let (groups, evidence, unknown, id_to_anchor) = bucket_groups(&artifact, &queue);
+
+    let base_lines: Vec<&str> = base.lines().collect();
+    let zai = match state.zai_client() {
+        Ok(z) => z,
+        Err(e) => return format!("driver resolve: {e}"),
+    };
+    let mut outcome = resolve_groups(
+        &zai,
+        &groups,
+        &mut queue,
+        &dir.join("comments.jsonl"),
+        &proposed,
+        &base_lines,
+        &id_to_anchor,
+    )
+    .await;
+    outcome.errors.extend(
+        unknown
+            .iter()
+            .map(|u| format!("UNRESOLVED target {u} — left open")),
+    );
+
+    // Apply splices (one per group) and persist.
+    if !outcome.splices.is_empty() {
+        proposed = apply_splices(&proposed, &outcome.splices);
+        if let Err(e) = std::fs::write(dir.join("proposed.wikitext"), &proposed) {
+            return format!(
+                "driver resolve: comments resolved but the proposed.wikitext write failed: {e}"
+            );
+        }
+    }
+
+    // Round log entry when anything resolved.
+    if !outcome.resolved_ids.is_empty() {
+        let entry = crate::session::RoundEntry {
+            round: 0,
+            timestamp: crate::comments::now_iso(),
+            summary: format!("driver: {} comment(s) resolved", outcome.resolved_ids.len()),
+            phase: "comments-resolved".into(),
+            detail: outcome.resolved_ids.clone(),
+        };
+        if let Ok(json) = serde_json::to_string(&entry)
+            && let Ok(mut file) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(dir.join("rounds.jsonl"))
+        {
+            let _ = writeln!(file, "{json}");
+        }
+    }
+
+    let mut out = if outcome.splices.is_empty() {
+        format!(
+            "driver resolve: {} comment(s) resolved ({})",
+            outcome.resolved_ids.len(),
+            outcome.resolved_ids.join(", ")
+        )
+    } else {
+        format!(
+            "driver resolve: {} comment(s) resolved ({}); proposed.wikitext updated — re-render to review",
+            outcome.resolved_ids.len(),
+            outcome.resolved_ids.join(", ")
+        )
+    };
+    if !evidence.is_empty() {
+        let _ = write!(
+            out,
+            "; evidence comments left for manual resolution: {}",
+            evidence.join(", ")
+        );
+    }
+    for e in &outcome.errors {
+        let _ = write!(out, "; ERROR {e}");
+    }
+    out
+}
+
+/// Build the comment groups from the artifact and bucket the queue's OPEN
+/// comments into them. Returns the groups, the evidence comment ids
+/// (excluded — sources, not wikitext), the unknown-target comments (left
+/// open), and the element-id → anchor map.
+fn bucket_groups(
+    artifact: &str,
+    queue: &crate::comments::CommentQueue,
+) -> (
+    Vec<CommentGroup>,
+    Vec<String>,
+    Vec<String>,
+    std::collections::HashMap<String, String>,
+) {
+    use crate::comments::CommentStatus;
+
+    // The changed blocks as groups: a changed pair's old-side (`base:`)
+    // and new-side (`wa-N`) anchors both belong to ONE group (the old id
+    // rides INSIDE the new-side block); a pure deletion is its own group
+    // with only a base anchor.
+    let mut groups: Vec<CommentGroup> = crate::render::review_targets(artifact)
+        .iter()
+        .map(|b| {
+            let is_deletion = b.wikitext_anchor.starts_with("base:");
+            CommentGroup {
+                new_anchor: (!is_deletion).then(|| b.wikitext_anchor.clone()),
+                old_anchor: if is_deletion {
+                    Some(b.wikitext_anchor.clone())
+                } else {
+                    b.old_sides.first().map(|o| o.wikitext_anchor.clone())
+                },
+                ids: Vec::new(),
+            }
+        })
+        .collect();
+    let id_to_anchor: std::collections::HashMap<String, String> =
+        crate::render::read_anchor_table_str(artifact)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|e| (e.element_id, e.wikitext_anchor))
+            .collect();
+    let mut evidence = Vec::new();
+    let mut unknown = Vec::new();
+    for c in queue
+        .comments
+        .iter()
+        .filter(|c| c.status == CommentStatus::Open)
+    {
+        if c.is_evidence() {
+            evidence.push(c.id.clone());
+            continue;
+        }
+        let anchor = id_to_anchor
+            .get(&c.target)
+            .cloned()
+            .unwrap_or_else(|| c.target.clone());
+        let group = groups.iter_mut().find(|g| {
+            g.new_anchor.as_deref() == Some(anchor.as_str())
+                || g.old_anchor.as_deref() == Some(anchor.as_str())
+        });
+        match group {
+            Some(g) => g.ids.push(c.id.clone()),
+            None => unknown.push(format!("{} (target {})", c.id, c.target)),
+        }
+    }
+    (groups, evidence, unknown, id_to_anchor)
+}
+
+/// Do two planned splices clobber each other? Replacement ranges are
+/// original line ranges `[s..=e]`; an insertion sits before original line
+/// `s`. Two insertions at the same boundary apply in a deterministic
+/// order (not a clobber); any other intersection is.
+fn splices_overlap(
+    (s, e, insert): (usize, usize, bool),
+    (ps, pe, pinsert): (usize, usize, bool),
+) -> bool {
+    match (insert, pinsert) {
+        (true, true) => false,
+        (true, false) => ps <= s && s <= pe,
+        (false, true) => s <= ps && ps <= e,
+        (false, false) => s <= pe && ps <= e,
+    }
+}
+
+/// One pass over the comment groups: per group with comments, validate the
+/// splice plan (before the model call), reject overlaps with an already
+/// accepted group, one `resolve_comments` model call, and the queue
+/// writeback (that group's combined applied/rejected/reply note).
+struct GroupsOutcome {
+    /// `(start_line, end_line, replacement, insertion)` per resolved
+    /// group, applied later in descending order.
+    splices: Vec<(usize, usize, String, bool)>,
+    resolved_ids: Vec<String>,
+    errors: Vec<String>,
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn resolve_groups(
+    zai: &crate::driver::model::ZaiClient,
+    groups: &[CommentGroup],
+    queue: &mut crate::comments::CommentQueue,
+    comments_path: &std::path::Path,
+    proposed: &str,
+    base_lines: &[&str],
+    id_to_anchor: &std::collections::HashMap<String, String>,
+) -> GroupsOutcome {
+    use crate::driver::steps::DriverComment;
+
+    let mut out = GroupsOutcome {
+        splices: Vec::new(),
+        resolved_ids: Vec::new(),
+        errors: Vec::new(),
+    };
+    for group in groups {
+        if group.ids.is_empty() {
+            continue;
+        }
+        let group_label = group
+            .new_anchor
+            .clone()
+            .or_else(|| group.old_anchor.clone())
+            .unwrap_or_default();
+        // Validate the splice plan BEFORE the model call: an unsplicable
+        // group must not burn a paid call whose output is then discarded.
+        let plan = match splice_plan(group, proposed, base_lines) {
+            Ok(plan) => plan,
+            Err(e) => {
+                out.errors.push(format!(
+                    "group {group_label} ({}): {e}",
+                    group.ids.join(", ")
+                ));
+                continue;
+            }
+        };
+        // Overlap guard: two groups can carry coincident line anchors
+        // (shared opening phrases / fallback collisions); applying both
+        // would let the second replacement silently clobber the first
+        // while BOTH note "applied". First group in artifact order wins;
+        // the overlapping group errors and its comments stay open.
+        let (s, e, insert) = plan;
+        if out
+            .splices
+            .iter()
+            .any(|(ps, pe, _, pinsert)| splices_overlap((s, e, insert), (*ps, *pe, *pinsert)))
+        {
+            out.errors.push(format!(
+                "group {group_label} ({}): line range overlaps another group's splice — \
+                 resolve the blocks one at a time",
+                group.ids.join(", ")
+            ));
+            continue;
+        }
+        let driver_comments: Vec<DriverComment> = group
+            .ids
+            .iter()
+            .filter_map(|id| queue.comments.iter().find(|c| &c.id == id))
+            .map(|c| {
+                let prompt = match &c.quoted {
+                    Some(q) => format!("{} (operator highlighted: {q})", c.text),
+                    None => c.text.clone(),
+                };
+                let anchor = id_to_anchor
+                    .get(&c.target)
+                    .cloned()
+                    .unwrap_or_else(|| c.target.clone());
+                DriverComment { prompt, anchor }
+            })
+            .collect();
+        // Blocks for the step: the new side's proposed text and the old
+        // side's base text (a pure deletion has no proposed text — the
+        // wording is gone; the step decides whether the removal changes).
+        let proposed_block = group
+            .new_anchor
+            .as_deref()
+            .and_then(anchor_line_range)
+            .and_then(|(s, e)| slice_lines(&proposed.lines().collect::<Vec<_>>(), s, e))
+            .unwrap_or_default();
+        let base_block = group
+            .old_anchor
+            .as_deref()
+            .and_then(anchor_line_range)
+            .and_then(|(s, e)| slice_lines(base_lines, s, e))
+            .unwrap_or_default();
+        let resolution = match crate::driver::steps::resolve_comments(
+            zai,
+            &proposed_block,
+            &base_block,
+            &driver_comments,
+        )
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                out.errors.push(format!(
+                    "group {group_label} ({}): {e}",
+                    group.ids.join(", ")
+                ));
+                continue;
+            }
+        };
+        // Comments resolve BEFORE the spliced proposed.wikitext is
+        // persisted (the caller writes it after this loop): a crash in
+        // between leaves "applied" notes on an edit that never landed —
+        // accepted for a local single-operator tool; the queue note names
+        // the group so the skew is visible.
+        out.splices
+            .push((s, e, resolution.proposed_wikitext_block.clone(), insert));
+        let note = resolution_note(&resolution);
+        for id in &group.ids {
+            if queue.resolve(comments_path, id, &note).is_ok() {
+                out.resolved_ids.push(id.clone());
+            }
+        }
+    }
+    out
+}
+
+/// Where a group's revised block splices into `proposed.wikitext`:
+/// `(start_line, end_line, insertion)` (1-based, inclusive; `insertion`
+/// splices BEFORE the given 0-based index instead of replacing a range).
+///
+/// # Errors
+/// A new-side anchor out of range (or unparsable), or — for pure
+/// deletions — a line-alignment failure: base and proposed must agree on
+/// every line before the deletion (hand edits and multi-line revisions
+/// break the mapping; a blind splice would edit the wrong line).
+fn splice_plan(
+    group: &CommentGroup,
+    proposed: &str,
+    base_lines: &[&str],
+) -> Result<(usize, usize, bool), String> {
+    if let Some(a) = &group.new_anchor {
+        let (s, e) =
+            anchor_line_range(a).ok_or_else(|| format!("unparsable new-side anchor {a}"))?;
+        let proposed_line_count = proposed.lines().count();
+        if s >= 1 && e <= proposed_line_count && e >= s {
+            Ok((s, e, false))
+        } else {
+            Err(format!(
+                "new-side anchor {a} out of range for proposed.wikitext ({proposed_line_count} lines)"
+            ))
+        }
+    } else if let Some(a) = &group.old_anchor {
+        let (s, _e) = anchor_line_range(a).ok_or_else(|| format!("unparsable base anchor {a}"))?;
+        let proposed_lines: Vec<&str> = proposed.lines().collect();
+        if s >= 1
+            && s - 1 <= proposed_lines.len()
+            && base_lines.get(..s - 1) == proposed_lines.get(..s - 1)
+        {
+            Ok((s, s - 1, true)) // insert before old base line s
+        } else {
+            Err(format!(
+                "base anchor {a} misaligned: base and proposed disagree before line {s} — resolve by hand"
+            ))
+        }
+    } else {
+        Err("group has no anchors".into())
+    }
+}
+
+/// The combined note for one group's comments: applied + rejected lines
+/// and the model's reply (the B.2 contract's uncorrelated one-liners;
+/// every comment in the group gets the group's combined note).
+fn resolution_note(resolution: &crate::driver::steps::Resolution) -> String {
+    let mut note = String::new();
+    for line in &resolution.applied {
+        let _ = writeln!(note, "applied: {line}");
+    }
+    for line in &resolution.rejected {
+        let _ = writeln!(note, "rejected: {line}");
+    }
+    let _ = write!(note, "reply: {}", resolution.reply);
+    note
+}
+
+/// Apply the collected splices in DESCENDING start-line order (so earlier
+/// ranges stay valid), one per group. Trailing newline preserved.
+fn apply_splices(proposed: &str, splices: &[(usize, usize, String, bool)]) -> String {
+    let mut ordered: Vec<&(usize, usize, String, bool)> = splices.iter().collect();
+    ordered.sort_by_key(|(start, _, _, _)| std::cmp::Reverse(*start));
+    let mut lines: Vec<String> = proposed.lines().map(str::to_string).collect();
+    for (s, e, replacement, insert) in ordered {
+        let repl_lines: Vec<String> = replacement.lines().map(str::to_string).collect();
+        if *insert {
+            // e == s-1 is the 0-based insertion index.
+            lines.splice(e..e, repl_lines);
+        } else {
+            lines.splice(s - 1..*e, repl_lines);
+        }
+    }
+    let mut out = lines.join("\n");
+    if !out.is_empty() && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
 #[derive(serde::Deserialize)]
 struct RenderForm {
     round: u32,
     summary: String,
+    /// Offline/test hooks: fixture Parsoid HTML paths, passed through to
+    /// `render_cmd`'s existing `--html-base`/`--html-proposed` flags (an
+    /// empty value means live Parsoid).
+    #[serde(default)]
+    html_base: Option<String>,
+    #[serde(default)]
+    html_proposed: Option<String>,
 }
 
-/// POST /sessions/{slug}/render — gate + render the artifact (the
-/// session page links the live lavish review URL).
+/// POST /sessions/{slug}/render — gate + render the artifact. The web
+/// path never opens or probes lavish (`Via::Web`): the review surface is
+/// the in-app artifact + the comment forms (plan-004).
 async fn render(Path(slug): Path<String>, Form(form): Form<RenderForm>) -> Redirect {
-    let _ = crate::cli::render_cmd(&slug, form.round, None, None, &form.summary, true, false).await;
+    let pair = |v: &Option<String>| {
+        v.as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(std::path::PathBuf::from)
+    };
+    let _ = crate::cli::render_cmd(
+        &slug,
+        form.round,
+        pair(&form.html_base),
+        pair(&form.html_proposed),
+        &form.summary,
+        true,
+        false,
+        crate::cli::Via::Web,
+    )
+    .await;
     Redirect::to(&format!("/sessions/{slug}"))
 }
 
@@ -692,7 +1389,7 @@ async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> Stri
         slug: slug.to_string(),
         summary: summary.to_string(),
     };
-    match crate::cli::publish_core(slug, summary, &wiki, &mut confirm).await {
+    match crate::cli::publish_core(slug, summary, &wiki, &mut confirm, crate::cli::Via::Web).await {
         Ok(out) => {
             if out.created_revision {
                 format!(
@@ -797,7 +1494,9 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/attach", post(attach))
         .route("/sessions/{slug}/driver/findings", post(driver_findings))
         .route("/sessions/{slug}/driver/propose", post(driver_propose))
-        .route("/sessions/{slug}/review-reopen", post(review_reopen))
+        .route("/sessions/{slug}/driver/resolve", post(driver_resolve))
+        .route("/sessions/{slug}/comments", post(comments_add))
+        .route("/sessions/{slug}/comments/resolve", post(comments_resolve))
         .route("/sessions/{slug}/render", post(render))
         .route("/sessions/{slug}/publish", post(publish))
         .route("/confirmations", get(confirmations))
@@ -868,3 +1567,79 @@ pub async fn run(port: u16, tsnet: bool) -> anyhow::Result<()> {
 }
 
 use std::fmt::Write as _;
+use std::io::Write as _;
+
+#[cfg(test)]
+mod tests {
+    use super::{CommentGroup, anchor_line_range, splice_plan, splices_overlap};
+
+    #[test]
+    fn anchor_line_range_parses_both_families() {
+        assert_eq!(anchor_line_range("L3:C0-L3:C120"), Some((3, 3)));
+        assert_eq!(anchor_line_range("base:L2:C4-L5:C9"), Some((2, 5)));
+        assert_eq!(anchor_line_range("garbage"), None);
+        assert_eq!(anchor_line_range("L5:C0-L3:C9"), None, "end before start");
+    }
+
+    #[test]
+    fn overlap_guard_catches_clobbers_not_adjacent_work() {
+        // Two replacements over the same lines clobber.
+        assert!(splices_overlap((3, 5, false), (5, 7, false)));
+        assert!(splices_overlap((3, 3, false), (3, 3, false)));
+        // Disjoint replacements are fine.
+        assert!(!splices_overlap((3, 5, false), (6, 8, false)));
+        // An insertion strictly inside a replaced range is a clobber…
+        assert!(splices_overlap((4, 4, true), (3, 5, false)));
+        assert!(splices_overlap((3, 5, false), (4, 4, true)));
+        // …but at/around the boundaries it is deterministic, not a clobber.
+        assert!(!splices_overlap((2, 2, true), (3, 5, false)));
+        // Two insertions at the same boundary apply in order.
+        assert!(!splices_overlap((4, 3, true), (4, 3, true)));
+    }
+
+    #[test]
+    fn pure_deletion_splice_requires_prefix_alignment() {
+        let group = CommentGroup {
+            new_anchor: None,
+            old_anchor: Some("base:L2:C0-L2:C16".into()),
+            ids: vec!["K1".into()],
+        };
+        // Aligned: base and proposed agree before line 2.
+        let aligned = splice_plan(
+            &group,
+            "line one\nline three\n",
+            &["line one", "line two", "line three"],
+        );
+        assert_eq!(aligned, Ok((2, 1, true)));
+        // Misaligned: the pair at line 1 breaks the mapping.
+        let mis = splice_plan(
+            &group,
+            "changed one\nline three\n",
+            &["line one", "line two", "line three"],
+        );
+        assert!(mis.unwrap_err().contains("misaligned"));
+    }
+
+    #[test]
+    fn new_side_splice_bounds_are_checked() {
+        let group = CommentGroup {
+            new_anchor: Some("L2:C0-L2:C20".into()),
+            old_anchor: Some("base:L2:C0-L2:C17".into()),
+            ids: vec![],
+        };
+        assert_eq!(
+            splice_plan(&group, "one\ntwo\n", &["one", "two"]),
+            Ok((2, 2, false))
+        );
+        let out_of_range = CommentGroup {
+            new_anchor: Some("L9:C0-L9:C9".into()),
+            old_anchor: None,
+            ids: vec![],
+        };
+        assert!(
+            splice_plan(&out_of_range, "one\n", &["one"])
+                .unwrap_err()
+                .contains("out of range")
+        );
+    }
+}

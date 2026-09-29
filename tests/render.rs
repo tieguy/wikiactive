@@ -276,3 +276,186 @@ fn ac11_failing_evidence_blocks_render_no_artifact() {
     let rendered = err.to_string();
     assert!(!rendered.contains("<!doctype html>"));
 }
+
+/// plan-004 AC.2 (golden): the in-app comment forms' targets carry the
+/// artifact's `wikitext_anchor`s VERBATIM from the embedded anchor table,
+/// across all three families — `wa-N` new-side (plain range), `base:`
+/// old-side (the changed pair's removed wording, riding inside the
+/// new-side block), and `ev-N` (ledger). The form target IS the anchor,
+/// so comment anchoring is exact by construction.
+#[test]
+fn comment_form_targets_match_the_anchor_table_verbatim_all_three_families() {
+    let mut ledger = Ledger::default();
+    let sid = ledger.register_source("https://example.com/fielding", "2026-09-24", None);
+    ledger
+        .attach_fetched_text(
+            &sid,
+            "Fielding's guide sold three million copies in Japan by 1986.",
+        )
+        .unwrap();
+    let qid = ledger
+        .add_quote(&sid, "sold three million copies in Japan by 1986")
+        .unwrap();
+    let finding = Finding {
+        id: "F1".into(),
+        wikitext_anchor: "L1:C0-L1:C80".into(),
+        rendered_span_id: None,
+        rules: vec!["WP:V".into()],
+        evidence: vec![qid.clone()],
+        factual_note: "Scope verified against the ledger quote.".into(),
+        proposed_fix: "Restore the full qualifier.".into(),
+        loop_id: 2,
+    };
+
+    let base_wt = "The guide sold copies.\n";
+    let prop_wt = "The guide sold three million copies in Japan by 1986.\n";
+    let base_html = "<html><body><p>The guide sold copies.</p></body></html>";
+    let prop_html =
+        "<html><body><p>The guide sold three million copies in Japan by 1986.</p></body></html>";
+
+    let out = render(&RenderInput {
+        article: "Temple Fielding".into(),
+        round: 1,
+        base_wikitext: base_wt,
+        proposed_wikitext: prop_wt,
+        base_html,
+        proposed_html: prop_html,
+        findings: std::slice::from_ref(&finding),
+        ledger: &ledger,
+        linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
+        revisions: revisions(),
+    })
+    .expect("render");
+
+    // The embedded anchor table is the oracle.
+    let table = wikiloop::render::read_anchor_table_str(&out.artifact_html).unwrap();
+    let lookup = |id: &str| {
+        table
+            .iter()
+            .find(|e| e.element_id == id)
+            .unwrap_or_else(|| panic!("anchor {id} in table: {table:?}"))
+            .wikitext_anchor
+            .clone()
+    };
+
+    // Family 1: the changed pair's new-side block — a plain L..C..-L..C..
+    // range into the proposed wikitext.
+    let targets = wikiloop::render::review_targets(&out.artifact_html);
+    let new_side = targets
+        .iter()
+        .find(|t| t.element_id.starts_with("wa-") && !t.wikitext_anchor.starts_with("base:"))
+        .expect("new-side block target");
+    assert!(
+        new_side.wikitext_anchor.starts_with("L1:C0-L1:"),
+        "new-side anchor is a proposed-wikitext range: {:?}",
+        new_side.wikitext_anchor
+    );
+    assert_eq!(
+        new_side.wikitext_anchor,
+        lookup(&new_side.element_id),
+        "form target must be the anchor-table anchor VERBATIM"
+    );
+    // Labels come from the block's leading words (server-side).
+    assert!(
+        new_side.label.to_lowercase().starts_with("the guide sold"),
+        "label from leading words: {:?}",
+        new_side.label
+    );
+
+    // Family 2: the pair's old side (`base:`-prefixed) rides inside the
+    // new-side block — either a <del> run (label = its words) or an empty
+    // marker span (label falls back to the line).
+    let old = new_side
+        .old_sides
+        .first()
+        .expect("changed pair carries an old-side target");
+    assert!(old.wikitext_anchor.starts_with("base:L1:"));
+    assert_eq!(
+        old.wikitext_anchor,
+        lookup(&old.element_id),
+        "old-side form target must be the anchor-table anchor VERBATIM"
+    );
+
+    // Family 3: the evidence card — `ledger:Q<n>`, labeled by the source's
+    // citation text, never the Q-id.
+    let evidence = wikiloop::render::evidence_targets(&out.artifact_html);
+    assert_eq!(evidence.len(), 1, "one evidence card");
+    assert_eq!(
+        evidence[0].wikitext_anchor,
+        lookup(&evidence[0].element_id),
+        "evidence form target must be the anchor-table anchor VERBATIM"
+    );
+    assert_eq!(evidence[0].wikitext_anchor, format!("ledger:{qid}"));
+    assert_eq!(
+        evidence[0].label, "example.com",
+        "evidence label is the source link text (host fallback), not the Q-id and not \
+         the literal 'Source: ' prefix"
+    );
+
+    // Anchors contain no HTML-escapable characters, so the form's escaped
+    // value round-trips verbatim through the POST back into the queue.
+    for anchor in [
+        &new_side.wikitext_anchor,
+        &old.wikitext_anchor,
+        &evidence[0].wikitext_anchor,
+    ] {
+        assert!(!anchor.contains(['&', '<', '>', '"']), "{anchor}");
+    }
+}
+
+/// Plan-004 review finding (major 2), pinned: a changed pair whose equal
+/// prefix contains a content link (`<span class="wl">…</span>` in the
+/// rendered diff) still yields its old-side "removed wording" form — the
+/// old-side `<del id=…>` run comes AFTER the link's `</span>`, and the
+/// target parser must not cut the block body at that span.
+#[test]
+fn old_side_forms_survive_link_containing_blocks() {
+    let base_wt = "See the keep which is old.\n";
+    let prop_wt = "See the keep which is ancient.\n";
+    let base_html = "<html><body><p>See the <a rel=\"mw:WikiLink\" href=\"./Keep\">keep</a> which is old.</p></body></html>";
+    let prop_html = "<html><body><p>See the <a rel=\"mw:WikiLink\" href=\"./Keep\">keep</a> which is ancient.</p></body></html>";
+
+    let out = render(&RenderInput {
+        article: "T".into(),
+        round: 1,
+        base_wikitext: base_wt,
+        proposed_wikitext: prop_wt,
+        base_html,
+        proposed_html: prop_html,
+        findings: &[],
+        ledger: &Ledger::default(),
+        linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
+        revisions: revisions(),
+    })
+    .expect("render");
+
+    let table = wikiloop::render::read_anchor_table_str(&out.artifact_html).unwrap();
+    let targets = wikiloop::render::review_targets(&out.artifact_html);
+    let new_side = targets
+        .iter()
+        .find(|t| !t.wikitext_anchor.starts_with("base:"))
+        .expect("new-side block");
+    // The rendered combined diff carries the link span; the old-side id
+    // must still be found after it.
+    assert!(
+        out.artifact_html.contains("<span class=\"wl\">"),
+        "fixture must exercise a content-link span"
+    );
+    let old = new_side
+        .old_sides
+        .first()
+        .expect("old-side target survives the link span");
+    assert!(old.wikitext_anchor.starts_with("base:L1:"));
+    assert_eq!(
+        old.wikitext_anchor,
+        table
+            .iter()
+            .find(|e| e.element_id == old.element_id)
+            .expect("old side in anchor table")
+            .wikitext_anchor
+    );
+    // The old-side label comes from the <del> run's words.
+    assert_eq!(old.label.as_deref(), Some("old."));
+}

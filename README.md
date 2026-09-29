@@ -3,8 +3,8 @@
 A Claude-Code-driven editing loop for en.wikipedia articles: one **logical
 edit** at a time, every content change grounded in a verbatim quote from a
 session source ledger ("never edit from model memory"), reviewed by the
-operator as a **visual diff in lavish-axi**, and **published per-edit via
-OAuth only on explicit human confirmation**.
+operator as a **visual diff with block-anchored in-app comments**, and
+**published per-edit via OAuth only on explicit human confirmation**.
 
 The loop spec lives in **[PLAYBOOK.md](PLAYBOOK.md)** — the durable process
 artifact. Design and rationale:
@@ -20,18 +20,22 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --defaul
 
 Edition 2024, rust-version 1.96, `warnings=deny` + clippy pedantic.
 
-### Node ≥ 22 + pinned lavish
+### Node ≥ 22 + pinned lavish (OPTIONAL — legacy tty path only)
 
-The review surface runs [lavish-axi], pinned:
+The default loop (`wa serve`) needs **no Node**: the review artifact and
+its block-anchored comment flow run inside the app. [lavish-axi] remains
+pinned for the legacy tty review path (`wa render` opens it, `wa poll`
+long-polls it):
 
 ```
 npx -y lavish-axi@0.1.78 --help
 ```
 
-Node is required *only* for lavish. The tarball is vendored in-repo
-(`vendor/lavish-axi-0.1.78.tgz`) as the normative reference for its
-annotation payload and TOON output shapes; captured real output lives under
-`fixtures/lavish/`.
+The tarball is vendored in-repo (`vendor/lavish-axi-0.1.78.tgz`) as the
+normative reference for its annotation payload and TOON output shapes;
+captured real output lives under `fixtures/lavish/`. If upstream
+bitrots further, deleting the legacy path is a one-plan change — the
+default loop does not depend on it.
 
 ### OAuth2 owner-only consumer (publish path)
 
@@ -105,20 +109,28 @@ wa findings add <slug> - <<'JSON'
 JSON
 # edit sessions/<slug>/proposed.wikitext — ONE logical edit
 wa render <slug> --round 1 --summary "Fix ref-name formats"
-wa poll <slug>                          # waits for operator comments
+wa comments list <slug>                # the review comment queue (tty)
+wa comments add <slug> --target L3:C0-L3:C120 --text "tighten this"
+wa comments resolve <slug> --id K1 --note "applied by hand"
 wa publish <slug> --summary "Format citations, fix auto ref names"
 ```
 
-### The local web console — `wa serve` (plan-003 B.4/B.6)
+### The local web console — `wa serve` (plan-003 B.4/B.6, plan-004)
 
-The same loop, self-served in the browser: session console, the source
-sweep manifest (run fetch, sign dispositions, paste operator captures),
-the model-driver buttons (author findings / draft proposal), render, and
-publish confirmation as an explicit approve/decline action with the
-exact prompt shown. Nothing edits on-wiki without that click — the web
-and tty paths share one publish core (`gate → confirm → edit → re-pin →
-disclosure`), and the disclosure-log upsert stays bundled into the same
-yes via `BundledConsent` (never usable for the article edit itself).
+The same loop, self-served in the browser, in ONE process: session
+console, the source sweep manifest (run fetch, sign dispositions, paste
+operator captures), the model-driver buttons (author findings / draft
+proposal), render, **the in-app review artifact with block-anchored
+comments** (one form per changed block, one per evidence card; the queue
+lives at `sessions/<slug>/comments.jsonl`), **driver: apply review
+comments** (the model revises the commented blocks and the applied/
+rejected/reply notes land in the queue), and publish confirmation as an
+explicit approve/decline action with the exact prompt shown. Nothing
+edits on-wiki without that click — the web and tty paths share one
+publish core (`gate → confirm → edit → re-pin → disclosure`), and the
+disclosure-log upsert stays bundled into the same yes via
+`BundledConsent` (never usable for the article edit itself). No Node, no
+external review server.
 
 ```
 ./target/debug/wa serve            # loopback only, http://127.0.0.1:7427

@@ -983,7 +983,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
     </aside>
   </div>
   <p class="meta">current round marker: {round_marker} · anchor table embedded as #wa-anchor-table</p>
-  <p class="meta">looks right? <strong>end this review session</strong> (ending = review done, nothing is published) and approve the publish in the console · want changes? select text and send comments — they reach the loop</p>
+  <p class="meta">looks right? approve the publish on the session page — nothing is published without that click · want changes? leave comments on the session page (one per block); the loop resolves them and quotes the span it acted on</p>
 </main>
 </body>
 </html>
@@ -1015,6 +1015,297 @@ pub fn registry_with_round(
         summary: summary.to_string(),
     });
     next
+}
+
+/// Read an artifact file's embedded `#wa-anchor-table` (the id →
+/// `wikitext_anchor` map the comment forms and `wa poll` resolve against).
+/// Parse loudly: a silent empty table made every poll comment UNRESOLVED
+/// (live L2 round-1 catch) — a malformed table warns and yields empty,
+/// which callers treat as "no targets", never as fabricated anchors.
+#[must_use]
+pub fn read_anchor_table(review_html: &std::path::Path) -> Vec<AnchorEntry> {
+    let Ok(html) = std::fs::read_to_string(review_html) else {
+        return Vec::new();
+    };
+    read_anchor_table_str(&html).unwrap_or_else(|e| {
+        eprintln!(
+            "warning: anchor table unparsable in {}: {e}",
+            review_html.display()
+        );
+        Vec::new()
+    })
+}
+
+/// Testable core of [`read_anchor_table`].
+///
+/// # Errors
+/// The table marker exists but its JSON does not parse.
+pub fn read_anchor_table_str(html: &str) -> Result<Vec<AnchorEntry>, String> {
+    let Some(i) = html.find("wa-anchor-table") else {
+        return Ok(Vec::new());
+    };
+    let Some(start) = html[i..].find('[').map(|j| i + j) else {
+        return Ok(Vec::new());
+    };
+    let Some(end) = html[start..].find("</script>").map(|j| start + j) else {
+        return Ok(Vec::new());
+    };
+    serde_json::from_str(html[start..end].trim()).map_err(|e| e.to_string())
+}
+
+/// One old-side (removed-wording) comment target nested inside a changed
+/// pair's block (plan-004 P.2). The id rides either a `<del>` run (its
+/// text is the label) or an empty `<span>` marker (the label falls back
+/// to the anchor's line).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OldSideTarget {
+    /// Artifact element id (`wa-N`).
+    pub element_id: String,
+    /// `base:`-prefixed deletion anchor, verbatim from the anchor table.
+    pub wikitext_anchor: String,
+    /// Leading words of the `<del>` run; `None` for the empty-marker
+    /// variant.
+    pub label: Option<String>,
+}
+
+/// One changed block parsed from a rendered artifact's diff column — the
+/// in-app comment forms' data source (string parsing throughout, the
+/// `read_anchor_table` pattern; the artifact stays structurally unchanged).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReviewTarget {
+    /// The block's own element id: the new side of a changed pair, or the
+    /// block itself for pure insertions/deletions.
+    pub element_id: String,
+    /// Its `wikitext_anchor`, verbatim (the form's hidden target value).
+    pub wikitext_anchor: String,
+    /// Form label: the block's leading words (fallback: the anchor's
+    /// line).
+    pub label: String,
+    /// Old-side ids nested inside this block (changed pairs only).
+    pub old_sides: Vec<OldSideTarget>,
+}
+
+/// "L11:…" / "base:L11:…" anchor → "line 11" / "original line 11" (the
+/// public twin of the renderer-internal `human_line`, for the comment-form
+/// fallback labels).
+#[must_use]
+pub fn human_line_label(anchor: &str) -> Option<String> {
+    let (base, rest) = match anchor.strip_prefix("base:") {
+        Some(r) => (true, r),
+        None => (false, anchor),
+    };
+    let line = rest
+        .split(&[':', '-'][..])
+        .next()?
+        .strip_prefix('L')?
+        .parse::<usize>()
+        .ok()?;
+    Some(if base {
+        format!("original line {line}")
+    } else {
+        format!("line {line}")
+    })
+}
+
+/// The first `attr="value"` in `s`.
+fn attr_value(s: &str, attr: &str) -> Option<String> {
+    let needle = format!("{attr}=\"");
+    let i = s.find(&needle)? + needle.len();
+    let end = s[i..].find('"')? + i;
+    Some(s[i..end].to_string())
+}
+
+/// Minimal entity unescape for labels (the artifact escapes `& < > "`);
+/// `&amp;` last so `&amp;lt;` does not double-decode.
+fn unescape(s: &str) -> String {
+    s.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&amp;", "&")
+}
+
+/// Leading words of a text (first 8, ellipsis when truncated).
+fn leading_words(text: &str) -> String {
+    const TAKE: usize = 8;
+    let mut words = text.split_whitespace();
+    let mut out: Vec<&str> = Vec::new();
+    let mut truncated = false;
+    for _ in 0..TAKE {
+        match words.next() {
+            Some(w) => out.push(w),
+            None => break,
+        }
+    }
+    if words.next().is_some() {
+        truncated = true;
+    }
+    let joined = out.join(" ");
+    if truncated {
+        format!("{joined}…")
+    } else {
+        joined
+    }
+}
+
+/// Text content of an HTML fragment: tags stripped, entities unescaped,
+/// whitespace collapsed.
+fn text_content(html: &str) -> String {
+    let no_tags: String = html
+        .split('<')
+        .enumerate()
+        .map(|(i, part)| {
+            if i == 0 {
+                part.to_string()
+            } else {
+                part.split('>').nth(1).unwrap_or_default().to_string()
+            }
+        })
+        .collect();
+    unescape(&no_tags)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Parse the artifact's diff column into per-changed-block comment
+/// targets. New-side blocks (pure insertions, changed pairs) and pure
+/// deletions each yield one target; a changed pair's old-side ids ride
+/// along as [`OldSideTarget`]s of the enclosing block.
+#[must_use]
+pub fn review_targets(artifact_html: &str) -> Vec<ReviewTarget> {
+    let diff = match artifact_html.find("<section class=\"diff-col\">") {
+        Some(i) => {
+            let rest = &artifact_html[i + "<section class=\"diff-col\">".len()..];
+            rest.split("</section>").next().unwrap_or(rest)
+        }
+        None => artifact_html,
+    };
+    let mut targets = Vec::new();
+    for chunk in diff.split("<div class=\"block").skip(1) {
+        let Some(id) = attr_value(chunk, "id") else {
+            continue;
+        };
+        let anchor = attr_value(chunk, "data-wiki-anchor").unwrap_or_default();
+        // The block body starts after the anchor-tag span (the first
+        // `</span>` in the chunk) and runs to the block's closing `</div>`
+        // — NOT to the next `</span>`, which can be a content-link span
+        // (`<span class="wl">…</span>`): cutting there would drop any
+        // old-side `<del id=…>` run that follows a link, silently losing
+        // the pair's removed-wording form (review finding: link-rich prose
+        // is the common case on Wikipedia).
+        let body = match chunk.find("</span>") {
+            Some(i) => &chunk[i + "</span>".len()..],
+            None => chunk,
+        };
+        let body = body.split("</div>").next().unwrap_or(body);
+        let label_text = text_content(body);
+        let label = if label_text.is_empty() {
+            human_line_label(&anchor).unwrap_or_else(|| id.clone())
+        } else {
+            leading_words(&label_text)
+        };
+        // Old-side ids nested inside the body: a `<del id=…>` run (label =
+        // the run's text) or an empty `<span id=…>` marker (no label).
+        let mut old_sides = Vec::new();
+        let mut rest = body;
+        while let Some(i) = rest.find("id=\"wa-") {
+            let after = &rest[i + "id=\"".len()..];
+            let old_id = after.split('"').next().unwrap_or_default().to_string();
+            let tail = after.split('>').next().unwrap_or_default();
+            let old_anchor = attr_value(tail, "data-wiki-anchor").unwrap_or_default();
+            let is_del = rest[..i].ends_with("<del ");
+            let label = if is_del {
+                // The run's TEXT starts after the opening tag's `>` (the
+                // id value and attrs must not leak into the label).
+                let open_end = after.find('>');
+                let run = open_end.map_or(after, |o| &after[o + 1..]);
+                let text_end = run.find("</del>").unwrap_or(run.len());
+                let run_text = leading_words(&text_content(&run[..text_end]));
+                (!run_text.is_empty()).then_some(run_text)
+            } else {
+                None
+            };
+            if !old_id.is_empty() {
+                old_sides.push(OldSideTarget {
+                    element_id: old_id,
+                    wikitext_anchor: old_anchor,
+                    label,
+                });
+            }
+            rest = &after[1.min(after.len())..];
+        }
+        if !id.is_empty() && !anchor.is_empty() {
+            targets.push(ReviewTarget {
+                element_id: id,
+                wikitext_anchor: anchor,
+                label,
+                old_sides,
+            });
+        }
+    }
+    targets
+}
+
+/// One evidence-card comment target, labeled by the source's citation
+/// text (never the Q-id — evidence comments are about sources).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EvidenceTarget {
+    /// `ev-N`.
+    pub element_id: String,
+    /// `ledger:Q<n>`, verbatim.
+    pub wikitext_anchor: String,
+    /// The source's citation text (or the finding note when no source
+    /// line rendered).
+    pub label: String,
+}
+
+/// Parse the artifact's evidence rail into per-card comment targets.
+#[must_use]
+pub fn evidence_targets(artifact_html: &str) -> Vec<EvidenceTarget> {
+    let Some(start) = artifact_html.find("<aside class=\"evidence-col\">") else {
+        return Vec::new();
+    };
+    let aside = &artifact_html[start..];
+    let aside = aside.split("</aside>").next().unwrap_or(aside);
+    let mut targets = Vec::new();
+    for chunk in aside.split("<div class=\"evidence\"").skip(1) {
+        let Some(id) = attr_value(chunk, "id") else {
+            continue;
+        };
+        let anchor = attr_value(chunk, "data-wiki-anchor").unwrap_or_default();
+        // Label: the citation text of the card's first Source line (skip
+        // past the whole needle — searching '>' from the needle's START
+        // would land on the `<p class="src">` close and pull the literal
+        // "Source: " into the label).
+        let src_needle = "class=\"src\">Source: <a href=\"";
+        let label = chunk
+            .find(src_needle)
+            .and_then(|i| {
+                let after = &chunk[i + src_needle.len()..];
+                let open_end = after.find('>')?;
+                let rest = &after[open_end + 1..];
+                let text = rest.split("</a>").next().unwrap_or_default();
+                Some(text_content(text))
+            })
+            .filter(|t| !t.is_empty())
+            .or_else(|| {
+                chunk.find("class=\"finding\">").and_then(|i| {
+                    let rest = &chunk[i + "class=\"finding\">".len()..];
+                    let text = rest.split("</p>").next().unwrap_or_default();
+                    let t = text_content(text);
+                    (!t.is_empty()).then_some(t)
+                })
+            })
+            .unwrap_or_else(|| format!("evidence card {id}"));
+        if !anchor.is_empty() {
+            targets.push(EvidenceTarget {
+                element_id: id,
+                wikitext_anchor: anchor,
+                label: leading_words(&label),
+            });
+        }
+    }
+    targets
 }
 
 #[cfg(test)]

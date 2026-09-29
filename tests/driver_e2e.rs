@@ -297,16 +297,22 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
         "e2e round",
         true,
         false,
+        wikiloop::cli::Via::Tty,
     )
     .await
     .expect("offline render completes");
 
     // ---- Publish WITHOUT confirmation: nothing writes. ----
     let mut declined = DeclineSim;
-    let err =
-        wikiloop::cli::publish_core("e2e-article", &proposal.edit_summary, &wiki, &mut declined)
-            .await
-            .expect_err("declined confirmation must fail");
+    let err = wikiloop::cli::publish_core(
+        "e2e-article",
+        &proposal.edit_summary,
+        &wiki,
+        &mut declined,
+        wikiloop::cli::Via::Tty,
+    )
+    .await
+    .expect_err("declined confirmation must fail");
     assert!(err.to_string().contains("declined"), "{err}");
     assert_eq!(edit_mock.calls(), 0, "no edit without confirmation");
     let meta = std::fs::read_to_string(session.join("session.json")).unwrap();
@@ -317,10 +323,15 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
 
     // ---- Publish THROUGH the simulated confirmation. ----
     let mut approved = ApproveSim;
-    let outcome =
-        wikiloop::cli::publish_core("e2e-article", &proposal.edit_summary, &wiki, &mut approved)
-            .await
-            .expect("publish completes");
+    let outcome = wikiloop::cli::publish_core(
+        "e2e-article",
+        &proposal.edit_summary,
+        &wiki,
+        &mut approved,
+        wikiloop::cli::Via::Tty,
+    )
+    .await
+    .expect("publish completes");
     assert!(outcome.created_revision);
     assert_eq!(edit_mock.calls(), 1, "exactly one edit");
     assert_eq!(outcome.new_revid, 501);

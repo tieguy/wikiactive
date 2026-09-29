@@ -86,11 +86,20 @@ pub enum Command {
         reopen: bool,
     },
     /// Long-poll the lavish session; on feedback, print resolved anchors.
+    /// (Legacy tty path — the default loop reviews in-app via `wa serve`;
+    /// see `wa comments`.)
     Poll {
         slug: String,
         /// Reply to show in the Lavish conversation panel before waiting.
         #[arg(long)]
         agent_reply: Option<String>,
+    },
+    /// The review comment queue (plan-004): block-anchored comments, the
+    /// single reviewer↔loop interface (the session page's forms write
+    /// here; the driver's resolve step consumes the open entries).
+    Comments {
+        #[command(subcommand)]
+        cmd: CommentsCmd,
     },
     /// Publish the proposed edit (gate re-run + /dev/tty confirm).
     Publish {
@@ -189,6 +198,39 @@ pub enum SweepCmd {
     },
     /// Show the sweep manifest (per-source status + disposition).
     Status { slug: String },
+}
+
+#[derive(Subcommand)]
+pub enum CommentsCmd {
+    /// List the queue: open comments first, then resolved with their notes.
+    List { slug: String },
+    /// Add a comment from the tty (the `ev-N` path and anything the web
+    /// forms make awkward).
+    Add {
+        slug: String,
+        /// Target: the block's wikitext anchor from the artifact's anchor
+        /// table (`L..:C..-L..:C..`, `base:`-prefixed, `ledger:Q<n>`) or
+        /// the artifact element id (`wa-2`, `ev-1`).
+        #[arg(long)]
+        target: String,
+        /// The comment text.
+        #[arg(long)]
+        text: String,
+        /// Operator-highlighted words (free text).
+        #[arg(long)]
+        quoted: Option<String>,
+    },
+    /// Resolve a comment with a manual note (the evidence-card path and
+    /// anything handled outside the driver step).
+    Resolve {
+        slug: String,
+        /// Comment id (K1, …).
+        #[arg(long)]
+        id: String,
+        /// What was done.
+        #[arg(long)]
+        note: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -305,10 +347,21 @@ pub async fn run(cli: Cli) -> Result<()> {
                 &summary,
                 no_open,
                 reopen,
+                Via::Tty,
             )
             .await
         }
         Command::Poll { slug, agent_reply } => poll_cmd(&slug, agent_reply.as_deref()),
+        Command::Comments { cmd } => match cmd {
+            CommentsCmd::List { slug } => comments_list(&slug),
+            CommentsCmd::Add {
+                slug,
+                target,
+                text,
+                quoted,
+            } => comments_add(&slug, &target, &text, quoted.as_deref()),
+            CommentsCmd::Resolve { slug, id, note } => comments_resolve(&slug, &id, &note),
+        },
         Command::Publish { slug, summary } => publish_cmd(&slug, &summary).await,
         Command::Ledger { cmd } => match cmd {
             LedgerCmd::Register {
@@ -698,12 +751,25 @@ fn sweep_status(slug: &str) -> Result<()> {
     Ok(())
 }
 
+/// Who is driving the command — selects the review-link surface
+/// (plan-004 P.4): the web path prints the in-app artifact path and never
+/// touches lavish state; the tty path keeps the lavish session link (it
+/// still uses `wa poll` legitimately).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Via {
+    /// The CLI (lavish link + `wa poll` remain available).
+    Tty,
+    /// `wa serve` (in-app artifact link; no lavish probes).
+    Web,
+}
+
 /// Gate + render the review artifact (driver-facing surface: the e2e
 /// session runner and `wa serve` call the same path as the CLI).
 ///
 /// # Errors
 /// Session/rules IO, a blocked gate (no artifact is written), or lavish
 /// open failures.
+#[allow(clippy::too_many_arguments)]
 pub async fn render_cmd(
     slug: &str,
     round: u32,
@@ -712,6 +778,7 @@ pub async fn render_cmd(
     summary: &str,
     no_open: bool,
     reopen: bool,
+    via: Via,
 ) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
@@ -779,15 +846,24 @@ pub async fn render_cmd(
         "rendered sessions/{slug}/review.html ({} anchor entries)",
         output.anchor_table.len()
     );
-    if !no_open {
+    if !no_open && via == Via::Tty {
         let out = lavish::open_session(&paths.review_html(), false, reopen)?;
         print_lavish_output(&out)?;
     }
-    if let Some(url) = lavish::session_url(&paths.review_html()) {
-        println!(
-            "review: {}  (or: {url})",
-            lavish::terminal_link(&url, "open the review session")
-        );
+    match via {
+        Via::Tty => {
+            if let Some(url) = lavish::session_url(&paths.review_html()) {
+                println!(
+                    "review: {}  (or: {url})",
+                    lavish::terminal_link(&url, "open the review session")
+                );
+            }
+        }
+        Via::Web => {
+            // The web loop's review surface is the in-app artifact; no
+            // lavish state is read, no lavish URL printed (AC.1).
+            println!("review: /sessions/{slug}/review (in-app)");
+        }
     }
     Ok(())
 }
@@ -879,40 +955,77 @@ fn poll_cmd(slug: &str, agent_reply_msg: Option<&str>) -> Result<()> {
 }
 
 fn read_anchor_table(review_html: &std::path::Path) -> Vec<(String, String)> {
-    let Ok(html) = std::fs::read_to_string(review_html) else {
-        return Vec::new();
-    };
-    let Some(i) = html.find("wa-anchor-table") else {
-        return Vec::new();
-    };
-    let Some(start) = html[i..].find('[').map(|j| i + j) else {
-        return Vec::new();
-    };
-    let Some(end) = html[start..].find("</script>").map(|j| start + j) else {
-        return Vec::new();
-    };
-    // The table is a JSON array of AnchorEntry objects (element_id +
-    // wikitext_anchor). Parse loudly: a silent empty table made every poll
-    // comment UNRESOLVED (live L2 round-1 catch).
-    let text = html[start..end].trim();
-    match serde_json::from_str::<Vec<crate::render::AnchorEntry>>(text) {
-        Ok(entries) => entries
-            .into_iter()
-            .map(|e| (e.element_id, e.wikitext_anchor))
-            .collect(),
-        Err(e) => {
-            eprintln!(
-                "warning: anchor table unparsable in {}: {e}",
-                review_html.display()
-            );
-            Vec::new()
-        }
-    }
+    crate::render::read_anchor_table(review_html)
+        .into_iter()
+        .map(|e| (e.element_id, e.wikitext_anchor))
+        .collect()
 }
 
 fn print_lavish_output(output: &std::process::Output) -> Result<()> {
     std::io::stdout().write_all(&output.stdout)?;
     std::io::stderr().write_all(&output.stderr)?;
+    Ok(())
+}
+
+/// `wa comments list` — the queue, open first.
+fn comments_list(slug: &str) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let queue = crate::comments::CommentQueue::load(&paths.comments())
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let open: Vec<_> = queue
+        .comments
+        .iter()
+        .filter(|c| c.status == crate::comments::CommentStatus::Open)
+        .collect();
+    println!("{} open / {} total", open.len(), queue.comments.len());
+    for c in &open {
+        print_comment(c);
+    }
+    for c in &queue.comments {
+        if c.status == crate::comments::CommentStatus::Resolved {
+            print_comment(c);
+        }
+    }
+    Ok(())
+}
+
+fn print_comment(c: &crate::comments::Comment) {
+    let status = match c.status {
+        crate::comments::CommentStatus::Open => "OPEN",
+        crate::comments::CommentStatus::Resolved => "resolved",
+    };
+    println!("[{status}] {} → {}", c.id, c.target);
+    if let Some(q) = &c.quoted {
+        println!("      highlighted: {q:?}");
+    }
+    println!("      {}", c.text);
+    if let Some(note) = &c.resolution {
+        println!("      resolution: {note}");
+    }
+}
+
+/// `wa comments add` — append one comment (tty / `ev-N` path).
+fn comments_add(slug: &str, target: &str, text: &str, quoted: Option<&str>) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let mut queue = crate::comments::CommentQueue::load(&paths.comments())
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let comment = crate::comments::Comment::new(target, text, quoted, &crate::comments::now_iso());
+    let id = queue
+        .append(&paths.comments(), comment)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    println!("queued {id} → {target}");
+    Ok(())
+}
+
+/// `wa comments resolve` — manual resolution with a note.
+fn comments_resolve(slug: &str, id: &str, note: &str) -> Result<()> {
+    let (paths, _) = load_session(slug)?;
+    let mut queue = crate::comments::CommentQueue::load(&paths.comments())
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    queue
+        .resolve(&paths.comments(), id, note)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    println!("resolved {id}");
     Ok(())
 }
 
@@ -958,6 +1071,7 @@ pub async fn publish_core(
     summary: &str,
     wiki: &Wikipedia,
     confirm: &mut dyn ConfirmSource,
+    via: Via,
 ) -> Result<PublishOutcome> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
@@ -982,14 +1096,20 @@ pub async fn publish_core(
         crate::checks::gate::format_reasons(&verdict.reasons)
     );
 
-    // Reviews should be absurdly easy: a clickable (OSC 8) link to the live
-    // review session above the confirmation prompt, with a copyable raw URL
-    // fallback for terminals without hyperlink support.
-    if let Some(url) = lavish::session_url(&paths.review_html()) {
-        println!(
-            "review it: {}  (or: {url})",
-            lavish::terminal_link(&url, "open the live review session")
-        );
+    // Reviews should be absurdly easy: the tty path gets a clickable
+    // (OSC 8) link to the live lavish review session above the
+    // confirmation prompt; the web path links the in-app artifact (no
+    // lavish state read — AC.1).
+    match via {
+        Via::Tty => {
+            if let Some(url) = lavish::session_url(&paths.review_html()) {
+                println!(
+                    "review it: {}  (or: {url})",
+                    lavish::terminal_link(&url, "open the live review session")
+                );
+            }
+        }
+        Via::Web => println!("review it: /sessions/{slug}/review (in-app artifact)"),
     }
     // Guarantee: confirming publishes the article edit AND upserts this
     // session's entry on the disclosure log (one yes, both writes).
@@ -1117,7 +1237,7 @@ pub async fn publish_core(
 async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
     let wiki = Wikipedia::connect().await?;
     let mut confirm = TtyConfirm;
-    publish_core(slug, summary, &wiki, &mut confirm).await?;
+    publish_core(slug, summary, &wiki, &mut confirm, Via::Tty).await?;
     println!("post-publish: run Earwig compare per new web source");
     Ok(())
 }

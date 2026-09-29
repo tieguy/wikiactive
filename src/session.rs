@@ -6,6 +6,8 @@
 //! - `proposed.wikitext` — the current proposed article text
 //! - `review.html`      — the regenerated-in-place review artifact
 //! - `rounds.jsonl`     — append-only round log (one JSON object per round)
+//! - `comments.jsonl`   — the review comment queue (plan-004;
+//!   [`crate::comments::CommentQueue`])
 //!
 //! Finding field ownership (plan): the model authors `id`, `rules[]`,
 //! `evidence` (ledger quote ids), `factual_note`, `proposed_fix`, and a draft
@@ -172,6 +174,12 @@ impl SessionPaths {
     #[must_use]
     pub fn rounds(&self) -> std::path::PathBuf {
         self.dir.join("rounds.jsonl")
+    }
+    /// The review comment queue (plan-004): append-only JSONL, the single
+    /// reviewer↔loop interface.
+    #[must_use]
+    pub fn comments(&self) -> std::path::PathBuf {
+        self.dir.join("comments.jsonl")
     }
     #[must_use]
     pub fn meta(&self) -> std::path::PathBuf {

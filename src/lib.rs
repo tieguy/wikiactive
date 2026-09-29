@@ -12,6 +12,7 @@
 pub mod anchors;
 pub mod checks;
 pub mod cli;
+pub mod comments;
 pub mod driver;
 pub mod lavish;
 pub mod ledger;
