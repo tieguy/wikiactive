@@ -373,7 +373,7 @@ async fn session_page(
         .cloned()
         .unwrap_or_default();
     if !outcome.is_empty() {
-        let _ = writeln!(page, "<p><strong>{}</strong></p>", esc(&outcome));
+        let _ = writeln!(page, "<h2>Last run</h2><pre>{}</pre>", esc(&outcome));
     }
 
     let _ = writeln!(
@@ -636,6 +636,19 @@ async fn publish(
 }
 
 async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> String {
+    let dir = session_dir(slug);
+    // The gate's report belongs in the web client, not the server
+    // terminal (B.6 operator catch). Run it first, visibly; publish_core
+    // re-runs it identically as its own invariant.
+    let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
+    if proposed.trim().is_empty() {
+        return "publish not started: proposed.wikitext is empty — stage an edit first \
+                (driver: draft proposal, or edit the file)"
+            .into();
+    }
+    if let Some(report) = gate_report(slug) {
+        return format!("publish blocked by the gate:\n{report}");
+    }
     let wiki = match state.connect_wiki().await {
         Ok(w) => w,
         Err(e) => return format!("publish failed: {e}"),
@@ -648,13 +661,40 @@ async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> Stri
     match crate::cli::publish_core(slug, summary, &wiki, &mut confirm).await {
         Ok(out) => {
             if out.created_revision {
-                format!("published: {} (new revid {})", out.diff_url, out.new_revid)
+                format!(
+                    "gate: PASS — published: {} (new revid {})",
+                    out.diff_url, out.new_revid
+                )
             } else {
-                "no change: the page already contains this text".into()
+                "gate: PASS — no change: the page already contains this text".into()
             }
         }
-        Err(e) => format!("publish failed: {e}"),
+        Err(e) => format!("gate: PASS — publish failed: {e}"),
     }
+}
+
+/// Run the session's gate and return the structured report when blocked
+/// (`None` = pass). Mirrors `publish_core`'s inputs exactly.
+fn gate_report(slug: &str) -> Option<String> {
+    use crate::checks::gate::GateInput;
+    use crate::checks::gate::run_gate;
+    let dir = session_dir(slug);
+    let corpus = crate::rules::RulesCorpus::load(std::path::Path::new("rules")).ok()?;
+    let base = std::fs::read_to_string(dir.join("base.wikitext")).ok()?;
+    let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).ok()?;
+    let findings = crate::session::FindingsFile::load(&dir.join("findings.json")).ok()?;
+    let ledger = Ledger::load(&dir.join("ledger.json")).ok()?;
+    let verdict = run_gate(&GateInput {
+        ledger: &ledger,
+        findings: &findings.findings,
+        base_wikitext: &base,
+        proposed_wikitext: &proposed,
+        linter_config: &corpus.linter,
+        paraphrase_config: &corpus.paraphrase,
+    });
+    verdict
+        .blocked
+        .then(|| crate::checks::gate::format_reasons(&verdict.reasons))
 }
 
 #[derive(serde::Deserialize)]
