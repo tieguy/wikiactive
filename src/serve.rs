@@ -131,6 +131,9 @@ impl ServeState {
             .lock()
             .expect("outcomes")
             .insert(slug.to_string(), outcome.to_string());
+        // Persist too: a failed publish's error must be diagnosable from
+        // the session directory, not only from the live server's memory.
+        let _ = std::fs::write(session_dir(slug).join("last-run.txt"), outcome);
     }
 
     async fn connect_wiki(&self) -> anyhow::Result<Wikipedia> {
@@ -268,11 +271,25 @@ async fn session_page(
         meta.entry_loop
     );
     if let Some(url) = review_url {
-        let _ = writeln!(
-            page,
-            "<p><a href=\"{}\">open the live review session</a></p>",
-            esc(&url)
-        );
+        // lavish-axi 0.1.78 dies after 30 idle minutes and the state file
+        // keeps the stale URL — probe before presenting a link; a dead
+        // server gets a one-click re-open instead (the planned serve-side
+        // wrap of `render --reopen`).
+        let live = probe_url(&url).await;
+        if live {
+            let _ = writeln!(
+                page,
+                "<p><a href=\"{}\">open the live review session</a></p>",
+                esc(&url)
+            );
+        } else {
+            let _ = writeln!(
+                page,
+                "<p>review server not running (lavish idles out) — \
+                 <form method=post action=\"/sessions/{slug}/review-reopen\">\
+                 <button>re-open the review session</button></form></p>"
+            );
+        }
     }
     if let Some(last) = meta.last_published_diff_url {
         let _ = writeln!(
@@ -372,6 +389,31 @@ async fn session_page(
          <button>start publish (gate → confirmation)</button></form>"
     );
     Html(page)
+}
+
+/// Any HTTP response (even 404) proves the review server is alive; only
+/// connection errors mean dead.
+async fn probe_url(url: &str) -> bool {
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(Duration::from_secs(2))
+        .build()
+    else {
+        return false;
+    };
+    client.get(url).send().await.is_ok()
+}
+
+/// POST /sessions/{slug}/review-reopen — revive a user-ended or idled-out
+/// lavish review session for the existing artifact (the serve-side wrap
+/// of `wa render --reopen`).
+async fn review_reopen(Path(slug): Path<String>) -> Redirect {
+    let artifact = session_dir(&slug).join("review.html");
+    if artifact.exists() {
+        let _ =
+            tokio::task::spawn_blocking(move || crate::lavish::open_session(&artifact, true, true))
+                .await;
+    }
+    Redirect::to(&format!("/sessions/{slug}"))
 }
 
 #[derive(serde::Deserialize)]
@@ -680,6 +722,7 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/attach", post(attach))
         .route("/sessions/{slug}/driver/findings", post(driver_findings))
         .route("/sessions/{slug}/driver/propose", post(driver_propose))
+        .route("/sessions/{slug}/review-reopen", post(review_reopen))
         .route("/sessions/{slug}/render", post(render))
         .route("/sessions/{slug}/publish", post(publish))
         .route("/confirmations", get(confirmations))
