@@ -74,7 +74,17 @@ dropped.
 
 ### One iteration (one logical edit)
 
-1. **Analyze** (step 0, always).
+0. **Source sweep** (plan-003, before any analysis): `wa sweep inventory
+   <slug>` → `wa sweep fetch <slug>` → resolve every `needs_operator`
+   source — paste your browser's saved page into `wa serve`'s attach box
+   or `wa ledger attach <slug> --source S3 --file capture.html`
+   (MHTML/HTML/WARC/text; the browser's "save page" is the capture), or
+   sign a disposition (`wa sweep dispose … --disposition
+   "dropped: paywall"`). The gate blocks render/publish while any swept
+   source is unresolved. This ordering is the lesson of the
+   1874→1870→1874 Kidder episode: source-access decisions are made once,
+   up front, against the full accessibility picture — not mid-analysis.
+1. **Analyze** (step 0, always — the bundle embeds the sweep manifest).
 2. **Findings** — author findings against the tier-1 checklist and cards:
    `wa findings add <slug> -` with JSON `{id, wikitext_anchor, rules[],
    evidence: [Q ids], factual_note, proposed_fix, loop}`. Evidence quotes
@@ -139,11 +149,47 @@ interactive tty confirmation. If either fails: nothing is written. The
 edit summary must be non-empty; the disclosure suffix is appended
 mechanically (`LLM-Disclosure: U:LuisVilla/wikiactive`).
 
-### End-of-session artifacts
+## Driver mode — `wa serve` (plan-003 Phase B)
+
+The loop, self-served in the browser, with the model called at exactly
+the three judgment points (findings authoring, proposal drafting,
+comment resolution — `prompts/` is the versioned, checksum-pinned
+prompt set; the disclosure page's "exact code including model prompts"
+promise is mechanical). Everything else — loop control, the ledger, the
+gate, the publish confirmation — is deterministic Rust.
+
+```
+./target/debug/wa serve            # loopback only (default)
+./target/debug/wa serve --tsnet    # thin-client: bind the tailnet only
+```
+
+Protocol: init the session CLI-side (`wa session init …`), then in the
+console — sweep fetch + resolve (dispositions, pasted captures), **driver:
+author findings**, review what the model proposed against the manifest,
+**driver: draft proposal**, **render review artifact** (the session page
+links the lavish review; a dead review server gets a one-click
+re-open — lavish 0.1.78 idles out after 30 min), leave comments in
+lavish (resolved via `wa poll`), then **start publish** and
+approve/decline the pending confirmation, which shows the exact prompt.
+Comment resolution (judgment point 3) runs through `wa poll
+--agent-reply` as before.
+
+Invariants preserved: no auto-publish (the edit posts only on the
+explicit approve click — pinned by tests/serve.rs), the same gate runs
+at render and publish, and `BundledConsent` backs only the
+disclosure-log upsert bundled into the one yes, never the article edit.
+Credentials: `ZAI_API_KEY` in the env; endpoint and model in
+`rules/house-rules.toml [zai]` (fork config, not shell exports); wiki
+OAuth as before.
+
+## End-of-session artifacts
 
 - **TALK provenance note** — offer source scans on request; summarize what
-  was checked (only negative results and the provenance note belong on
-  talk, per the disposition ladder).
+  was checked. **Operator decision 2026-09-29 (Kidder close-out):** a
+  dedicated TALK note is usually redundant to what the diffs and the
+  disclosure log already show — default to skipping it; write one only
+  when a talk-page audience genuinely needs the reasoning (e.g. a
+  contested fact).
 - **Disclosure-page log append** — one entry per **article session** (each
   `wa session init` is a page-session; the entry lands when that session's
   publishing completes): article, date, drafting model + version, tool code

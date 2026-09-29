@@ -196,3 +196,43 @@ session-use clause was satisfied by the Kidder drift pin. Old AC.6/AC.9
 fold into plan-003 AC.10 (live shakedown). New AC.2–AC.4 (sweep) are new
 scope; new AC.5–AC.9 correspond to old AC.7–AC.11; new AC.11 ⊃ old
 AC.13.
+
+## Phase-B record (2026-09-29, toward 0.9.0)
+
+### Pipeline decision record (B.1/B.2)
+
+**Decision: a pipeline, not a tool-calling agent.** The model is called
+at exactly three judgment points (`author_findings`,
+`draft_proposal`, `resolve_comments` — `src/driver/steps.rs`); loop
+control, the ledger, the gate, and the publish confirmation are
+deterministic Rust. Supporting evidence: the Phase-A driver-latitude
+assessment above (the session's two process errors were both latitude
+errors), plus the milestone review's finding that the mechanical
+guarantees (schema-validated admission, ledger-quote-id existence,
+retry-once-then-block) are exactly what the pipeline encodes. The
+corrective retry carries the rejected output as an assistant turn — a
+stateless model must see what it got wrong. Tool-call fallback remains
+the pre-agreed escape hatch, to be reconsidered only at a B.6-style
+retrospective if the pipeline proves rigid.
+
+### z.ai contract (B.0, fixtures/zai/)
+
+The operator's key is a **Coding-Plan key**: the coding endpoint
+(`https://api.z.ai/api/coding/paas/v4`) serves it; the standard base
+returns HTTP 429 with terminal code 1113 ("no resource package") —
+recognized and never retried. Wire shape is OpenAI chat completions with
+`content` + a separate `reasoning_content` field; content arrives raw or
+json-fenced (the parser handles a preamble before the fence). B.6
+operator adjustments: the endpoint lives in `rules/house-rules.toml
+[zai]` (fork config — "why am I doing shell exports?"), and `wa serve
+--tsnet` binds the tailnet interface for thin-client operators (default
+stays loopback-only; the LAN is never bound).
+
+### lavish state.json note (B.4/B.6)
+
+lavish-axi 0.1.78's state file (`~/.lavish-axi/state.json`) keeps
+session URLs after the server idles out (30 min) or the user ends the
+session — a stale URL presented as a live link was a B.6 operator catch
+(the old smoke session). `wa serve` now probes before linking and
+offers a one-click re-open (the serve-side wrap of `render --reopen`);
+`wa poll` remains the keep-alive pattern for tty sessions.

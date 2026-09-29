@@ -42,10 +42,13 @@ cargo clippy --all-targets # must be clean
 wa session init --article "X" --entry-loop 2
 wa analyze <slug>
 wa findings add <slug> -
-wa ledger register|fetch|archive|quote|claim ...
+wa ledger register|fetch|archive|attach|quote|claim ...
+wa sweep inventory|fetch|status <slug>   # fetch-or-dispose before analysis
+wa sweep dispose <slug> --source S3 --disposition "..."
 wa render <slug> --round 1 --summary "..."
 wa check <slug>            # standalone gate preflight (no artifact)
 wa poll <slug> [--agent-reply "..."]
 wa publish <slug> --summary "..."
+wa serve [--tsnet] [--port N]  # local web console (loopback default)
 wa lint <wikitext-file>
 ```

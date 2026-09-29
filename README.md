@@ -94,7 +94,7 @@ See [PLAYBOOK.md](PLAYBOOK.md) for the full session protocol. Fast path:
 
 ```
 wa session init --article "Temple Fielding" --entry-loop 2
-wa analyze temple-fielding            # step 0: ALWAYS read this first
+wa analyze <slug>            # step 0: ALWAYS read this first
 wa ledger register <slug> --url https://… --title "…"
 wa ledger fetch <slug> --source S1
 wa ledger archive <slug> --source S1
@@ -108,6 +108,59 @@ wa render <slug> --round 1 --summary "Fix ref-name formats"
 wa poll <slug>                          # waits for operator comments
 wa publish <slug> --summary "Format citations, fix auto ref names"
 ```
+
+### The local web console — `wa serve` (plan-003 B.4/B.6)
+
+The same loop, self-served in the browser: session console, the source
+sweep manifest (run fetch, sign dispositions, paste operator captures),
+the model-driver buttons (author findings / draft proposal), render, and
+publish confirmation as an explicit approve/decline action with the
+exact prompt shown. Nothing edits on-wiki without that click — the web
+and tty paths share one publish core (`gate → confirm → edit → re-pin →
+disclosure`), and the disclosure-log upsert stays bundled into the same
+yes via `BundledConsent` (never usable for the article edit itself).
+
+```
+./target/debug/wa serve            # loopback only, http://127.0.0.1:7427
+./target/debug/wa serve --tsnet    # thin clients: bind the TAILNET interface
+                                    # only (tailscale CLI), never the LAN
+./target/debug/wa serve --port N
+```
+
+Environment and configuration:
+
+- `ZAI_API_KEY` — the model driver's key (env only; keys never live in
+  config).
+- `rules/house-rules.toml [zai]` — the endpoint and model id (this
+  fork's key is a Coding-Plan key: `base_url =
+  "https://api.z.ai/api/coding/paas/v4"`). `ZAI_BASE_URL` overrides for
+  one-off runs; the standard `https://api.z.ai/api/paas/v4` is the
+  fallback default.
+- `WIKIACTIVE_OAUTH2_TOKEN` / `WIKIACTIVE_BOTPASSWORD` — publish
+  credentials as before (bws fallback for the OAuth token).
+- `prompts/` — the three versioned judgment-point templates
+  (`author-findings.md`, `propose.md`, `resolve.md`), SHA-256
+  checksum-pinned by test: edit deliberately, update the pin, say why.
+
+### The source sweep — fetch-or-dispose BEFORE analysis (plan-003 B.3)
+
+```
+wa sweep inventory <slug>        # citation apparatus → ledger candidates
+wa sweep fetch <slug>            # classify: fetched / needs_operator /
+                                  # snapshot_available (CDX) / no_text
+wa sweep status <slug>           # the manifest
+wa sweep dispose <slug> --source S3 --disposition "attested-unreachable"
+```
+
+URL-less books are auto-dispositioned `print: no web text` at inventory;
+dead links get a Wayback CDX snapshot auto-registered (fetched via the
+snapshot). Unresolved sweep sources block `wa check`/render/publish
+until each is fetched, captured, or dispositioned — resolve
+`needs_operator` sources by pasting your browser's capture into the
+serve console (attach) or `wa ledger attach <slug> --source S3 --file
+capture.html` (MHTML/HTML/WARC/text). The 1874→1870→1874 Kidder episode
+is the case for the sweep — see the MVP-2 addendum's Phase-A
+retrospective.
 
 ## Parsoid fixture re-record procedure
 
