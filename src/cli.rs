@@ -724,6 +724,17 @@ fn print_lavish_output(output: &std::process::Output) -> Result<()> {
     Ok(())
 }
 
+/// Disclosure-log entry for one article session. The publish-time upsert
+/// REGENERATES this text on every publish (the marker-delimited block is
+/// replaced wholesale), so this template IS the wording that ends up
+/// on-wiki — a hand edit to the entry is clobbered at the next publish.
+/// Change the wording here (and in the pin test), never on-wiki.
+fn disclosure_entry(date: &str, article: &str, model: &str, diffs_text: &str) -> String {
+    format!(
+        "* '''{date}''' — [[{article}]]. AI assistance: {model} (initial drafting and tooling implementation; every edit human-reviewed and confirmed). Diffs: {diffs_text}"
+    )
+}
+
 #[allow(clippy::too_many_lines)]
 async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
@@ -846,12 +857,11 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
         } else {
             diffs.join(" ")
         };
-        let entry = format!(
-            "* '''{date}''' — [[{article}]]. AI assistance: {model} (initial drafting and tooling implementation; every edit human-reviewed and confirmed). Diffs: {diffs_text}",
-            date = chrono::Utc::now().date_naive(),
-            article = meta.article,
-            model = model,
-            diffs_text = diffs_text,
+        let entry = disclosure_entry(
+            &chrono::Utc::now().date_naive().to_string(),
+            &meta.article,
+            model,
+            &diffs_text,
         );
         let marker = format!("wa-session:{slug}");
         let mut bundled = crate::wikipedia::BundledConsent;
@@ -1075,4 +1085,27 @@ fn lint_cmd(path: &std::path::Path) -> Result<()> {
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    /// Pins the disclosure entry template: the publish-time upsert
+    /// regenerates the entry on every publish, so on-wiki wording always
+    /// equals this string. "(assisted editing session)" was dropped as
+    /// redundant (the whole tool is that; operator catch on the first live
+    /// L2 publish) — it must not come back.
+    #[test]
+    fn disclosure_entry_template_is_pinned() {
+        let entry = super::disclosure_entry(
+            "2026-09-28",
+            "Sarah Kidder",
+            "glm-5.3",
+            "[https://en.wikipedia.org/w/index.php?diff=1377121505&oldid=1370213000 1377121505]",
+        );
+        assert_eq!(
+            entry,
+            "* '''2026-09-28''' — [[Sarah Kidder]]. AI assistance: glm-5.3 (initial drafting and tooling implementation; every edit human-reviewed and confirmed). Diffs: [https://en.wikipedia.org/w/index.php?diff=1377121505&oldid=1370213000 1377121505]"
+        );
+        assert!(!entry.contains("assisted editing session"));
+    }
 }
