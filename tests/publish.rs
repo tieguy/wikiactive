@@ -14,8 +14,11 @@ use wikiloop::wikipedia::WikipediaError;
 /// A confirm source that answers yes (tests the happy path only).
 struct Approve;
 impl ConfirmSource for Approve {
-    fn confirm(&mut self, _prompt: &str) -> bool {
-        true
+    fn confirm<'a>(
+        &'a mut self,
+        _prompt: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+        Box::pin(std::future::ready(true))
     }
 }
 

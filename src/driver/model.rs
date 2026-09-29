@@ -59,6 +59,16 @@ impl ChatMessage {
             content: content.into(),
         }
     }
+
+    /// An assistant message (a prior model turn — the corrective retry
+    /// includes the rejected output so the model can actually see it).
+    #[must_use]
+    pub fn assistant(content: impl Into<String>) -> Self {
+        Self {
+            role: "assistant".into(),
+            content: content.into(),
+        }
+    }
 }
 
 /// A parsed completion: the answer content plus what the driver logs.
@@ -176,10 +186,11 @@ impl ZaiClient {
         format!("{}/chat/completions", self.base)
     }
 
-    /// One non-streaming chat completion. Retries transport errors and
-    /// 429/5xx per the injected schedule (honoring `Retry-After` when
-    /// larger); 429-with-1113 returns [`ZaiError::NoPackage`] without
-    /// retrying.
+    /// One non-streaming chat completion. Retries rate-limit (429) and
+    /// 5xx responses per the injected schedule (honoring `Retry-After`
+    /// when larger); 429-with-1113 returns [`ZaiError::NoPackage`] without
+    /// retrying; other transport errors surface immediately (the MW fetch
+    /// client's bounded backoff is the precedent for the scope here).
     ///
     /// # Errors
     /// See [`ZaiError`]; the response is parsed with
@@ -290,17 +301,27 @@ pub fn parse_chat_response(body: &str) -> Result<ChatResponse, ZaiError> {
     })
 }
 
-/// Strip an optional markdown code fence from fenced model output
-/// (observed live: both fenced and raw JSON arrive; B.0 fixtures).
+/// Strip markdown code fencing from model output: returns the first
+/// fenced block when one appears ANYWHERE in the content (observed live:
+/// fenced and raw JSON, sometimes after a one-line preamble), else the
+/// trimmed content.
 #[must_use]
 pub fn strip_code_fence(content: &str) -> &str {
     let trimmed = content.trim();
-    let Some(open) = trimmed.strip_prefix("```") else {
+    let Some(open) = trimmed.find("```") else {
         return trimmed;
     };
-    // Drop the info string (e.g. "json") up to the first newline.
-    let after_info = open.split_once('\n').map_or(open, |(_, rest)| rest);
-    after_info.strip_suffix("```").unwrap_or(after_info).trim()
+    // Skip the fence and its info string (e.g. "json") up to the newline.
+    let after_open = &trimmed[open + 3..];
+    let Some(newline) = after_open.find('\n') else {
+        // Degenerate: a fence with no content line.
+        return "";
+    };
+    let body = &after_open[newline + 1..];
+    match body.rfind("```") {
+        Some(close) => body[..close].trim(),
+        None => body.trim(),
+    }
 }
 
 fn error_code(body: &str) -> Option<String> {
@@ -408,6 +429,12 @@ mod tests {
             strip_code_fence("```"),
             "",
             "degenerate fence is empty content"
+        );
+        // Preamble before the fence (review finding: offset-0-only fences
+        // used to defeat extraction).
+        assert_eq!(
+            strip_code_fence("Here is the JSON you asked for:\n```json\n[2]\n```"),
+            "[2]"
         );
         let _ = ChatResponse::default();
     }

@@ -163,20 +163,41 @@ impl Ledger {
 
     /// Register a source from the sweep inventory, deduplicating by URL:
     /// a source already in the ledger keeps its id (and any fetched
-    /// text). Returns the id and whether it was newly added. URL-less
-    /// inventory entries (books/ISBNs) use an `isbn:<n>` pseudo-URL and
-    /// carry the auto disposition `print: no web text` — the gate never
-    /// dead-ends on non-web sources.
+    /// text), and — if it predates the sweep — is BACK-FILLED to
+    /// `pending` so pre-registered sources join the manifest instead of
+    /// bypassing the gate. Returns the id and whether it was newly added.
+    /// URL-less inventory entries (books/ISBNs) use an `isbn:<n>`
+    /// pseudo-URL and carry the auto disposition `print: no web text` —
+    /// the gate never dead-ends on non-web sources; unkeyable citations
+    /// (`cite:…` pseudo-URLs) register as visible `needs_operator` rows.
     pub fn register_sweep_source(
         &mut self,
         url: &str,
         metadata: Option<SourceMetadata>,
     ) -> (String, bool) {
-        if let Some(existing) = self.sources.iter().find(|s| s.url == url) {
+        let url_is_web = url.starts_with("http://") || url.starts_with("https://");
+        if let Some(existing) = self.sources.iter_mut().find(|s| s.url == url) {
+            if existing.sweep_status.is_none() {
+                existing.sweep_status = Some(if url_is_web {
+                    "pending".into()
+                } else {
+                    "no_text".into()
+                });
+            }
             return (existing.id.clone(), false);
         }
-        let url_is_web = url.starts_with("http://") || url.starts_with("https://");
         let id = format!("S{}", self.sources.len() + 1);
+        let (sweep_status, disposition) = if url_is_web {
+            ("pending".to_string(), None)
+        } else if url.starts_with("isbn:") {
+            (
+                "no_text".to_string(),
+                Some("print: no web text".to_string()),
+            )
+        } else {
+            // cite:/other pseudo-URLs: visible, the operator resolves.
+            ("needs_operator".to_string(), None)
+        };
         self.sources.push(SourceEntry {
             id: id.clone(),
             url: url.to_string(),
@@ -185,16 +206,8 @@ impl Ledger {
             fetched_via: None,
             access_date: chrono::Utc::now().date_naive().to_string(),
             metadata,
-            sweep_status: Some(if url_is_web {
-                "pending".into()
-            } else {
-                "no_text".into()
-            }),
-            disposition: if url_is_web {
-                None
-            } else {
-                Some("print: no web text".into())
-            },
+            sweep_status: Some(sweep_status),
+            disposition,
         });
         (id, true)
     }

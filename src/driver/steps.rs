@@ -125,10 +125,13 @@ async fn call_json<T: serde::de::DeserializeOwned>(
     if let Ok(parsed) = parse_and_validate::<T>(&first.content, &validate) {
         return Ok(parsed);
     }
-    // One corrective retry: same conversation plus what was wrong.
+    // One corrective retry: the rejected output rides along as an
+    // assistant turn (a stateless model must be able to SEE what it got
+    // wrong), then the corrective instruction.
     let problems_of = |content: &str| parse_problems::<T>(content, &validate);
     let retry_messages = {
         let mut m = messages.to_vec();
+        m.push(ChatMessage::assistant(first.content.clone()));
         m.push(ChatMessage::user(format!(
             "Your previous output was rejected: {}. Output the JSON this step's schema \
              expects — JSON only, no code fences, no commentary.",

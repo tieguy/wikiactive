@@ -123,13 +123,19 @@ async fn malformed_then_valid_recovers() {
     let good = server
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
-                .path("/chat/completions");
+                .path("/chat/completions")
+                // The corrective retry carries the rejected output as an
+                // assistant turn — pin it on the wire.
+                .body_includes("sure, here are my thoughts:");
             then.status(200).json_body(completion(VALID_FINDINGS));
         })
         .await;
 
     // The step runs in a task; after the garbage hit we delete that mock
-    // so the retry matches the good one (httpmock: first match wins).
+    // so the retry matches the good one (httpmock: first match wins). The
+    // good mock REQUIRES the rejected output in the request body: the
+    // corrective retry must carry the model's prior turn (review finding:
+    // a context-less retry just repeats the failure).
     let c = client(&server);
     let task = tokio::spawn(async move { author_findings(&c, &ctx()).await });
     while garbage.calls() == 0 {

@@ -39,8 +39,10 @@ pub mod status {
 /// One inventory candidate parsed from the citation apparatus.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CitationCandidate {
-    /// Fetch target: the cite's `url=`, or its `archive-url=` when the
-    /// original is dead (what the live session did for True West).
+    /// Fetch target: the cite's `url=` (or `chapter-url=`, or the
+    /// `doi.org`/`wikidata.org` resolution for doi/cite-q citations), or
+    /// its `archive-url=` when the original is dead (what the live
+    /// session did for True West).
     pub url: Option<String>,
     /// The original (dead) URL when `url-status=dead` + `archive-url=`.
     pub dead_original: Option<String>,
@@ -50,16 +52,30 @@ pub struct CitationCandidate {
     pub title: Option<String>,
     /// `work=`/`newspaper=`/`journal=`/`magazine=`/`website=`.
     pub work: Option<String>,
+    /// A citation this tool cannot key (`cite:…` pseudo-URL): registered
+    /// as a VISIBLE `needs_operator` row — never silently dropped
+    /// (review finding: cite templates without a derivable key used to
+    /// vanish).
+    pub needs_operator: bool,
 }
 
 impl CitationCandidate {
-    /// The ledger key: the fetch URL, or the `isbn:` pseudo-URL.
+    /// The ledger key: the fetch URL, the `isbn:` pseudo-URL, or the
+    /// `cite:` visibility pseudo-URL.
     #[must_use]
     pub fn ledger_url(&self) -> Option<String> {
         if let Some(url) = &self.url {
             return Some(url.clone());
         }
-        self.isbn.as_ref().map(|isbn| format!("isbn:{isbn}"))
+        if let Some(isbn) = &self.isbn {
+            return Some(format!("isbn:{isbn}"));
+        }
+        if self.needs_operator {
+            let title = self.title.as_deref().unwrap_or("untitled");
+            let key: String = title.chars().take(60).collect();
+            return Some(format!("cite:{key}"));
+        }
+        None
     }
 }
 
@@ -112,142 +128,210 @@ fn param_value(params: &[String], names: &[&str]) -> Option<String> {
 #[must_use]
 pub fn parse_citations(wikitext: &str) -> Vec<CitationCandidate> {
     let mut candidates: Vec<CitationCandidate> = Vec::new();
-    let mut push = |c: CitationCandidate| {
-        let Some(key) = c.ledger_url() else { return };
-        if !candidates
-            .iter()
-            .any(|e| e.ledger_url().is_some_and(|k| k == key))
-        {
-            candidates.push(c);
-        }
-    };
-
-    // Ref bodies: <ref ...>body</ref>. Wikitext refs do not nest.
-    let mut rest = wikitext.to_string();
-    let ref_bodies = {
-        let mut bodies = Vec::new();
-        while let Some(start) = rest.find("<ref") {
-            let body_start = match rest[start..].find('>') {
-                Some(i) => start + i + 1,
-                None => break,
-            };
-            // Self-closing <ref name=x /> — skip past it.
-            let tag_end = start + rest[start..].find('>').unwrap_or(0);
-            if rest.as_bytes().get(tag_end - 1) == Some(&b'/') {
-                rest = rest[body_start..].to_string();
-                continue;
-            }
-            let Some(len) = rest[body_start..].find("</ref>") else {
-                break;
-            };
-            bodies.push(rest[body_start..body_start + len].to_string());
-            rest = rest[body_start + len + 6..].to_string();
-        }
-        bodies
-    };
-
-    // Cite templates: inside ref bodies and loose in the page.
-    let mut all_templates = Vec::new();
-    for text in &ref_bodies {
-        all_templates.extend(templates_in(text));
-    }
-    all_templates.extend(templates_in(wikitext));
-    for body in &all_templates {
-        let Some(body) = body else { continue };
-        let is_cite = body.trim_start().to_ascii_lowercase().starts_with("cite ")
-            || body
-                .trim_start()
-                .to_ascii_lowercase()
-                .starts_with("citation");
-        if !is_cite {
-            continue;
-        }
-        let params = split_params(body);
-        let url = param_value(&params, &["url", "URL"]);
-        let archive_url = param_value(&params, &["archive-url", "archive_url"]);
-        let dead = matches!(
-            param_value(&params, &["url-status", "dead-url", "urlstatus"]).as_deref(),
-            Some("dead" | "yes" | "true")
-        );
-        let isbn = param_value(&params, &["isbn", "ISBN"]);
-        let candidate = if dead && archive_url.is_some() {
-            CitationCandidate {
-                url: archive_url,
-                dead_original: url,
-                isbn: None,
-                title: param_value(&params, &["title"]),
-                work: param_value(
-                    &params,
-                    &[
-                        "work",
-                        "newspaper",
-                        "journal",
-                        "magazine",
-                        "website",
-                        "publisher",
-                    ],
-                ),
-            }
-        } else {
-            CitationCandidate {
-                url,
-                dead_original: None,
-                isbn,
-                title: param_value(&params, &["title"]),
-                work: param_value(
-                    &params,
-                    &[
-                        "work",
-                        "newspaper",
-                        "journal",
-                        "magazine",
-                        "website",
-                        "publisher",
-                    ],
-                ),
+    {
+        let candidates = &mut candidates;
+        // All keys flow through one dedupe.
+        let mut push = |c: CitationCandidate| {
+            let Some(key) = c.ledger_url() else { return };
+            if !candidates
+                .iter()
+                .any(|e| e.ledger_url().is_some_and(|k| k == key))
+            {
+                candidates.push(c);
             }
         };
-        push(candidate);
-    }
 
-    // Bare URLs: external-link bullets `* [https://…] label` and bare
-    // `https://…` lines (skipping those already inside cite templates).
-    let without_refs = strip_refs_and_templates(wikitext);
-    for line in without_refs.lines() {
-        let trimmed = line.trim_start_matches(['*', ' ', '\t']);
-        if let Some(inside) = trimmed
-            .strip_prefix('[')
-            .and_then(|t| t.split_once(']'))
-            .map(|(inside, _)| inside.trim().to_string())
-        {
-            // `[https://example label]` — the URL is the first token.
-            let url = inside
-                .split_whitespace()
-                .next()
-                .unwrap_or_default()
-                .to_string();
-            if url.starts_with("http://") || url.starts_with("https://") {
-                push(CitationCandidate {
-                    url: Some(url),
-                    ..Default::default()
-                });
+        let ref_bodies = collect_ref_bodies(wikitext);
+
+        // Harvester 1 — cite/citation templates (inside refs and loose):
+        // url=, chapter-url=, doi=, cite-q positionals, archive pairs,
+        // ISBNs; anything else becomes a visible `cite:` row.
+        for text in ref_bodies.iter().map(String::as_str).chain([wikitext]) {
+            for body in templates_in(text).into_iter().flatten() {
+                harvest_cite_template(&body, &mut push);
             }
-            continue;
         }
-        if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-            let url: String = trimmed
-                .split_whitespace()
-                .next()
-                .unwrap_or_default()
-                .to_string();
+
+        // Harvester 2 — every http(s):// token anywhere in the raw
+        // wikitext (refs included): plain external-link refs, URLs inside
+        // non-cite templates ({{Official website|…}}), bullets, and
+        // mid-line links. Substring suppression keeps a dead original
+        // embedded in its own Wayback URL from double-registering.
+        for url in url_tokens(wikitext) {
             push(CitationCandidate {
                 url: Some(url),
                 ..Default::default()
             });
         }
     }
-
     candidates
+}
+
+/// Cite-template harvest (one template body). Keys derive in order:
+/// `url=` (or the archive pair when dead), `chapter-url=`, `doi=`
+/// (resolved to doi.org), cite-q positionals (wikidata.org), `isbn=`,
+/// and — only when none of those exist — a visible `cite:` pseudo-key.
+fn harvest_cite_template(body: &str, push: &mut impl FnMut(CitationCandidate)) {
+    let lowered = body.trim_start().to_ascii_lowercase();
+    // First token: "cite" family always; bare "citation" is the citation
+    // template, but "citation needed" (et al.) is a maintenance tag, not
+    // a citation.
+    let first_word = lowered
+        .split(|c: char| c.is_whitespace() || c == '|')
+        .next()
+        .unwrap_or_default();
+    let is_cite = first_word == "cite"
+        || (first_word == "citation"
+            && lowered
+                .strip_prefix("citation")
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with('|')));
+    if !is_cite {
+        return;
+    }
+    let params = split_params(body);
+    let url = param_value(&params, &["url", "URL"]);
+    let archive_url = param_value(&params, &["archive-url", "archive_url"]);
+    let dead = matches!(
+        param_value(&params, &["url-status", "dead-url", "urlstatus"]).as_deref(),
+        Some("dead" | "yes" | "true")
+    );
+    let title = param_value(&params, &["title"]);
+    let work = param_value(
+        &params,
+        &[
+            "work",
+            "newspaper",
+            "journal",
+            "magazine",
+            "website",
+            "publisher",
+        ],
+    );
+
+    // cite q: positional Wikidata ids → a fetchable wikidata.org URL.
+    if lowered.starts_with("cite q") {
+        let positional = params
+            .iter()
+            .skip(1)
+            .map(|p| p.trim().to_string())
+            .find(|p| {
+                p.len() > 1
+                    && p[..1].eq_ignore_ascii_case("q")
+                    && p[1..].chars().all(|c| c.is_ascii_digit())
+            });
+        if let Some(qid) = positional {
+            push(CitationCandidate {
+                url: Some(format!("https://www.wikidata.org/wiki/{qid}")),
+                title,
+                work,
+                ..Default::default()
+            });
+            return;
+        }
+    }
+
+    let mut candidate = if dead && archive_url.is_some() {
+        CitationCandidate {
+            url: archive_url,
+            dead_original: url.clone(),
+            isbn: None,
+            title,
+            work,
+            needs_operator: false,
+        }
+    } else {
+        let isbn = param_value(&params, &["isbn", "ISBN"]);
+        CitationCandidate {
+            url,
+            dead_original: None,
+            isbn,
+            title,
+            work,
+            needs_operator: false,
+        }
+    };
+    if candidate.url.is_none() {
+        // No url=: try chapter-url, then doi, then a visible pseudo-key.
+        if let Some(chapter) = param_value(&params, &["chapter-url", "chapterurl"]) {
+            candidate.url = Some(chapter);
+        } else if let Some(doi) = param_value(&params, &["doi", "DOI"]) {
+            candidate.url = Some(format!("https://doi.org/{doi}"));
+        }
+    }
+    if candidate.url.is_none() && candidate.isbn.is_none() {
+        // A citation with no derivable key: visible, never dropped.
+        candidate.needs_operator = true;
+    }
+    push(candidate);
+}
+
+/// Extract every `http(s)://…` token from raw wikitext, dropping tokens
+/// that are substrings of a longer token from the same text (a dead
+/// original embedded inside its own Wayback snapshot URL).
+fn url_tokens(text: &str) -> Vec<String> {
+    let mut tokens: Vec<String> = Vec::new();
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let (pos, c) = chars[i];
+        // Scheme start: the 'h' of http(s)://, on a char boundary.
+        if c == 'h' && (text[pos..].starts_with("https://") || text[pos..].starts_with("http://")) {
+            let mut j = i + 1;
+            while j < chars.len() {
+                let ch = chars[j].1;
+                if ch.is_whitespace() || "|]}<>\"'),".contains(ch) {
+                    break;
+                }
+                j += 1;
+            }
+            let end = if j < chars.len() {
+                chars[j].0
+            } else {
+                text.len()
+            };
+            let url: String = text[pos..end].trim_end_matches(['.', ';', ':']).to_string();
+            if url.contains('.') && !tokens.contains(&url) {
+                tokens.push(url);
+            }
+            i = j.max(i + 1);
+            continue;
+        }
+        i += 1;
+    }
+    // Substring suppression: a token contained in a longer token (e.g.
+    // the dead original inside its archive.org wrapper) is that longer
+    // URL's payload, not a separate source.
+    tokens
+        .iter()
+        .filter(|t| {
+            !tokens
+                .iter()
+                .any(|o| o.len() > t.len() && o.contains(t.as_str()))
+        })
+        .cloned()
+        .collect()
+}
+
+fn collect_ref_bodies(wikitext: &str) -> Vec<String> {
+    let mut bodies = Vec::new();
+    let mut rest = wikitext.to_string();
+    while let Some(start) = rest.find("<ref") {
+        let Some(gt_rel) = rest[start..].find('>') else {
+            break;
+        };
+        let body_start = start + gt_rel + 1;
+        if rest.as_bytes().get(start + gt_rel - 1) == Some(&b'/') {
+            // Self-closing <ref name=x />.
+            rest = rest[body_start..].to_string();
+            continue;
+        }
+        let Some(len) = rest[body_start..].find("</ref>") else {
+            break;
+        };
+        bodies.push(rest[body_start..body_start + len].to_string());
+        rest = rest[body_start + len + 6..].to_string();
+    }
+    bodies
 }
 
 /// Yield the bodies of `{{ … }}` templates (nesting-aware, innermost
@@ -402,6 +486,9 @@ pub enum FetchOutcome {
     Dead,
     /// Reachable, nothing extractable (PDF/image/JS shell).
     NoText,
+    /// Transient (rate-limit, 5xx): stays `pending` so the next
+    /// `wa sweep fetch` retries it — never misfiled as terminal.
+    RetryLater(String),
 }
 
 /// Classify one fetch result (bounded: status classes + configured
@@ -413,6 +500,14 @@ pub fn classify_fetch(status: u16, text: &str, cfg: &SweepConfig) -> FetchOutcom
     }
     if status == 404 || status == 410 {
         return FetchOutcome::Dead;
+    }
+    if status == 429 || (500..=599).contains(&status) {
+        return FetchOutcome::RetryLater(format!("HTTP {status} (transient)"));
+    }
+    if (400..=499).contains(&status) {
+        // Other 4xx: real but not one of the known classes — visible,
+        // not silently terminal.
+        return FetchOutcome::NeedsOperator(format!("HTTP {status} — classify manually"));
     }
     let lowered = text.to_lowercase();
     for marker in &cfg.paywall_markers {
@@ -473,8 +568,14 @@ pub async fn sweep_fetch_one(
             note: None,
         });
     }
+    // Prefer the sweep-found Wayback snapshot (dead originals).
+    let fetch_target = entry
+        .metadata
+        .as_ref()
+        .and_then(|m| m.snapshot_url.clone())
+        .unwrap_or_else(|| entry.url.clone());
 
-    let fetch_result = fetcher.fetch_text(&entry.url).await;
+    let fetch_result = fetcher.fetch_text(&fetch_target).await;
     let (outcome, text) = match fetch_result {
         Ok(body) => {
             let text = if body.trim_start().starts_with('<') {
@@ -485,8 +586,12 @@ pub async fn sweep_fetch_one(
             (classify_fetch(200, &text, cfg), Some(text))
         }
         Err(NetError::Status { status, .. }) => (classify_fetch(status, "", cfg), None),
-        // DNS/timeout failures usually accompany dead links: check CDX.
-        Err(NetError::Transport(_)) => (FetchOutcome::Dead, None),
+        // Transport failures (DNS, timeouts, local outages) are NOT dead
+        // links: visible needs_operator with the error text, so a live
+        // source is never mislabeled dead over a transient network blip.
+        Err(NetError::Transport(e)) => {
+            (FetchOutcome::NeedsOperator(format!("transport: {e}")), None)
+        }
         Err(e) => return Err(e.into()),
     };
 
@@ -511,6 +616,13 @@ pub async fn sweep_fetch_one(
             ledger.set_sweep_status(source_id, status::NEEDS_OPERATOR)?;
             Ok(SweepOutcome {
                 status: status::NEEDS_OPERATOR.into(),
+                note: Some(reason),
+            })
+        }
+        FetchOutcome::RetryLater(reason) => {
+            // Stays pending: the next `wa sweep fetch` retries it.
+            Ok(SweepOutcome {
+                status: status::PENDING.into(),
                 note: Some(reason),
             })
         }
@@ -601,6 +713,101 @@ mod tests {
             urls.contains(&"http://example.org/b".to_string()),
             "{urls:?}"
         );
+    }
+
+    /// Review finding 1: plain external-link refs (`<ref>[url label]</ref>`)
+    /// are inventory — never silently missed.
+    #[test]
+    fn plain_external_link_refs_are_inventoried() {
+        let w = r"Text.<ref>[https://example.com/obit Obituary in the Daily Example]</ref>";
+        let cands = parse_citations(w);
+        assert_eq!(cands.len(), 1, "{cands:?}");
+        assert_eq!(cands[0].url.as_deref(), Some("https://example.com/obit"));
+    }
+
+    /// Review findings 2–3: cite templates without `url=`/`isbn=` derive a
+    /// key (cite q → wikidata, doi → doi.org, chapter-url), URLs inside
+    /// NON-cite templates are harvested, and truly unkeyable citations
+    /// become a VISIBLE `cite:` row — nothing silently drops.
+    #[test]
+    fn unkeyed_citations_derive_keys_or_degrade_visibly() {
+        let cands = parse_citations("{{cite q|Q1|Q42|title=Thing}}");
+        assert_eq!(
+            cands[0].url.as_deref(),
+            Some("https://www.wikidata.org/wiki/Q1"),
+            "{cands:?}"
+        );
+        let cands = parse_citations("{{cite journal|title=T|doi=10.1000/x}}");
+        assert_eq!(cands[0].url.as_deref(), Some("https://doi.org/10.1000/x"));
+        let cands = parse_citations("{{cite book|title=T|chapter-url=https://ex.example/c}}");
+        assert_eq!(cands[0].url.as_deref(), Some("https://ex.example/c"));
+        let cands = parse_citations("{{cite book|title=Only In Print Vol 2}}");
+        assert_eq!(
+            cands[0].ledger_url().as_deref(),
+            Some("cite:Only In Print Vol 2")
+        );
+        let cands = parse_citations("{{Official website|https://example.org/official}}");
+        assert!(
+            cands
+                .iter()
+                .any(|c| c.url.as_deref() == Some("https://example.org/official"))
+        );
+        // {{citation needed}} is a maintenance tag, NOT a citation.
+        assert!(parse_citations("Uncited{{citation needed|date=2019}}.").is_empty());
+    }
+
+    /// Review finding 4: mid-line and multiple bracketed links inventory.
+    #[test]
+    fn midline_links_are_inventoried() {
+        let w = "See [https://example.com/b the article] and visit https://example.com/c today.\n\
+                 * [https://example.com/d One] and [https://example.com/e Two]\n";
+        let urls: Vec<_> = parse_citations(w)
+            .into_iter()
+            .filter_map(|c| c.url)
+            .collect();
+        for expected in [
+            "https://example.com/b",
+            "https://example.com/c",
+            "https://example.com/d",
+            "https://example.com/e",
+        ] {
+            assert!(
+                urls.contains(&expected.to_string()),
+                "missing {expected}: {urls:?}"
+            );
+        }
+    }
+
+    /// The dead original embedded inside its own Wayback URL does not
+    /// double-register (substring suppression).
+    #[test]
+    fn embedded_dead_original_is_not_a_second_source() {
+        let w = "https://web.archive.org/web/2013/http://dead.example/x";
+        let urls: Vec<_> = parse_citations(w)
+            .into_iter()
+            .filter_map(|c| c.url)
+            .collect();
+        assert_eq!(urls.len(), 1, "{urls:?}");
+        assert!(urls[0].starts_with("https://web.archive.org/"));
+    }
+
+    /// Review finding 5: transient statuses (429/5xx) stay retryable;
+    /// other 4xx are visible, not silently terminal.
+    #[test]
+    fn transient_statuses_are_retry_later() {
+        let cfg = SweepConfig::default();
+        assert!(matches!(
+            classify_fetch(429, "", &cfg),
+            super::FetchOutcome::RetryLater(_)
+        ));
+        assert!(matches!(
+            classify_fetch(503, "", &cfg),
+            super::FetchOutcome::RetryLater(_)
+        ));
+        assert!(matches!(
+            classify_fetch(451, "", &cfg),
+            super::FetchOutcome::NeedsOperator(_)
+        ));
     }
 
     #[test]

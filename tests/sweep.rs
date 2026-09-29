@@ -379,3 +379,20 @@ fn sweep_toml_matches_default_markers() {
     let cfg = SweepConfig::load(std::path::Path::new("rules/sweep.toml")).expect("loads");
     assert_eq!(cfg, SweepConfig::default());
 }
+
+/// Review finding 7: a transport failure (unreachable host) is visible
+/// `needs_operator` — never mislabeled dead over a network blip.
+#[tokio::test]
+async fn transport_failure_is_visible_needs_operator() {
+    // Port 9 (discard) on loopback: closed → reqwest transport error.
+    let (mut ledger, id) = ledger_with("http://127.0.0.1:9/unreachable");
+    let cdx = CdxClient::with_base("http://127.0.0.1:9/cdx");
+    let out = sweep_fetch_one(&fetcher(), &cdx, &mut ledger, &id, &SweepConfig::default())
+        .await
+        .expect("classifies");
+    assert_eq!(out.status, status::NEEDS_OPERATOR);
+    assert!(
+        out.note.as_deref().is_some_and(|n| n.contains("transport")),
+        "{out:?}"
+    );
+}

@@ -627,7 +627,12 @@ pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
     let pending: Vec<String> = ledger
         .sources
         .iter()
-        .filter(|s| s.sweep_status.as_deref() == Some(crate::sweep::status::PENDING))
+        .filter(|s| {
+            matches!(
+                s.sweep_status.as_deref(),
+                Some(crate::sweep::status::PENDING | crate::sweep::status::SNAPSHOT_AVAILABLE)
+            )
+        })
         .map(|s| s.id.clone())
         .collect();
     if pending.is_empty() {
@@ -1125,11 +1130,18 @@ fn ledger_register(slug: &str, url: &str, title: Option<&str>, work: Option<&str
 async fn ledger_fetch(slug: &str, source: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let mut ledger = Ledger::load(&paths.ledger())?;
+    // Prefer the sweep-found Wayback snapshot when the original is dead
+    // (`snapshot_available` sources otherwise re-fetch the dead URL).
     let url = ledger
         .sources
         .iter()
         .find(|s| s.id == source)
-        .map(|s| s.url.clone())
+        .map(|s| {
+            s.metadata
+                .as_ref()
+                .and_then(|m| m.snapshot_url.clone())
+                .unwrap_or_else(|| s.url.clone())
+        })
         .ok_or_else(|| anyhow::anyhow!("unknown source {source}"))?;
     let fetcher = crate::ledger::SourceFetcher::new()?;
     let body = fetcher
