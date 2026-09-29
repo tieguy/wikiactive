@@ -34,36 +34,57 @@ pub const BOTPASSWORD_ENV: &str = "WIKIACTIVE_BOTPASSWORD";
 
 /// Confirmation source for the publish gate: the model can never
 /// self-publish — an interactive read through this trait is required.
-pub trait ConfirmSource {
+/// The decision may resolve asynchronously (the `wa serve` console's
+/// pending-confirmation click), so the method returns a boxed future.
+pub trait ConfirmSource: Send {
     /// Show `prompt`, return the human's decision.
-    fn confirm(&mut self, prompt: &str) -> bool;
+    fn confirm<'a>(
+        &'a mut self,
+        prompt: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>>;
+}
+
+fn ready_confirm(value: bool) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send>> {
+    Box::pin(std::future::ready(value))
 }
 
 /// Reads confirmation from `/dev/tty` so piped stdin/stdout cannot fake it.
 pub struct TtyConfirm;
 
 impl ConfirmSource for TtyConfirm {
-    fn confirm(&mut self, prompt: &str) -> bool {
-        use std::io::BufRead;
-        use std::io::Write;
-        let Ok(tty) = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open("/dev/tty")
-        else {
-            eprintln!("no controlling terminal; publish requires one");
-            return false;
-        };
-        let mut reader = std::io::BufReader::new(tty);
-        let mut handle = reader.get_ref().try_clone().expect("tty clone");
-        let _ = writeln!(handle, "{prompt} [type yes to publish] ");
-        let _ = handle.flush();
-        let mut line = String::new();
-        if reader.read_line(&mut line).is_err() {
-            return false;
-        }
-        line.trim().eq_ignore_ascii_case("yes")
+    fn confirm<'a>(
+        &'a mut self,
+        prompt: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+        let prompt = prompt.to_string();
+        Box::pin(async move {
+            tokio::task::spawn_blocking(move || read_tty_confirm(&prompt))
+                .await
+                .unwrap_or(false)
+        })
     }
+}
+
+fn read_tty_confirm(prompt: &str) -> bool {
+    use std::io::BufRead;
+    use std::io::Write;
+    let Ok(tty) = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/tty")
+    else {
+        eprintln!("no controlling terminal; publish requires one");
+        return false;
+    };
+    let mut reader = std::io::BufReader::new(tty);
+    let mut handle = reader.get_ref().try_clone().expect("tty clone");
+    let _ = writeln!(handle, "{prompt} [type yes to publish] ");
+    let _ = handle.flush();
+    let mut line = String::new();
+    if reader.read_line(&mut line).is_err() {
+        return false;
+    }
+    line.trim().eq_ignore_ascii_case("yes")
 }
 
 /// A confirmation source that always answers no (tests; absent tty).
@@ -71,19 +92,27 @@ impl ConfirmSource for TtyConfirm {
 pub struct DenyConfirm;
 
 impl ConfirmSource for DenyConfirm {
-    fn confirm(&mut self, _prompt: &str) -> bool {
-        false
+    fn confirm<'a>(
+        &'a mut self,
+        _prompt: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+        ready_confirm(false)
     }
 }
 
 /// A confirmation source for writes whose consent was BUNDLED into the
 /// publish prompt (the prompt states that confirming also updates the
-/// disclosure session log). Never usable for the article edit itself.
+/// disclosure session log). Never usable for the article edit itself —
+/// `wa serve`'s publish action backs a dedicated [`WebConfirm`], and the
+/// article edit's yes is always its own explicit operator action.
 pub struct BundledConsent;
 
 impl ConfirmSource for BundledConsent {
-    fn confirm(&mut self, _prompt: &str) -> bool {
-        true
+    fn confirm<'a>(
+        &'a mut self,
+        _prompt: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+        ready_confirm(true)
     }
 }
 
@@ -431,7 +460,7 @@ impl Wikipedia {
              prompt, and the wiki history changes when you type yes.",
             req.title, req.base_revid
         );
-        if !confirm.confirm(&prompt) {
+        if !confirm.confirm(&prompt).await {
             return Err(WikipediaError::Declined);
         }
 
@@ -656,13 +685,13 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn declined_confirmation_is_an_error_not_a_write() {
+    #[tokio::test]
+    async fn declined_confirmation_is_an_error_not_a_write() {
         // The confirm gate refusing is a Declined error; exercised end-to-end
         // against a mock server in tests/publish.rs.
         use super::ConfirmSource as _;
         let mut deny = DenyConfirm;
-        assert!(!deny.confirm("anything"));
+        assert!(!deny.confirm("anything").await);
     }
 
     #[test]

@@ -17,6 +17,7 @@ pub mod lavish;
 pub mod ledger;
 pub mod render;
 pub mod rules;
+pub mod serve;
 pub mod session;
 pub mod sweep;
 pub mod wikipedia;

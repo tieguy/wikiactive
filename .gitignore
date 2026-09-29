@@ -2,3 +2,4 @@
 /sessions
 .env
 .lavish/
+tmp/

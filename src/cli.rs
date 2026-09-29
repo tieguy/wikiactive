@@ -26,6 +26,7 @@ use crate::session::FindingsFile;
 use crate::session::RoundEntry;
 use crate::session::SessionMeta;
 use crate::session::SessionPaths;
+use crate::wikipedia::ConfirmSource;
 use crate::wikipedia::EditRequest;
 use crate::wikipedia::TtyConfirm;
 use crate::wikipedia::Wikipedia;
@@ -124,6 +125,13 @@ pub enum Command {
     Sweep {
         #[command(subcommand)]
         cmd: SweepCmd,
+    },
+    /// Local web console (plan-003 B.4): session console, sweep manifest,
+    /// publish confirmation. Loopback-only bind.
+    Serve {
+        /// Port (default 7427). The host is fixed to 127.0.0.1.
+        #[arg(long)]
+        port: Option<u16>,
     },
 }
 
@@ -274,6 +282,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             } => sweep_dispose(&slug, &source, &disposition),
             SweepCmd::Status { slug } => sweep_status(&slug),
         },
+        Command::Serve { port } => crate::serve::run(port.unwrap_or(7427)).await,
         Command::Render {
             slug,
             round,
@@ -608,7 +617,7 @@ fn sweep_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Resul
     Ok(())
 }
 
-async fn sweep_fetch(slug: &str) -> Result<()> {
+pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let config = crate::sweep::SweepConfig::load(std::path::Path::new("rules/sweep.toml"))
         .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -903,7 +912,36 @@ fn disclosure_entry(date: &str, article: &str, model: &str, diffs_text: &str) ->
 }
 
 #[allow(clippy::too_many_lines)]
-async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
+/// What a completed publish did (shared by the CLI prints and the
+/// `wa serve` session state).
+pub(crate) struct PublishOutcome {
+    /// Diff URL of the published revision.
+    pub diff_url: String,
+    /// The new revid (0 when the edit was a no-change).
+    pub new_revid: u64,
+    /// Whether a revision was actually created.
+    pub created_revision: bool,
+}
+
+/// The shared publish path (plan-003 B.4): gate → confirm → edit → re-pin
+/// → disclosure-log upsert. The tty CLI and `wa serve`'s web action run
+/// the SAME flow with the confirm source injected. `BundledConsent` backs
+/// only the disclosure-log upsert bundled into the one yes — never the
+/// article edit. There is no auto-publish path: every caller requires an
+/// explicit operator action through its `ConfirmSource`.
+// One linear flow by design (gate → confirm → edit → re-pin → disclosure);
+// splitting it would hide the ordering guarantees.
+#[allow(clippy::too_many_lines)]
+///
+/// # Errors
+/// Gate blocked, wiki/edit errors (including [`crate::wikipedia::WikipediaError::Declined`]),
+/// or session IO failures.
+pub(crate) async fn publish_core(
+    slug: &str,
+    summary: &str,
+    wiki: &Wikipedia,
+    confirm: &mut dyn ConfirmSource,
+) -> Result<PublishOutcome> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -943,8 +981,6 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
         corpus.house_rules.disclosure.log_page
     );
 
-    let wiki = Wikipedia::connect().await?;
-    let mut confirm = TtyConfirm;
     let outcome = wiki
         .edit(
             EditRequest {
@@ -955,7 +991,7 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
                 review_artifact: Some(&format!("sessions/{slug}/review.html")),
                 dry_run: false,
             },
-            &mut confirm,
+            confirm,
         )
         .await?;
 
@@ -1054,6 +1090,17 @@ async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
             }
         }
     }
+    Ok(PublishOutcome {
+        created_revision: outcome.created_revision(),
+        diff_url: outcome.diff_url,
+        new_revid: outcome.new_revid,
+    })
+}
+
+async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
+    let wiki = Wikipedia::connect().await?;
+    let mut confirm = TtyConfirm;
+    publish_core(slug, summary, &wiki, &mut confirm).await?;
     println!("post-publish: run Earwig compare per new web source");
     Ok(())
 }
@@ -1131,7 +1178,7 @@ fn ledger_quote(slug: &str, source: &str, text: &str) -> Result<()> {
 
 /// `wa ledger attach` — ingest operator-fetched text for an unreachable
 /// source; quotes against it verify verbatim exactly like auto-fetches.
-fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
+pub(crate) fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let text = if file == "-" {
         let mut buf = String::new();
