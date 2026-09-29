@@ -136,7 +136,11 @@ async fn malformed_then_valid_recovers() {
     // good mock REQUIRES the rejected output in the request body: the
     // corrective retry must carry the model's prior turn (review finding:
     // a context-less retry just repeats the failure).
-    let c = client(&server);
+    // Own client with a REAL retry delay: the retry must not fire before
+    // the garbage mock is deleted (the shared zero-delay client made this
+    // racy under full-suite load).
+    let c = ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key")
+        .with_retry_delays(vec![Duration::from_millis(750)]);
     let task = tokio::spawn(async move { author_findings(&c, &ctx()).await });
     while garbage.calls() == 0 {
         tokio::time::sleep(Duration::from_millis(2)).await;
