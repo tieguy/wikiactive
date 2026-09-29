@@ -89,3 +89,110 @@ CLOP governs our own prose, not our citations-as-quotes.
   **abandoned**; the session is closed with edits 1–2 published (operator
   call, 2026-09-25). Nothing owed on-wiki (TALK note and disclosure log
   cover the published edits).
+- Disclosure-log entry template: "(assisted editing session)" dropped as
+  redundant (a21780f, operator catch on the first live publish); extracted
+  to `disclosure_entry()` and pinned by test so the B.4 publish-core
+  refactor cannot silently change on-wiki wording (the upsert regenerates
+  the entry on every publish — hand edits on-wiki are clobbered by design).
+
+## Phase-A retrospective (2026-09-29, at v0.5.0)
+
+Twelve-plus live review rounds on Sarah Kidder (3 published edits:
+1377121505, 1377498415, 1377500073) plus the Temple Fielding session drove
+real product hardening. Closing record:
+
+### Paraphrase gate — live behavior
+
+Three mechanisms earned their keep, each tuned or scoped on live evidence:
+the LCS threshold (2/5 → 1/2, A.2.3: name-dense short sentences), the
+attributed-quote deferral (A.3: canonical-phrase facts), and the
+inherited-claim skip (pre-existing text gaining a citation is not ours to
+paraphrase-check; operator MOS catch). A fourth live case surfaced at edit
+3: the SF Call obituary is token-dense enough that *any* natural English
+sentence about the marriage matches ≥½ of its tokens in order (9/15 for
+the article's own pre-existing sentence shape — the overlap was proper
+nouns, a middle initial folding to "a", and "in 1874", not expression
+copying). Resolution: no threshold change, no article rewording — the
+claim was recorded as the mixed prose+quotation block the edit actually
+is (sentence + efn quoting True West), which is exactly the A.3 deferral;
+both quotes still verbatim-verify. Operational lesson recorded below
+(staging order).
+
+### Review-surface evolution
+
+Rounds 1–14 of the Kidder artifact trace the surface's growth: deletion
+anchors on old-pane blocks (comments on removed text resolve); enwiki
+link affordances; Word-style single-column diff with a right-hand
+evidence rail; evidence card speaking reviewer language (internal ids →
+DOM attributes only); verbatim quote promoted above prose with a
+locator-verified header; clickable source/archive citations carrying the
+citation text; consulted-source manifest with fetch status; per-edit
+card scoping (stale published-edit cards archived); self-archived
+sources labeled "this link is the archived snapshot". The lavish-axi
+0.1.78 idle-timeout (30 min, then a user-ended session needs
+`--reopen`) bit once mid-publish-review; `wa poll` keep-alive is the
+documented interim answer, `wa serve` is the fix.
+
+### The 1874 → 1870 → 1874 episode — the case for the source sweep
+
+The article said 1874 (uncited since 2019). Edit 1 changed it to 1870
+because the *only fetchable* source (archived True West profile) said
+1870, and the gate (correctly) would not let uncited 1874 stand. The
+operator's browser capture of the contemporary SF Call obituary — the
+best source, unfetchable by tooling (CDNC bot-blocks) — then showed 1874,
+and edit 3 restored it with the discrepancy footnoted. Net: one
+unnecessary on-wiki round-trip caused by making source-access decisions
+*during* analysis instead of before it. This is the direct case for
+Phase B's **source sweep**: fetch-or-dispose every cited source up front,
+classify accessibility (incl. operator capture where tooling fails), and
+let content decisions be made once against the full accessibility
+picture.
+
+### Source-accessibility taxonomy (observed live)
+
+- **dead-live with Wayback snapshot** — fetchable via the archived copy
+  (True West 2007): fetch ✓, Earwig ✓.
+- **WAF/bot-blocked** — CDNC: 403 for the fetcher *and* for Earwig;
+  operator browser capture + `wa ledger attach` is the working path
+  (text-first ledger; no replay machinery needed).
+- **Paywalled** — The Union: subscribe boilerplate; needs operator
+  capture or exclusion.
+- **Lending/registration-gated** — Levinson via archive.org
+  registration; NYT Times Machine PDF.
+- **Print, no web text** — not observed in this session; the sweep
+  auto-dispositions this class at inventory time.
+
+### Driver latitude — pipeline vs tool-call
+
+Phase A ran under a full-latitude driver (Polytoken+GLM with general
+tool use). Observed: the latitude was almost never used for judgment
+outside the three designed points (finding authorship, proposal
+drafting, comment resolution) — the rest was orchestration the pipeline
+owns. The two process errors of the session were both *latitude*
+errors, not judgment errors: registering edit-3 claims before edit 2
+published (poisoning edit 2's paraphrase gate — the gate correctly
+assessed claims it could not know were premature), and choosing
+sentence wording before checking it against the gate. Both argue for
+the Phase-B pipeline's enforced ordering (sweep → findings → proposal →
+gate → review → publish): same judgment points, less rope. Tool-call
+fallback remains the pre-agreed escape hatch if the pipeline proves
+rigid at B.6.
+
+### Phase-B carry-over items
+
+- `EarwigClient::compare` parses `result.verdict`/`result.ratio`, but
+  the live copyvios API returns `best.violation`/`best.confidence`
+  (observed 2026-09-29; the compare results above were obtained by
+  calling the API directly). Re-record fixtures and fix the parse in
+  Phase B.
+- Claim sequencing is now PLAYBOOK material: register a claim only when
+  staging the edit whose wikitext carries its prose.
+- lavish `--reopen` UX wraps into `wa serve`'s session console.
+
+### Plan-002 AC mapping (superseded by plan-003)
+
+At v0.5.0: old AC.1–AC.5 done — their tests remain in-suite; old AC.4's
+session-use clause was satisfied by the Kidder drift pin. Old AC.6/AC.9
+fold into plan-003 AC.10 (live shakedown). New AC.2–AC.4 (sweep) are new
+scope; new AC.5–AC.9 correspond to old AC.7–AC.11; new AC.11 ⊃ old
+AC.13.

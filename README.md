@@ -146,9 +146,24 @@ design plan's license note.
 
 ## Status / next steps
 
-- MVP-2 (local web app + non-Claude driver) is a port target: all core
-  logic is framework-free Rust with an axum growth path — see the end of
-  the design doc.
+**MVP-2 Phase A complete (`v0.5.0`, 2026-09-29).** The L2 content loop is
+proven live: two article sessions under full operator review — Sarah
+Kidder (three published edits: marriage-year correction round-trip
+1874→1870→1874 resolved by operator-captured sources, lead citation,
+Ohio-birthplace `{{cn}}` resolved, discrepancy footnote) and Temple
+Fielding (two published edits) — drove the review surface to
+reviewer-grade (deletion anchors, enwiki link affordances, single-column
+diff with evidence rail, consulted-source manifest, clickable
+citations), hardened the gate (`wa check` fail-fast, drift pin,
+config-tuned paraphrase thresholds, attributed-quote deferral,
+`wa ledger attach` for operator captures of unfetchable sources), and
+kept the disclosure log current per session. Phase B (in progress,
+targeting 0.9.0) ports the loop to `wa serve` — an axum, loopback-only
+local console with a direct z.ai (GLM) driver on the three judgment
+points (findings, proposals, comment resolution), restructured around a
+**source sweep** (fetch-or-dispose every cited source before textual
+analysis; the ledger stays text-first). Design record:
+[docs/design-plans/2026-09-25-mvp2-addendum.md](docs/design-plans/2026-09-25-mvp2-addendum.md).
 
 [lavish-axi]: https://www.npmjs.com/package/lavish-axi
 [Special:OAuthConsumerRegistration/propose]: https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose

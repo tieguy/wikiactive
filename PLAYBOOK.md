@@ -83,6 +83,11 @@ dropped.
    fetch --source S1`, `wa ledger archive --source S1` (save-page-now),
    `wa ledger quote --source S1 --text "…"`, `wa ledger claim --prose "…"
    --quotes Q1`. Quotes that don't locate verbatim are rejected at entry.
+   **Claim sequencing (live-session lesson):** register a claim only when
+   staging the edit whose wikitext carries its prose — the gate assesses
+   *every* claim not already in the base wikitext at *each* run
+   (`wa check`, render, publish), so a claim registered ahead of its edit
+   blocks unrelated publishes on prose that isn't staged yet.
 4. **Propose** — edit `sessions/<slug>/proposed.wikitext` with ONE logical
    edit (scoped like a code-review commit).
 5. **Check (fail-fast)** — `wa check <slug>` runs the full gate standalone
