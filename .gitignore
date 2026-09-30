@@ -3,3 +3,4 @@
 .env
 .lavish/
 tmp/
+sonar-issues.json

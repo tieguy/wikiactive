@@ -552,5 +552,33 @@ tonight's work ran (690b580, 22:50 local: the v1 bash script and
    from 2026-09-29 (PIDs above) are safe to kill; wm-fetch v2.0.0's
    cutover is complete (nothing owed).
 
+## SonarCloud feasibility note (2026-09-30, plan-006 W4.1, operator-directed)
+
+Probe results (read-only API checks with the operator's `SQ_KEY` from
+bws — value never printed):
+
+- The token is **valid on sonarcloud.io** (no local/self-hosted
+  instance). Organization `tieguy`; the operator's parallel session
+  already created the project **`tieguy_wikiactive`** (public, Sonar way
+  quality gate, no analyses yet).
+- Repo side (this session): `sonar-project.properties` at the repo root
+  (org, projectKey, `src`/`tests`, exclusions for vendor/fixtures/
+  sessions/docs, UTF-8) and the scan pipeline documented in README's
+  SonarCloud section.
+- **Rust on SonarCloud**: analyzed natively since April 2025
+  (SonarSource announcement), so a plain scan reports source with no
+  extra wiring. The optional generic pipeline adds what native does not
+  cover: clippy JSON → `cargo sonar --clippy --clippy-path <file>` →
+  external issues (`sonar.externalIssuesReportPaths`; it also converts
+  cargo-audit/deny/typos), and `cargo llvm-cov --lcov` →
+  `sonar.coverageReportPaths`. Neither converter nor `sonar-scanner` is
+  installed locally yet; the README lists the one-time setup. Report
+  paths are passed as `-D` flags on the scan command (the generated
+  files don't exist until the pre-steps run).
+- **No scan was run** (operator-gated by plan-006): a scan uploads the
+  source to the (public) SonarCloud project. The project's public
+  visibility is the operator's standing choice (public projects are the
+  free SonarCloud tier; `tieguy_wikiharness` is private by comparison).
+
 
 

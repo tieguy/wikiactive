@@ -205,6 +205,43 @@ Acceptance-criteria mapping: `tests/` files are named per AC
 `integrations`=AC.12/13, `rules_corpus`=AC.1, `findings_cli`=field
 ownership).
 
+## SonarCloud
+
+Project `tieguy_wikiactive` on sonarcloud.io (token: the `SQ_KEY`
+secret in bws — never printed, passed via `-Dsonar.token`).
+`sonar-project.properties` at the repo root carries the org, project
+key, `src`/`tests` and the exclusions (vendor, fixtures, sessions,
+docs). SonarCloud has analyzed Rust natively since April 2025, so a
+plain scan reports source without extra wiring; `cargo-sonar` (same
+repo, optional) adds what the native analyzer does not cover — full
+clippy output plus cargo-audit/deny/typos — as external issues, and
+`cargo-llvm-cov` feeds generic coverage. One-time setup for the full
+pipeline:
+
+```
+cargo install cargo-sonar cargo-llvm-cov
+rustup component add llvm-tools-preview
+# sonar-scanner: https://docs.sonarcloud.io/advanced-setup/ci-based-analysis/sonarscanner-cli/
+```
+
+Scan (the report files are generated first; the properties file stays
+valid without them — `cargo sonar` writes `sonar-issues.json` in the
+working directory):
+
+```
+cargo clippy --all-targets --message-format=json > target/clippy.json
+cargo sonar --clippy --clippy-path target/clippy.json
+cargo llvm-cov --lcov --output-path target/lcov.info
+sonar-scanner \
+  -Dsonar.externalIssuesReportPaths=sonar-issues.json \
+  -Dsonar.coverageReportPaths=target/lcov.info \
+  -Dsonar.token="$SQ_KEY"
+```
+
+A scan uploads the source to the (public) SonarCloud project — it is
+run deliberately, not part of the test gate. The feasibility probe and
+decisions are recorded in the addendum (2026-09-30).
+
 ## License
 
 GPL-3.0-only. The quote-anchor locator is copied with provenance from
