@@ -78,15 +78,21 @@ mod tests {
         for (name, pinned) in [
             (
                 AUTHOR_FINDINGS,
-                "837ffa80508cf016145281fcf7801fb3f2413d271be25863e1cd900e4594a02e",
+                // rule-enforcement item 3: gained the {{guidance}} rules
+                // section (tier-1 verbatim + this loop's cards).
+                "c660c41cf0cad8c2439b4f6cb8bb2f88c8596a769bcb3b4f2ee751feb3e7f83d",
             ),
             (
                 PROPOSE,
-                "4173a5fde78adfe4b4f7602c054e199f0d492d3302fd9e7bb4840bb03562fc58",
+                // rule-enforcement item 3: gained the {{guidance}} rules
+                // section.
+                "793cfc487c4909a8577140606bcb429e55e8e8acbc9776151d6d407d85da2db0",
             ),
             (
                 RESOLVE,
-                "12a9f400befaff4777a46d247b27c7ec5423447e90f384edfe45d22f371e56fb",
+                // rule-enforcement item 3: gained the {{guidance}} rules
+                // section.
+                "0126cd0f87bb21015b8a349d6c06f93bf028f2f2f0161a7388ae32c42f9a2439",
             ),
         ] {
             let text = load(name).unwrap_or_else(|e| panic!("{e}"));

@@ -236,6 +236,9 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     assert!(text.contains(&quote_text), "quote locates in fetched text");
     let qid = ledger.add_quote("S1", &quote_text).unwrap();
     ledger.save(&session.join("ledger.json")).unwrap();
+    // Rules guidance (rule-enforcement item 3): tier-1 + loop-2 cards.
+    let corpus = RulesCorpus::load(Path::new("rules")).unwrap();
+    let guidance = wikiloop::rules::guidance_for_loop(&corpus, 2).unwrap();
     let ctx = FindingsContext {
         article: "E2E Article".into(),
         base_wikitext: base.clone(),
@@ -248,6 +251,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
         quote_ids: vec![qid.clone()],
         entry_loop: 2,
         max_findings: 3,
+        guidance: guidance.clone(),
     };
     let findings = author_findings(&zai, &ctx)
         .await
@@ -262,7 +266,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     file.save(&session.join("findings.json")).unwrap();
 
     // ---- Judgment point 2: the scoped proposal. ----
-    let proposal = draft_proposal(&zai, &findings[0], &[], "The tower is old.", &[])
+    let proposal = draft_proposal(&zai, &findings[0], &[], "The tower is old.", &[], &guidance)
         .await
         .expect("proposal");
     let proposed = base.replace(

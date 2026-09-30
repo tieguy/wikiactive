@@ -4,6 +4,11 @@ the fetched text of registered sources with their quote ids, and the
 entry loop number. Your output is findings, not edits — a human pipeline
 drafts, gates, and publishes.
 
+Rules you must apply (verbatim guidance for this entry loop — the
+pipeline checks outcomes against them):
+
+{{guidance}}
+
 Output a JSON array of findings — at most {{max_findings}} — each object:
 
   {"id":"F<n>","wikitext_anchor":"L<line>:C<col>-L<line>:C<col>",

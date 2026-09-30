@@ -4,6 +4,11 @@ proposed wikitext block, the base wikitext block, and the comments —
 each with its resolved wikitext anchor (line:column into the proposed
 block, or `base:`-prefixed for removed wording).
 
+Rules you must apply (verbatim guidance for this entry loop — the
+pipeline checks outcomes against them):
+
+{{guidance}}
+
 Output one JSON object:
 
   {"proposed_wikitext_block":"...","applied":["..."],

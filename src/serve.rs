@@ -1474,6 +1474,20 @@ async fn driver_findings(
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
+/// The rules guidance for a session's entry loop (rule-enforcement item
+/// 3), built BEFORE any model call: a corpus missing a triage-selected
+/// card fails the action without burning a paid call. `action` names the
+/// caller in the error ("driver findings", …).
+fn loop_guidance(dir: &std::path::Path, action: &str) -> Result<String, String> {
+    let corpus = crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
+        .map_err(|e| format!("{action}: rules corpus failed to load: {e}"))?;
+    let meta = std::fs::read_to_string(dir.join("session.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str::<SessionMeta>(&t).ok())
+        .ok_or_else(|| format!("{action}: no session meta"))?;
+    crate::rules::guidance_for_loop(&corpus, meta.entry_loop).map_err(|e| format!("{action}: {e}"))
+}
+
 async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
     use crate::driver::steps::FindingsContext;
     use crate::driver::steps::SourceDigest;
@@ -1488,6 +1502,12 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
         &std::fs::read_to_string(dir.join("session.json")).unwrap_or_default(),
     ) else {
         return "driver findings: no session meta".into();
+    };
+    // Rules guidance BEFORE the model call (rule-enforcement item 3): a
+    // corpus missing a card fails the action, not the paid call.
+    let guidance = match loop_guidance(&dir, "driver findings") {
+        Ok(g) => g,
+        Err(e) => return e,
     };
     let ctx = FindingsContext {
         article: meta.article,
@@ -1515,6 +1535,7 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
         quote_ids: ledger.quotes.iter().map(|q| q.id.clone()).collect(),
         entry_loop: meta.entry_loop,
         max_findings: 3,
+        guidance,
     };
     let zai = match state.zai_client() {
         Ok(z) => z,
@@ -1576,6 +1597,11 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
         Ok(z) => z,
         Err(e) => return format!("driver propose: {e}"),
     };
+    // Rules guidance BEFORE the model call (rule-enforcement item 3).
+    let guidance = match loop_guidance(&dir, "driver propose") {
+        Ok(g) => g,
+        Err(e) => return e,
+    };
     // The block the finding anchors — the WHOLE line range (an anchor may
     // span several lines) — checked before the paid model call.
     let base_lines: Vec<&str> = base.lines().collect();
@@ -1603,7 +1629,15 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
     if evidence.len() != finding.evidence.len() {
         return "driver propose: the finding cites a quote that is not in the ledger".into();
     }
-    match crate::driver::steps::draft_proposal(&zai, finding, &evidence, &base_block, &named).await
+    match crate::driver::steps::draft_proposal(
+        &zai,
+        finding,
+        &evidence,
+        &base_block,
+        &named,
+        &guidance,
+    )
+    .await
     {
         Ok(proposal) => {
             let proposed = apply_splices(
@@ -1731,6 +1765,11 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
         Ok(z) => z,
         Err(e) => return format!("driver resolve: {e}"),
     };
+    // Rules guidance BEFORE the model calls (rule-enforcement item 3).
+    let guidance = match loop_guidance(&dir, "driver resolve") {
+        Ok(g) => g,
+        Err(e) => return e,
+    };
     let mut outcome = resolve_groups(
         &zai,
         &groups,
@@ -1739,6 +1778,7 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
         &proposed,
         &base_lines,
         &id_to_anchor,
+        &guidance,
     )
     .await;
     outcome.errors.extend(
@@ -1906,6 +1946,7 @@ async fn resolve_groups(
     proposed: &str,
     base_lines: &[&str],
     id_to_anchor: &std::collections::HashMap<String, String>,
+    guidance: &str,
 ) -> GroupsOutcome {
     use crate::driver::steps::DriverComment;
 
@@ -1989,6 +2030,7 @@ async fn resolve_groups(
             &proposed_block,
             &base_block,
             &driver_comments,
+            guidance,
         )
         .await
         {

@@ -29,7 +29,16 @@ fn client(server: &MockServer) -> ZaiClient {
     ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key").with_retry_delays(vec![])
 }
 
+/// The guidance the serve handlers pass (rule-enforcement item 3):
+/// tier-1 verbatim + this loop's cards, from the real corpus.
+fn guidance() -> String {
+    let corpus = wikiloop::rules::RulesCorpus::load(std::path::Path::new("rules")).unwrap();
+    wikiloop::rules::guidance_for_loop(&corpus, 2).unwrap()
+}
+
 fn ctx() -> FindingsContext {
+    // Real corpus guidance: what the serve handlers pass — tier-1
+    // verbatim + this loop's cards.
     FindingsContext {
         article: "Sarah Kidder".into(),
         base_wikitext: "Born Sarah A. Clark in Ohio, Kidder married John Flint Kidder in 1874."
@@ -46,6 +55,7 @@ fn ctx() -> FindingsContext {
         quote_ids: vec!["Q1".into()],
         entry_loop: 2,
         max_findings: 2,
+        guidance: guidance(),
     }
 }
 
@@ -67,6 +77,7 @@ async fn author_findings_accepts_valid_output() {
                 .path("/chat/completions")
                 .body_includes("at most 2") // max_findings slot
                 .body_includes("Loop 2 discipline") // rendered template body
+                .body_includes("Cluster A") // tier-1 guidance rides the prompt
                 .body_includes("Registered quote ids (evidence must cite among these): Q1");
             then.status(200).json_body(completion(VALID_FINDINGS));
         })
@@ -200,7 +211,8 @@ async fn draft_proposal_contract() {
     let mock = server
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
-                .path("/chat/completions");
+                .path("/chat/completions")
+                .body_includes("Cluster A"); // tier-1 guidance rides the prompt
             then.status(200).json_body(completion(
                 r#"{"proposed_wikitext_block":"A [[ref]] here.","edit_summary":"Cite the year."}"#,
             ));
@@ -222,6 +234,7 @@ async fn draft_proposal_contract() {
         &[],
         "base block",
         &["sfcall".into()],
+        &guidance(),
     )
     .await
     .expect("parses");
@@ -238,9 +251,16 @@ async fn draft_proposal_contract() {
             ));
         })
         .await;
-    let err = draft_proposal(&client(&server2), &finding, &[], "base block", &[])
-        .await
-        .expect_err("empty summary is invalid");
+    let err = draft_proposal(
+        &client(&server2),
+        &finding,
+        &[],
+        "base block",
+        &[],
+        &guidance(),
+    )
+    .await
+    .expect_err("empty summary is invalid");
     assert!(err.to_string().contains("edit_summary"), "{err}");
     assert_eq!(bad.calls(), 2, "retried once then blocked");
 }
@@ -254,7 +274,8 @@ async fn resolve_comments_contract() {
     let mock = server
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
-                .path("/chat/completions");
+                .path("/chat/completions")
+                .body_includes("Cluster A"); // tier-1 guidance rides the prompt
             then.status(200).json_body(completion(
                 r#"{"proposed_wikitext_block":"revised","applied":["tightened"],"rejected":[],
                     "reply":"done"}"#,
@@ -265,7 +286,7 @@ async fn resolve_comments_contract() {
         prompt: "tighten".into(),
         anchor: "L1:C0-L1:C5".into(),
     }];
-    let r = resolve_comments(&client(&server), "proposed", "base", &comments)
+    let r = resolve_comments(&client(&server), "proposed", "base", &comments, &guidance())
         .await
         .expect("parses");
     assert_eq!(r.applied, vec!["tightened".to_string()]);
@@ -281,9 +302,15 @@ async fn resolve_comments_contract() {
             ));
         })
         .await;
-    let err = resolve_comments(&client(&server2), "proposed", "base", &comments)
-        .await
-        .expect_err("invented fields are schema violations");
+    let err = resolve_comments(
+        &client(&server2),
+        "proposed",
+        "base",
+        &comments,
+        &guidance(),
+    )
+    .await
+    .expect_err("invented fields are schema violations");
     assert!(err.to_string().contains("malformed"), "{err}");
     assert_eq!(invented.calls(), 2);
 }

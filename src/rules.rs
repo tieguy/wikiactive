@@ -226,6 +226,40 @@ pub fn cards_for_loop(loop_id: u8) -> Vec<String> {
     .collect()
 }
 
+/// The rules guidance every model step must apply for `loop_id`: tier-1
+/// verbatim, then the triage-selected trigger cards (rule-enforcement
+/// item 3). ONE source for this text — the `wa analyze` bundle and the
+/// driver prompts embed the same bytes, so the model behind "Write
+/// findings" / "Draft the edit" / "Apply comments" sees exactly what
+/// analyze prints.
+///
+/// # Errors
+/// When the corpus is missing a card the triage selected (never silently
+/// dropped — the step fails before any model call).
+pub fn guidance_for_loop(corpus: &RulesCorpus, loop_id: u8) -> Result<String, String> {
+    let selected = cards_for_loop(loop_id);
+    for slug in &selected {
+        if !corpus.cards.contains_key(slug) {
+            return Err(format!(
+                "triage selected card '{slug}' but it is missing from the corpus"
+            ));
+        }
+    }
+    let mut text = String::new();
+    text.push_str("## Tier 1 — judgment core (verbatim)\n\n");
+    text.push_str(&corpus.tier1_core);
+    text.push_str("\n\n## Trigger cards (triage-selected)\n\n");
+    for slug in &selected {
+        let card = corpus
+            .cards
+            .get(slug)
+            .ok_or_else(|| format!("card {slug} missing"))?;
+        text.push_str(card);
+        text.push_str("\n\n---\n\n");
+    }
+    Ok(text)
+}
+
 /// Assemble the bundle text.
 ///
 /// # Errors
@@ -237,14 +271,9 @@ pub fn build_context_bundle(
     findings: &[Finding],
     ledger: &crate::ledger::Ledger,
 ) -> Result<ContextBundle, String> {
-    let selected = cards_for_loop(article.entry_loop);
-    for slug in &selected {
-        if !corpus.cards.contains_key(slug) {
-            return Err(format!(
-                "triage selected card '{slug}' but it is missing from the corpus"
-            ));
-        }
-    }
+    // The rules guidance is shared verbatim with the driver prompts
+    // (guidance_for_loop) — one source, both surfaces.
+    let guidance = guidance_for_loop(corpus, article.entry_loop)?;
 
     let mut text = String::new();
     text.push_str("# wa analyze — context bundle\n\n");
@@ -262,17 +291,8 @@ pub fn build_context_bundle(
             "- drift (prior session or operator's last edit):\n{diff}\n"
         );
     }
-    text.push_str("\n## Tier 1 — judgment core (verbatim)\n\n");
-    text.push_str(&corpus.tier1_core);
-    text.push_str("\n\n## Trigger cards (triage-selected)\n\n");
-    for slug in &selected {
-        let card = corpus
-            .cards
-            .get(slug)
-            .ok_or_else(|| format!("card {slug} missing"))?;
-        text.push_str(card);
-        text.push_str("\n\n---\n\n");
-    }
+    text.push('\n');
+    text.push_str(&guidance);
     text.push_str("## Session summary\n\n");
     let _ = write!(
         text,
@@ -401,5 +421,26 @@ mod tests {
         let err =
             build_context_bundle(&c, &article, &[], &crate::ledger::Ledger::default()).unwrap_err();
         assert!(err.contains("undue"), "{err}");
+    }
+
+    /// Rule-enforcement item 3: `guidance_for_loop` is the one source the
+    /// driver prompts embed — a corpus missing a triage-selected card
+    /// errors (the handler fails before any model call), and the built
+    /// guidance carries tier-1 verbatim plus the loop's cards.
+    #[test]
+    fn guidance_for_loop_carries_tier1_and_cards_and_fails_on_missing_card() {
+        let c = corpus();
+        let g = super::guidance_for_loop(&c, 2).unwrap();
+        assert!(g.contains("Cluster A") && g.contains("Cluster B") && g.contains("Cluster C"));
+        for slug in cards_for_loop(2) {
+            assert!(g.contains(&slug_upper(&slug)), "card {slug} missing");
+        }
+        // (No negative card assertion: loop-2 cards legitimately mention
+        // other cards' rule names in their text.)
+
+        let mut c = corpus();
+        c.cards.remove("clop");
+        let err = super::guidance_for_loop(&c, 2).unwrap_err();
+        assert!(err.contains("clop"), "{err}");
     }
 }

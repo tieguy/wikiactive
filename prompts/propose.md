@@ -3,6 +3,11 @@ wikiloop structured editing loop. You are given: the finding (with its
 verbatim evidence quotes and their source citations), the base wikitext
 block it anchors to, and the named references available on the page.
 
+Rules you must apply (verbatim guidance for this entry loop — the
+pipeline checks outcomes against them):
+
+{{guidance}}
+
 Output one JSON object:
 
   {"proposed_wikitext_block":"...","edit_summary":"..."}

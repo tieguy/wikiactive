@@ -64,6 +64,11 @@ pub struct FindingsContext {
     pub entry_loop: u8,
     /// Cap on findings per run (prompt slot).
     pub max_findings: usize,
+    /// The rules guidance for this entry loop (`rules::guidance_for_loop`
+    /// output): tier-1 verbatim + the triage-selected cards. Built BEFORE
+    /// the step runs — a corpus missing a card fails the handler, not the
+    /// model call (rule-enforcement item 3).
+    pub guidance: String,
 }
 
 /// One source's digest for the findings prompt.
@@ -178,6 +183,7 @@ pub async fn author_findings(
         &[
             ("max_findings", &ctx.max_findings.to_string()),
             ("entry_loop", &ctx.entry_loop.to_string()),
+            ("guidance", &ctx.guidance),
         ],
     );
     let mut user = format!(
@@ -256,8 +262,9 @@ pub async fn draft_proposal(
     evidence: &[String],
     base_block: &str,
     named_refs: &[String],
+    guidance: &str,
 ) -> Result<Proposal, StepError> {
-    let system = prompts::load(prompts::PROPOSE)?;
+    let system = prompts::render(&prompts::load(prompts::PROPOSE)?, &[("guidance", guidance)]);
     let user = format!(
         "Finding {} (loop {}): {}\nProposed fix: {}\nEvidence quotes (verbatim):\n{}\n\nBase wikitext block:\n{}\n\nNamed refs on the page: {}",
         finding.id,
@@ -300,8 +307,9 @@ pub async fn resolve_comments(
     proposed_block: &str,
     base_block: &str,
     comments: &[DriverComment],
+    guidance: &str,
 ) -> Result<Resolution, StepError> {
-    let system = prompts::load(prompts::RESOLVE)?;
+    let system = prompts::render(&prompts::load(prompts::RESOLVE)?, &[("guidance", guidance)]);
     let mut user = format!(
         "Proposed wikitext block:\n{proposed_block}\n\nBase wikitext block:\n{base_block}\n\nComments:\n"
     );
