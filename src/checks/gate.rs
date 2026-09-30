@@ -9,7 +9,7 @@
 //!   source (too-close blocks; no-support requires anchor resolution);
 //! - the wikitext linter gate must report no error-severity findings.
 //!
-//! The same gate re-runs immediately before publish's tty confirmation.
+//! The same gate re-runs immediately before publish's confirmation.
 //! A blocked verdict writes NO artifact; the reasons enumerate everything to
 //! fix (all at once, so one revision pass can clear the gate).
 

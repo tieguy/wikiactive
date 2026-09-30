@@ -66,7 +66,8 @@ pub struct RenderInput<'a> {
     pub linter_config: &'a LinterConfig,
     /// Paraphrase-gate thresholds (`rules/paraphrase.toml`, MVP-2 A.2.3).
     pub paraphrase_config: &'a crate::checks::paraphrase::ParaphraseConfig,
-    /// Cumulative revisions registry (previous rounds first, current last).
+    /// Cumulative revisions registry (one entry per round, round order —
+    /// a re-rendered round replaces its entry in place).
     pub revisions: Vec<RevisionEntry>,
 }
 
@@ -998,7 +999,9 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
     )
 }
 
-/// Convenience: revisions registry with the current round appended.
+/// Convenience: revisions registry with the round's entry REPLACED (a
+/// re-render of the same round) or appended (a new round) — round-keyed
+/// history, one entry per round, in round order.
 #[must_use]
 pub fn registry_with_round(
     existing: &[RevisionEntry],
@@ -1006,21 +1009,22 @@ pub fn registry_with_round(
     summary: &str,
     timestamp: &str,
 ) -> Vec<RevisionEntry> {
-    // A re-render of the SAME round replaces that round's entry (the
-    // registry is round-keyed history, not an append-only log — the
-    // plan-005 UI walk caught duplicate "Round 2" labels when a round
-    // was re-rendered). New rounds append in order.
-    let mut next: Vec<RevisionEntry> = existing
-        .iter()
-        .filter(|e| e.id != format!("r{round}"))
-        .cloned()
-        .collect();
-    next.push(RevisionEntry {
+    // A re-render of the SAME round replaces that round's entry IN PLACE
+    // (the registry is round-keyed history, not an append-only log — the
+    // plan-005 UI walk caught duplicate "Round 2" labels when a round was
+    // re-rendered). New rounds append; replacing in place keeps the
+    // registry in round order even when an earlier round is re-rendered.
+    let entry = RevisionEntry {
         id: format!("r{round}"),
         label: format!("Round {round}"),
         timestamp: timestamp.to_string(),
         summary: summary.to_string(),
-    });
+    };
+    let mut next = existing.to_vec();
+    match next.iter().position(|e| e.id == entry.id) {
+        Some(i) => next[i] = entry,
+        None => next.push(entry),
+    }
     next
 }
 
@@ -1635,7 +1639,7 @@ mod tests {
     /// labels), while a new round still appends.
     #[test]
     fn registry_replaces_rerendered_rounds_and_appends_new_ones() {
-        use super::{RevisionEntry, registry_with_round};
+        use super::registry_with_round;
         let seed = registry_with_round(&[], 1, "first render", "t1");
         assert_eq!(seed.len(), 1);
 
@@ -1649,12 +1653,18 @@ mod tests {
         assert_eq!(grown[0].id, "r1");
         assert_eq!(grown[1].id, "r2");
 
-        // And a re-render of an EARLIER round after later ones exist still
-        // keeps one entry per round (no resurrection of duplicates).
+        // And a re-render of an EARLIER round after later ones exist
+        // replaces IN PLACE: one entry per round, round order kept (the
+        // pinned contract — review finding: order was previously
+        // unpinned and the first fix could reorder to [r2, r1]).
         let again = registry_with_round(&grown, 1, "round one, again", "t4");
         assert_eq!(again.len(), 2);
-        assert_eq!(again.iter().filter(|e| e.id == "r1").count(), 1);
-        let _: Vec<RevisionEntry> = again; // field completeness
+        assert_eq!(
+            again.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            ["r1", "r2"],
+            "round order kept on in-place replace"
+        );
+        assert_eq!(again[0].summary, "round one, again");
     }
 
     #[test]

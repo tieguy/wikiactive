@@ -333,15 +333,26 @@ async fn publish_requires_the_explicit_web_confirmation() {
 
     // Plan-005 O.2: the web publish path logs plain URLs — no raw OSC-8
     // escapes (the serve log is not a terminal) — while still pointing at
-    // the saved revision.
-    let stdout = std::fs::read_to_string(dir.join("serve-stdout.log")).unwrap();
-    assert!(
-        !stdout.contains('\u{1b}'),
-        "no escape sequences in the web serve log: {stdout}"
-    );
+    // the saved revision. The drain thread writes per-line asynchronously,
+    // so bounded-poll for the line before asserting on the file (review
+    // finding: asserting on a possibly-undrained log is a flake).
+    let log_path = dir.join("serve-stdout.log");
+    let mut stdout = String::new();
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while std::time::Instant::now() < deadline {
+        stdout = std::fs::read_to_string(&log_path).unwrap_or_default();
+        if stdout.contains("check it: ") {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
     assert!(
         stdout.contains("check it: http"),
         "plain permalink in the web log: {stdout}"
+    );
+    assert!(
+        !stdout.contains('\u{1b}'),
+        "no escape sequences in the web serve log: {stdout}"
     );
 
     let _ = child.kill();

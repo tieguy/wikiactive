@@ -451,27 +451,26 @@ side review, run it against the served artifact URL directly (the
 console lists every session; the artifact route is
 `/sessions/<slug>/review`). Morning-list item.
 
-### O.5 — wm-fetch: clean shellcheck + green suite (no changes needed)
+### O.5 — wm-fetch: clean lint + green suite at the final cutover state
 
-Scope note: the repo was rewritten to Rust **v2.0.0** (commit a07e8e8,
-2026-09-29 22:41 local — landed during this session's evening) and now
-carries the legacy bash `wm-fetch` + `tests/smoke.sh` as *tracked* files
-alongside the Rust sources. Plan-005's lint step ran against the current
-state:
+Scope note: the repo was rewritten to Rust **v2.0.0** during this
+session's evening (a07e8e8, 22:41 local) and then **cut over** while
+tonight's work ran (690b580, 22:50 local: the v1 bash script and
+`tests/smoke.sh` retired from the tree, symlink re-pointed to
+`target/release/wm-fetch`, contact config created). Verified at HEAD:
 
 - **shellcheck 0.11.0** (throwaway venv `shellcheck-py`; no system
-  installs): **zero findings** on `wm-fetch`, `tests/smoke.sh`,
-  `install.sh` — nothing to fix or waive; no version bump (nothing
-  changed).
-- **`cargo test`**: 30 unit + 25 wiremock integration tests green; the
-  3 live tests correctly ignored (need `WM_FETCH_LIVE_CONTACT`).
-- **`tests/smoke.sh`** (legacy, live): both legs pass (siteinfo JSON;
-  maxlag reaches the API). Re-run once more at teardown.
-- **Symlink**: resolves, but still to the legacy tracked bash script —
-  v2.0.0's `install.sh` (symlink → `target/release/wm-fetch`) has not
-  been run, and `~/.config/wm-fetch/config.toml` does not exist yet, so
-  swapping now would fail-close (exit 2, contact gate) on the operator's
-  every fetch at wake. Deferred to the morning list: run
-  `./install.sh && wm-fetch --init` to cut over.
+  installs): zero findings on the only tracked shell script,
+  `install.sh` — and zero findings had the now-retired bash `wm-fetch` /
+  `tests/smoke.sh` when linted at a07e8e8 mid-cutover. Nothing to fix
+  or waive; no version bump (nothing changed by tonight).
+- **`cargo test`**: 30 unit + 25 wiremock integration green; the 3 live
+  tests correctly ignored (need `WM_FETCH_LIVE_CONTACT`).
+- **Live legs through the installed v2.0.0 binary**: the AC.3/AC.4
+  teardown queries (disclosure-log revid + usercontribs) round-tripped
+  cleanly with pacing honored — the modern equivalent of the retired
+  smoke test's live legs.
+- **Symlink**: resolves to the release binary; config present. No
+  morning action needed.
 
 
