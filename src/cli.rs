@@ -1500,6 +1500,7 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
 /// grouped report; exits non-zero when blocked so the driver can iterate
 /// cheaply before rendering.
 fn check_cmd(slug: &str) -> Result<()> {
+    use std::fmt::Write as _;
     let (paths, _meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -1516,12 +1517,46 @@ fn check_cmd(slug: &str) -> Result<()> {
         linter_config: &corpus.linter,
         paraphrase_config: &corpus.paraphrase,
     });
+    // Warn-severity lint findings never block, but the reviewer must see
+    // them (rule-enforcement item 4) — after the gate report, either way.
+    let warnings =
+        crate::checks::gate::lint_warnings(&base_wikitext, &proposed_wikitext, &corpus.linter);
+    let print_warnings = |out: &mut String| {
+        if warnings.is_empty() {
+            return;
+        }
+        let _ = writeln!(out, "WARNINGS (advisory — they do not block):");
+        for w in &warnings {
+            // NB: the config's map keys are snake_case; findings carry the
+            // kebab-case id — look up by id.
+            let description = corpus
+                .linter
+                .rules
+                .values()
+                .find(|r| r.id == w.rule)
+                .map_or("", |r| r.description.as_str());
+            let _ = writeln!(
+                out,
+                "  [{}] {} (line {}): {}\n      {}",
+                w.severity.label(),
+                w.rule,
+                w.line,
+                w.detail,
+                description
+            );
+        }
+    };
     if verdict.blocked {
-        print!("{}", crate::checks::gate::format_reasons(&verdict.reasons));
+        let mut report = crate::checks::gate::format_reasons(&verdict.reasons);
+        print_warnings(&mut report);
+        print!("{report}");
         println!("\nno artifact written (wa check never renders)");
         anyhow::bail!("gate blocked");
     }
     println!("gate: PASS — the proposal is renderable (no artifact written by check)");
+    let mut out = String::new();
+    print_warnings(&mut out);
+    print!("{out}");
     Ok(())
 }
 

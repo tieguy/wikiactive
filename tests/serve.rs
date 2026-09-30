@@ -534,6 +534,47 @@ async fn render_offline(client: &reqwest::Client, port: u16, dir: &Path) {
     assert_eq!(resp.status().as_u16(), 303, "render redirects");
 }
 
+/// Rule-enforcement item 4: warn-level lint findings (tense-drift on an
+/// added line) show on the served review — under the block whose anchor
+/// range covers them, in the warn palette with the rule's config
+/// description — and never block the render.
+#[tokio::test]
+async fn lint_warnings_show_on_the_review_page_without_blocking() {
+    let dir = setup_review_session(
+        "The tower is old.\n",
+        "The tower is old.\nThe railroad is now the largest employer in the county.\n",
+    );
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    render_offline(&client, port, &dir).await;
+    assert!(
+        dir.join("sessions/test-article/review.html").exists(),
+        "warn findings do not block the render"
+    );
+
+    let page = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("wa-comment lint-warning"),
+        "warn styling present: {page}"
+    );
+    assert!(page.contains("tense-drift"), "rule id shown: {page}");
+    assert!(
+        page.contains("MOS:TENSE proxy"),
+        "config description shown: {page}"
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
 /// AC.1 + AC.2 + AC.3: the whole review leg in-app — offline render
 /// through the serve route, comment forms per changed block, submit →
 /// list → resolve through `comments.jsonl`, and NO lavish anywhere (the

@@ -926,7 +926,8 @@ fn block_insertions(
     slug: &str,
     artifact_html: &str,
     queue: &crate::comments::CommentQueue,
-) -> (Vec<(usize, String)>, Vec<String>) {
+    warnings: &[(crate::checks::linter::LintFinding, String)],
+) -> (Vec<(usize, String)>, Vec<String>, Vec<String>) {
     let blocks = crate::render::review_targets(artifact_html);
     let evidence = crate::render::evidence_targets(artifact_html);
     let cards = |anchor: &str, place: &str, back: &str| -> String {
@@ -946,6 +947,11 @@ fn block_insertions(
 
     let mut insertions: Vec<(usize, String)> = Vec::new();
     let mut placed: Vec<String> = Vec::new();
+    // Warn-level lint findings (rule-enforcement item 4): placed under the
+    // block whose anchor range covers their (proposed-text) line; the rest
+    // return to the caller for the summary bar. Warnings never block.
+    let mut unplaced: Vec<&(crate::checks::linter::LintFinding, String)> =
+        warnings.iter().collect();
     for block in &blocks {
         let Some(end) = div_end(&block.element_id) else {
             continue;
@@ -988,6 +994,17 @@ fn block_insertions(
                 ));
             }
         }
+        // Warnings whose line falls inside this block's new-side anchor
+        // range land under the block (right-to-left removal keeps indices
+        // valid; swap_remove is fine — the leftover order is bar order).
+        let range = anchor_line_range(&block.wikitext_anchor);
+        for i in (0..unplaced.len()).rev() {
+            if range.is_some_and(|(s, e)| unplaced[i].0.line >= s && unplaced[i].0.line <= e) {
+                let (finding, description) = unplaced[i];
+                html.push_str(&lint_warning_html(finding, description));
+                unplaced.swap_remove(i);
+            }
+        }
         html.push_str("</div>");
         insertions.push((end, html));
     }
@@ -1009,7 +1026,44 @@ fn block_insertions(
         placed.push(ev.wikitext_anchor.clone());
         insertions.push((end, html));
     }
-    (insertions, placed)
+    let leftover: Vec<String> = unplaced
+        .into_iter()
+        .map(|(finding, description)| lint_warning_html(finding, description))
+        .collect();
+    (insertions, placed, leftover)
+}
+
+/// The summary-bar notice for warnings no block's anchor range covered
+/// (rule-enforcement item 4): the warn palette, advisory framing.
+fn lint_warning_bar(bar_warnings: &[String]) -> String {
+    if bar_warnings.is_empty() {
+        return String::new();
+    }
+    let mut items = String::new();
+    for w in bar_warnings {
+        items.push_str("<li>");
+        items.push_str(w);
+        items.push_str("</li>");
+    }
+    format!(
+        "<div class=\"notice warn\"><strong>Lint warnings</strong> (advisory — they do not \
+         block):<ul>{items}</ul></div>\n"
+    )
+}
+
+/// One warn-level lint finding as an inline notice (rule-enforcement
+/// item 4): rule id, line, detail, and the rule's config description.
+/// Advisory only — it renders in the warn palette, distinct from
+/// operator comments.
+fn lint_warning_html(finding: &crate::checks::linter::LintFinding, description: &str) -> String {
+    format!(
+        "<div class=\"wa-comment lint-warning\"><p><strong>{rule}</strong> (line {line}): \
+         {detail}</p><p class=\"who\">{description}</p></div>\n",
+        rule = crate::ui::esc(&finding.rule),
+        line = finding.line,
+        detail = crate::ui::esc(&finding.detail),
+        description = crate::ui::esc(description),
+    )
 }
 
 /// The banner on a review that no longer describes the session: why, and
@@ -1050,6 +1104,7 @@ fn inject_comment_ui(
     notice: Option<&str>,
     outcome: &str,
 ) -> String {
+    use std::fmt::Write as _;
     let dir = session_dir(slug);
     let queue =
         crate::comments::CommentQueue::load(&dir.join("comments.jsonl")).unwrap_or_default();
@@ -1070,13 +1125,21 @@ fn inject_comment_ui(
         // happened and what to do. Everything below stays read-only.
         head.push_str(&stale_banner(slug, round, kind));
     } else {
-        let (mut insertions, placed_anchors) = block_insertions(slug, artifact_html, &queue);
+        // Warn-level lint findings for THIS proposal (rule-enforcement
+        // item 4), each paired with its rule description.
+        let warnings = review_lint_warnings(&dir);
+        let (mut insertions, placed_anchors, bar_warnings) =
+            block_insertions(slug, artifact_html, &queue, &warnings);
 
         // Apply right-to-left so earlier offsets stay valid.
         insertions.sort_by_key(|(pos, _)| std::cmp::Reverse(*pos));
         for (pos, html) in insertions {
             out.insert_str(pos, &html);
         }
+
+        // Warnings that no block's anchor range covers still surface, in
+        // the warn palette under the status bar.
+        head.push_str(&lint_warning_bar(&bar_warnings));
 
         let open_count = queue.open().len();
         if open_count == 0 {
@@ -1486,6 +1549,41 @@ fn loop_guidance(dir: &std::path::Path, action: &str) -> Result<String, String> 
         .and_then(|t| serde_json::from_str::<SessionMeta>(&t).ok())
         .ok_or_else(|| format!("{action}: no session meta"))?;
     crate::rules::guidance_for_loop(&corpus, meta.entry_loop).map_err(|e| format!("{action}: {e}"))
+}
+
+/// The warn-level lint findings for a session's proposal (rule-enforcement
+/// item 4), each paired with its rule description from
+/// `rules/linter.toml`. Error-severity findings already gated the render;
+/// these are advice for the reviewer. Empty when the session's texts or
+/// the corpus cannot be read (the page degrades to no-warnings, the gate
+/// still enforced the errors at render time).
+fn review_lint_warnings(
+    dir: &std::path::Path,
+) -> Vec<(crate::checks::linter::LintFinding, String)> {
+    std::fs::read_to_string(dir.join("base.wikitext"))
+        .ok()
+        .zip(std::fs::read_to_string(dir.join("proposed.wikitext")).ok())
+        .and_then(|(base, proposed)| {
+            crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
+                .ok()
+                .map(|corpus| {
+                    crate::checks::gate::lint_warnings(&base, &proposed, &corpus.linter)
+                        .into_iter()
+                        .map(|f| {
+                            // The config's map keys are snake_case; findings
+                            // carry the kebab-case id — look up by id.
+                            let description = corpus
+                                .linter
+                                .rules
+                                .values()
+                                .find(|r| r.id == f.rule)
+                                .map_or_else(String::new, |r| r.description.clone());
+                            (f, description)
+                        })
+                        .collect()
+                })
+        })
+        .unwrap_or_default()
 }
 
 async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
@@ -2533,7 +2631,8 @@ mod tests {
             ],
         };
 
-        let (insertions, placed) = block_insertions("test-slug", artifact, &queue);
+        let (insertions, placed, leftover) = block_insertions("test-slug", artifact, &queue, &[]);
+        assert!(leftover.is_empty(), "no warnings were passed in");
         assert_eq!(insertions.len(), 3, "two blocks + one evidence card");
 
         // Every insertion sits exactly at its own `</div>` close.

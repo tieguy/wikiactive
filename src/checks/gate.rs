@@ -131,6 +131,24 @@ impl GateReason {
     }
 }
 
+/// Rule-enforcement item 4: the warn-severity lint findings for a
+/// proposal. Established by reading `run_gate`: only `Severity::Error`
+/// findings become gate reasons, and `wa check` printed only gate
+/// verdicts — so warn findings (tense-drift, see-also-duplication) were
+/// invisible everywhere except standalone `wa lint`. These are advice
+/// the reviewer must still SEE; they never block.
+#[must_use]
+pub fn lint_warnings(
+    base: &str,
+    proposed: &str,
+    cfg: &crate::checks::linter::LinterConfig,
+) -> Vec<crate::checks::linter::LintFinding> {
+    crate::checks::linter::gate(base, proposed, cfg)
+        .into_iter()
+        .filter(|f| f.severity == crate::checks::linter::Severity::Warn)
+        .collect()
+}
+
 /// Structured gate report shared by `wa check` (standalone fail-fast) and
 /// render/publish's blocked output: reasons grouped by disposition, each
 /// with its wikitext span when known.

@@ -116,6 +116,37 @@ fn clean_proposal_passes_without_artifact() {
     );
 }
 
+/// Rule-enforcement item 4: `wa check` prints warn-level lint findings
+/// under a WARNINGS heading after the gate report — advisory, the gate
+/// itself still passes (established: `run_gate` keeps only error-severity
+/// findings as reasons, so warnings were invisible before).
+#[test]
+fn warn_level_findings_print_after_the_gate_report_without_blocking() {
+    let dir = setup_session(
+        r#"{"findings":[]}"#,
+        "The tower is old.\n",
+        "The tower is old.\nThe railroad is now the largest employer in the county.\n",
+    );
+    let out = wa(&dir);
+    assert!(
+        out.status.success(),
+        "warn findings do not block; stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("gate: PASS"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("WARNINGS (advisory — they do not block)"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("tense-drift"), "rule id shown: {stdout}");
+    assert!(
+        stdout.contains("MOS:TENSE proxy"),
+        "config description shown: {stdout}"
+    );
+}
+
 /// MVP-2 A.2.2 — a session with the review-since drift pin embeds the
 /// drift diff (with provenance label) in the analyze bundle, without
 /// `--prior-base`.

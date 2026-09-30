@@ -141,6 +141,9 @@ td.needs { font-weight: 700; }
 .wa-comment .who { display: flex; flex-wrap: wrap; gap: .1rem 1rem; align-items: baseline; color: var(--subtle); font-size: .8rem; margin-top: .25rem; }
 .wa-comment .who form { display: flex; flex-wrap: wrap; gap: .4rem; margin: .35rem 0 0; }
 .wa-comment.resolved { background: none; border-left-color: var(--line); color: var(--subtle); }
+/* Warn-level lint findings (rule-enforcement item 4): advisory, in the
+   warn palette — visually distinct from operator comments. */
+.wa-comment.lint-warning { background: var(--warn-soft); border-left-color: var(--warn); }
 .wa-publish, .approval { background: var(--sheet); border: 1px solid var(--line); padding: 1rem 1.25rem .5rem; margin: 1.5rem 0; }
 .approval { border: 2px solid var(--action); }
 .wa-publish h2, .approval h2 { margin-top: 0; }
