@@ -119,10 +119,10 @@ wa publish <slug> --summary "Format citations, fix auto ref names"
 
 The same loop, self-served in the browser, in ONE process: session
 console, the source sweep manifest (run fetch, sign dispositions, paste
-operator captures), the model-driver buttons (author findings / draft
-proposal), render, **the in-app review artifact with block-anchored
+operator captures), the model-driver buttons (Write findings / Draft the
+edit), render, **the in-app review artifact with block-anchored
 comments** (one form per changed block, one per evidence card; the queue
-lives at `sessions/<slug>/comments.jsonl`), **driver: apply review
+lives at `sessions/<slug>/comments.jsonl`), **Apply
 comments** (the model revises the commented blocks and the applied/
 rejected/reply notes land in the queue), and publish confirmation as an
 explicit approve/decline action with the exact prompt shown. Nothing

@@ -21,6 +21,7 @@ pub mod rules;
 pub mod serve;
 pub mod session;
 pub mod sweep;
+pub mod ui;
 pub mod wikipedia;
 
 /// User-Agent used for every outbound HTTP request to Wikimedia (and, with

@@ -33,6 +33,8 @@ use tokio::sync::oneshot;
 
 use crate::ledger::Ledger;
 use crate::session::SessionMeta;
+use crate::ui::esc;
+use crate::ui::plural;
 use crate::wikipedia::ConfirmSource;
 use crate::wikipedia::Wikipedia;
 
@@ -152,6 +154,27 @@ impl ServeState {
             .unwrap_or_default()
     }
 
+    /// The last action's outcome for a session ("" when none).
+    fn outcome(&self, slug: &str) -> String {
+        self.outcomes
+            .lock()
+            .expect("outcomes")
+            .get(slug)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// This session's pending publish approvals: `(id, summary, prompt)`.
+    fn pending_for(&self, slug: &str) -> Vec<(String, String, String)> {
+        self.confirmations
+            .lock()
+            .expect("confirmations")
+            .iter()
+            .filter(|(_, p)| p.slug == slug)
+            .map(|(id, p)| (id.clone(), p.summary.clone(), p.prompt.clone()))
+            .collect()
+    }
+
     fn has_pending_for(&self, slug: &str) -> bool {
         self.confirmations
             .lock()
@@ -210,13 +233,6 @@ impl ConfirmSource for WebConfirm {
     }
 }
 
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
-
 fn session_dir(slug: &str) -> std::path::PathBuf {
     std::path::PathBuf::from("sessions").join(slug)
 }
@@ -262,246 +278,494 @@ fn console_rank(sort_key: &str) -> u8 {
     }
 }
 
+/// Query-string parameters on form actions: `from=review` returns the
+/// operator to the review page they acted on, `at` names the block to
+/// scroll back to, and `notice` asks the review page to show the last
+/// outcome.
+type Params = axum::extract::Query<HashMap<String, String>>;
+
+fn from_review(q: &HashMap<String, String>) -> bool {
+    q.get("from").is_some_and(|v| v == "review")
+}
+
+/// Where a form POST lands: back on the review page when it was sent from
+/// there (at the block it concerned, or showing the outcome `notice`),
+/// else on the session page.
+fn back_to(slug: &str, q: &HashMap<String, String>, notice: Option<&str>) -> Redirect {
+    if !from_review(q) {
+        return Redirect::to(&format!("/sessions/{slug}"));
+    }
+    let query = notice.map(|n| format!("?notice={n}")).unwrap_or_default();
+    let fragment = match notice {
+        Some("publish") => "#wa-publish".to_string(),
+        Some(_) => String::new(),
+        None => q
+            .get("at")
+            .filter(|a| !a.is_empty() && a.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+            .map(|a| format!("#{a}"))
+            .unwrap_or_default(),
+    };
+    Redirect::to(&format!("/sessions/{slug}/review{query}{fragment}"))
+}
+
+/// The last action's outcome as a message box (empty when there is none).
+/// Failures get the error treatment; URLs in the text become links.
+fn notice_html(outcome: &str) -> String {
+    if outcome.is_empty() {
+        return String::new();
+    }
+    let lower = outcome.to_lowercase();
+    let failed = [
+        "failed",
+        "blocked",
+        "error",
+        "not started",
+        "out of date",
+        "unresolved",
+    ]
+    .iter()
+    .any(|w| lower.contains(w));
+    format!(
+        "<div class=\"notice{}\" role=\"status\"><strong>Last action</strong>\
+         <div class=\"msg\">{}</div></div>\n",
+        if failed { " error" } else { "" },
+        crate::ui::linkify(outcome)
+    )
+}
+
+/// One pending publish approval: the exact prompt the flow is parked on
+/// and the two answers. `from_review` returns a decline to the review
+/// page.
+fn approval_html(pending: &(String, String, String), from_review: bool) -> String {
+    let (id, summary, prompt) = pending;
+    format!(
+        "<section class=\"approval\" id=\"wa-publish\"><h2>Approve this publish</h2>\
+         <p>Edit summary: <strong>{}</strong></p><pre>{}</pre>\
+         <form method=post action=\"/confirmations/{}{}\" class=\"row\">\
+         <button name=approve value=true class=\"primary\">Approve and publish</button>\
+         <button name=approve value=false>Don't publish</button></form>\
+         <p class=\"meta\">Nothing is written to Wikipedia until you approve.</p></section>\n",
+        if summary.is_empty() {
+            "(none)".to_string()
+        } else {
+            esc(summary)
+        },
+        esc(prompt),
+        esc(id),
+        if from_review { "?from=review" } else { "" },
+    )
+}
+
+/// One console row's status: `(label, needs attention, detail, sort key)`.
+fn console_status(
+    pending: bool,
+    artifact: Option<&ArtifactState>,
+    open: usize,
+) -> (String, bool, String, &'static str) {
+    if pending {
+        (
+            "Publish waiting for your approval".to_string(),
+            true,
+            String::new(),
+            "current+comments",
+        )
+    } else {
+        match artifact {
+            Some(ArtifactState::Current { round }) if open > 0 => (
+                format!("Review open, round {round}"),
+                true,
+                format!("{} to apply", plural(open, "open comment")),
+                "current+comments",
+            ),
+            Some(ArtifactState::Current { round }) => (
+                format!("Review open, round {round}"),
+                true,
+                String::new(),
+                "current",
+            ),
+            Some(ArtifactState::Stale {
+                kind: StaleKind::Published,
+                ..
+            }) => ("Published".to_string(), false, String::new(), "stale"),
+            Some(ArtifactState::Stale { kind, .. }) => (
+                "Needs a new render".to_string(),
+                false,
+                kind.short().to_string(),
+                "stale",
+            ),
+            None => ("No review yet".to_string(), false, String::new(), "none"),
+        }
+    }
+}
+
 /// GET / — the console: every session with what actually decides "does
-/// this need me?" — the review state (current round / out of date and
-/// why / none) and the open-comment count — sorted attention-first
-/// (live reviews with open comments, then live reviews, then history).
+/// this need me?" — the review state (open / needs a new render and why /
+/// published / none), the open-comment count, and a waiting publish
+/// approval — sorted attention-first (live reviews with open comments,
+/// then live reviews, then history).
 async fn console(State(state): State<Arc<ServeState>>) -> Html<String> {
     struct Row {
         slug: String,
         article: String,
-        status_html: String,
-        sort_key: String,
+        label: String,
+        attention: bool,
+        detail: String,
+        sort_key: &'static str,
     }
     let mut rows: Vec<Row> = list_sessions()
         .into_iter()
         .map(|slug| {
             let dir = session_dir(&slug);
-            let meta = read_meta(&slug);
-            let article = meta.as_ref().map_or("?".into(), |m| m.article.clone());
+            let article = read_meta(&slug).map_or_else(|| slug.clone(), |m| m.article);
             let open = crate::comments::CommentQueue::load(&dir.join("comments.jsonl"))
                 .map_or(0, |q| q.open().len());
-            let (status_html, sort_key) = match artifact_state(&dir) {
-                Some(ArtifactState::Current { round }) => {
-                    let comments = if open == 0 {
-                        String::new()
-                    } else {
-                        format!(" · <strong>{open} open comment(s)</strong>")
-                    };
-                    (
-                        format!("<strong>review live — round {round}</strong>{comments}"),
-                        if open == 0 {
-                            "current".into()
-                        } else {
-                            "current+comments".into()
-                        },
-                    )
-                }
-                Some(ArtifactState::Stale { kind, .. }) => {
-                    (format!("review done ({kind})"), "stale".into())
-                }
-                None => ("no review rendered".to_string(), "none".into()),
-            };
+            let (label, attention, detail, sort_key) = console_status(
+                state.has_pending_for(&slug),
+                artifact_state(&dir).as_ref(),
+                open,
+            );
             Row {
                 slug,
                 article,
-                status_html,
+                label,
+                attention,
+                detail,
                 sort_key,
             }
         })
         .collect();
     rows.sort_by(|a, b| {
-        console_rank(&a.sort_key)
-            .cmp(&console_rank(&b.sort_key))
+        console_rank(a.sort_key)
+            .cmp(&console_rank(b.sort_key))
             .then_with(|| a.slug.cmp(&b.slug))
     });
 
-    let mut body = String::from(
-        "<!doctype html>\n<html><head><meta charset=utf-8><title>wa serve — sessions</title>\n",
-    );
-    body.push_str(SESSION_PAGE_STYLE);
-    body.push_str("\n</head>\n<body>\n<h1>wa serve — session console</h1><ul>");
-    for row in rows {
-        let outcome = state
-            .outcomes
-            .lock()
-            .expect("outcomes")
-            .get(&row.slug)
-            .cloned()
-            .unwrap_or_default();
-        let slug = &row.slug;
-        let _ = writeln!(
-            body,
-            "<li><a href=\"/sessions/{slug}\">{slug}</a> — {} \
-             · <span class=\"console-status\">{}</span>{}</li>",
-            esc(&row.article),
-            row.status_html,
-            if outcome.is_empty() {
-                String::new()
-            } else {
-                format!(" — <strong>{}</strong>", esc(&outcome))
-            }
+    let mut body = String::from("<h1>Sessions</h1>\n");
+    if rows.is_empty() {
+        body.push_str(
+            "<p class=\"empty\">No sessions in this directory yet. Start one from a terminal: \
+             <code>wa session init --article \"Article title\" --entry-loop 2</code></p>",
         );
+    } else {
+        body.push_str("<ul class=\"sessions\">\n");
+        for row in rows {
+            let outcome = state.outcome(&row.slug);
+            let last = outcome.lines().next().unwrap_or_default();
+            let last: String = if last.chars().count() > 120 {
+                last.chars().take(120).chain(['…']).collect()
+            } else {
+                last.to_string()
+            };
+            let mut sub = format!("<code>{}</code>", esc(&row.slug));
+            if !row.detail.is_empty() {
+                let _ = write!(sub, "<span>{}</span>", esc(&row.detail));
+            }
+            if !last.is_empty() {
+                let _ = write!(sub, "<span>Last action: {}</span>", esc(&last));
+            }
+            let _ = writeln!(
+                body,
+                "<li><a class=\"title\" href=\"/sessions/{slug}\">{article}</a>\
+                 <span class=\"state{attn}\">{label}</span>\
+                 <span class=\"sub\">{sub}</span></li>",
+                slug = esc(&row.slug),
+                article = esc(&row.article),
+                attn = if row.attention { " attn" } else { "" },
+                label = esc(&row.label),
+            );
+        }
+        body.push_str("</ul>");
     }
-    body.push_str("</ul>\n</body></html>");
-    Html(body)
+    Html(crate::ui::page("Sessions", &[], &body))
 }
 
-/// GET /sessions/{slug} — one session: state, review link, sweep
-/// manifest with disposition/attach forms, publish form. Server-rendered
-/// string HTML (no templating dependency); splitting the page into
-/// helpers would obscure the one-glance operator layout.
-#[allow(clippy::too_many_lines)]
+/// GET /sessions/{slug} — one session, laid out in the order the work
+/// happens: sources → draft → review → publish. The last action's outcome
+/// and any publish approval waiting on the operator sit at the top.
+/// Server-rendered string HTML (no templating dependency).
 async fn session_page(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
 ) -> Html<String> {
     let Some(meta) = read_meta(&slug) else {
-        return Html(format!("<h1>unknown session {}</h1>", esc(&slug)));
+        return Html(crate::ui::page(
+            "Session not found",
+            &[("Sessions", "/")],
+            &format!(
+                "<h1>Session not found</h1><p>There is no session named <code>{}</code> in \
+                 this directory.</p>",
+                esc(&slug)
+            ),
+        ));
     };
     let dir = session_dir(&slug);
-    let ledger = Ledger::load(&dir.join("ledger.json")).ok();
-
+    let based_on = if meta.base_revid == 0 {
+        "a page that does not exist yet".to_string()
+    } else {
+        format!(
+            "based on revision <a href=\"https://en.wikipedia.org/w/index.php?oldid={0}\">{0}</a>",
+            meta.base_revid
+        )
+    };
     let mut page = format!(
-        "<!doctype html>\n<html><head><meta charset=utf-8><title>{}</title>\n{}\n</head>\n<body>\n<h1>{}</h1><p>slug {} · base revid {} · entry loop L{}</p>",
-        esc(&meta.article),
-        SESSION_PAGE_STYLE,
+        "<h1>{}</h1>\n<p class=\"meta\">Session <code>{}</code>, {based_on}, entry loop {}.</p>\n",
         esc(&meta.article),
         esc(&slug),
-        meta.base_revid,
         meta.entry_loop
     );
-    // The review surface is the in-app artifact + this page's comment
-    // forms — no external review server, no lifecycle (plan-004).
-    let _ = writeln!(
-        page,
-        "<p><a href=\"/sessions/{slug}/review\">open the review artifact (in-app)</a> · \
-         leave comments below (one per block)</p>"
-    );
-    page.push_str(&review_comments_section(&slug));
-    if let Some(last) = meta.last_published_diff_url {
-        let _ = writeln!(
-            page,
-            "<p>last published: <a href=\"{}\">{}</a></p>",
-            esc(&last),
-            esc(&last)
-        );
+    page.push_str(&notice_html(&state.outcome(&slug)));
+    for pending in state.pending_for(&slug) {
+        page.push_str(&approval_html(&pending, false));
     }
-
-    // Sweep manifest with operator resolution forms.
-    if let Some(ledger) = ledger.as_ref().filter(|l| l.has_sweep_state()) {
-        let unresolved = ledger.sweep_unresolved().len();
-        let _ = writeln!(
-            page,
-            "<h2>Source sweep ({unresolved} unresolved)</h2><table border=1><tr><th>id</th><th>status</th><th>text</th><th>disposition</th><th>source</th><th>resolve</th></tr>"
-        );
-        for s in &ledger.sources {
-            let status = s.sweep_status.as_deref().unwrap_or("—");
-            let disp = s.disposition.as_deref().unwrap_or("—");
-            let text = if s.fetched_text.is_some() {
-                "✓"
-            } else {
-                "—"
-            };
-            let _ = writeln!(
-                page,
-                "<tr><td>{}</td><td>{}</td><td>{text}</td><td>{}</td><td>{}</td>\
-                 <td><form method=post action=\"/sessions/{slug}/sweep-dispose\">\
-                 <input type=hidden name=source value=\"{}\">\
-                 <input name=disposition placeholder=\"attested-unreachable\">\
-                 <button>sign disposition</button></form></td></tr>",
-                esc(&s.id),
-                esc(status),
-                esc(disp),
-                esc(&s.url),
-                esc(&s.id)
-            );
-        }
-        page.push_str("</table>");
-        let _ = writeln!(
-            page,
-            "<form method=post action=\"/sessions/{slug}/sweep-fetch\"><button>run sweep fetch</button></form>"
-        );
-        let _ = writeln!(
-            page,
-            "<h3>attach operator capture</h3>\
-             <form method=post action=\"/sessions/{slug}/attach\">\
-             <input name=source placeholder=\"S3\">\
-             <textarea name=text rows=6 cols=80 placeholder=\"paste the captured page text\"></textarea>\
-             <button>attach</button></form>"
-        );
+    if let Ok(ledger) = Ledger::load(&dir.join("ledger.json"))
+        && ledger.has_sweep_state()
+    {
+        page.push_str(&sources_section(&slug, &ledger));
     }
-
-    // Pending confirmations for this session (the full prompt text is
-    // shown — the operator confirms exactly what the flow would write).
-    let pendings: Vec<(String, String, String)> = state
-        .confirmations
-        .lock()
-        .expect("confirmations")
-        .iter()
-        .filter(|(_, p)| p.slug == slug)
-        .map(|(id, p)| (id.clone(), p.summary.clone(), p.prompt.clone()))
-        .collect();
-    for (id, summary, prompt) in pendings {
-        let _ = writeln!(
-            page,
-            "<h2>PENDING PUBLISH CONFIRMATION</h2><p>summary: {}</p><pre>{}</pre>\
-             <form method=post action=\"/confirmations/{id}\"><button name=approve value=true>approve — publish</button>\
-             <button name=approve value=false>decline</button></form>",
-            esc(&summary),
-            esc(&prompt)
-        );
-    }
-
-    let outcome = state
-        .outcomes
-        .lock()
-        .expect("outcomes")
-        .get(&slug)
-        .cloned()
-        .unwrap_or_default();
-    if !outcome.is_empty() {
-        let _ = writeln!(page, "<h2>Last run</h2><pre>{}</pre>", esc(&outcome));
-    }
-
-    let _ = writeln!(
-        page,
-        "<h2>Publish</h2>\
-         <form method=post action=\"/sessions/{slug}/driver/findings\"><button>driver: author findings (model)</button></form>\
-         <form method=post action=\"/sessions/{slug}/driver/propose\"><button>driver: draft proposal (model)</button></form>\
-         <form method=post action=\"/sessions/{slug}/render\">\
-         <input name=round value=1 size=3><input name=summary size=40 placeholder=\"round summary\">\
-         <button>render review artifact</button></form>\
-         <form method=post action=\"/sessions/{slug}/publish\">\
-         <input name=summary size=60 placeholder=\"scoped edit summary\">\
-         <button>start publish (gate → confirmation)</button></form>"
-    );
-    page.push_str("\n</body></html>");
-    Html(page)
+    page.push_str(&draft_section(&slug, &dir));
+    page.push_str(&review_section(&slug, &dir));
+    page.push_str(&publish_section(&slug, &meta));
+    Html(crate::ui::page(&meta.article, &[("Sessions", "/")], &page))
 }
 
-/// Session-page styling (the shakedown verdict: the bare unstyled page
-/// was "ugly to look at"; this matches the artifact's palette).
-const SESSION_PAGE_STYLE: &str = "<style>\n\
-:root { --ink:#1a1a1a; --muted:#667; --paper:#faf9f7; --line:#ddd8d0; --accent:#7c5cbf; }\n\
-* { box-sizing: border-box; }\n\
-body { font: 15px/1.6 Georgia, serif; color: var(--ink); background: var(--paper); margin: 0; padding: 2rem; }\n\
-main, body > * { max-width: 900px; margin-left: auto; margin-right: auto; }\n\
-h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; margin-top: 2rem; }\n\
-h3 { font-size: .95rem; color: var(--muted); }\n\
-form { font-family: system-ui, sans-serif; font-size: .85rem; display: block; margin: .5rem 0; }\n\
-form.inline { display: inline-block; }\n\
-input, textarea, button { font: inherit; padding: .3rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; }\n\
-input, textarea { max-width: 100%; }\n\
-button { cursor: pointer; border: 1px solid var(--accent); color: var(--accent); }\n\
-button:hover { background: #f6f2fc; }\n\
-table { border-collapse: collapse; font-family: system-ui, sans-serif; font-size: .8rem; }\n\
-th, td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }\n\
-.comment { border-left: 3px solid var(--accent); background: #f6f2fc; border-radius: 0 6px 6px 0; padding: .4rem .6rem; margin: .4rem 0; font-family: system-ui, sans-serif; font-size: .85rem; }\n\
-.comment code { font-family: ui-monospace, monospace; font-size: .75rem; color: var(--muted); }\n\
-.comment-resolved { border-left-color: var(--line); background: #fff; color: var(--muted); }\n\
-pre { font-family: ui-monospace, monospace; font-size: .8rem; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: .75rem; white-space: pre-wrap; }\n\
-</style>";
+/// A source's sweep state in plain words.
+fn source_status_label(s: &crate::ledger::SourceEntry) -> String {
+    use crate::sweep::status;
+    if s.fetched_text.as_deref().is_some_and(|t| !t.is_empty()) {
+        return if s
+            .fetched_via
+            .as_deref()
+            .is_some_and(|v| v.starts_with("operator"))
+        {
+            "Text attached by you".into()
+        } else {
+            "Fetched".into()
+        };
+    }
+    match s.sweep_status.as_deref() {
+        Some(status::PENDING) => "Not fetched yet".into(),
+        Some(status::FETCHED) => "Fetched".into(),
+        Some(status::NEEDS_OPERATOR) => "Could not be fetched".into(),
+        Some(status::SNAPSHOT_AVAILABLE) => "Archived snapshot found, not fetched yet".into(),
+        Some(status::NO_TEXT) => "No readable text".into(),
+        Some(other) => other.replace('_', " "),
+        None => "Not part of the sweep".into(),
+    }
+}
+
+/// One row of the sources table; `needs` marks a source the sweep gate is
+/// still waiting on.
+fn source_row(slug: &str, s: &crate::ledger::SourceEntry, needs: bool) -> String {
+    let link = if s.url.starts_with("http") {
+        format!(
+            "<a href=\"{}\">{}</a>",
+            esc(&s.url),
+            esc(&crate::render::source_link_text(s))
+        )
+    } else {
+        esc(&s.url)
+    };
+    let form = format!(
+        "<form method=post action=\"/sessions/{slug}/sweep-dispose\" class=\"row\">\
+         <input type=hidden name=source value=\"{id}\">\
+         <input name=disposition list=\"dispositions\" required \
+         placeholder=\"Why the text cannot be had\" aria-label=\"Disposition for {id}\">\
+         <button>Sign disposition</button></form>",
+        id = esc(&s.id)
+    );
+    let disposition = match (&s.disposition, needs) {
+        (Some(d), _) => format!(
+            "{} <details><summary>Change</summary>{form}</details>",
+            esc(d)
+        ),
+        (None, true) => form,
+        (None, false) => "Not needed".to_string(),
+    };
+    format!(
+        "<tr><td><span class=\"sid\">{}</span>{link}</td><td{}>{}</td><td>{disposition}</td></tr>\n",
+        esc(&s.id),
+        if needs { " class=\"needs\"" } else { "" },
+        esc(&source_status_label(s)),
+    )
+}
+
+/// The source sweep: per-source status, the disposition form for every
+/// source that still needs one, the batch fetch, and operator capture.
+fn sources_section(slug: &str, ledger: &Ledger) -> String {
+    use crate::sweep::status;
+    let unresolved: Vec<&str> = ledger
+        .sweep_unresolved()
+        .iter()
+        .map(|(s, _)| s.id.as_str())
+        .collect();
+    let total = ledger.sources.len();
+    let mut html = String::from("<h2>Sources</h2>\n");
+    if unresolved.is_empty() {
+        let _ = writeln!(
+            html,
+            "<p>All {} have text or a signed disposition.</p>",
+            plural(total, "source")
+        );
+    } else {
+        let _ = writeln!(
+            html,
+            "<p><strong>{} of {}</strong> still need text or a signed disposition. Fetch \
+             them, attach text you captured yourself, or record why the text cannot be had.</p>",
+            unresolved.len(),
+            plural(total, "source")
+        );
+    }
+    html.push_str(
+        "<datalist id=\"dispositions\"><option value=\"attested-unreachable\">\
+         <option value=\"dropped: paywall\"><option value=\"dropped: dead link\"></datalist>\n\
+         <div class=\"scroll\"><table><tr><th>Source</th><th>Status</th><th>Disposition</th></tr>\n",
+    );
+    for s in &ledger.sources {
+        html.push_str(&source_row(slug, s, unresolved.contains(&s.id.as_str())));
+    }
+    html.push_str("</table></div>\n");
+    let fetchable = ledger.sources.iter().any(|s| {
+        matches!(
+            s.sweep_status.as_deref(),
+            Some(status::PENDING | status::SNAPSHOT_AVAILABLE)
+        )
+    });
+    if fetchable {
+        let _ = writeln!(
+            html,
+            "<form method=post action=\"/sessions/{slug}/sweep-fetch\" class=\"row\">\
+             <button>Fetch pending sources</button></form>"
+        );
+    }
+    let mut options = String::new();
+    for s in ledger
+        .sources
+        .iter()
+        .filter(|s| s.fetched_text.as_deref().is_none_or(str::is_empty))
+    {
+        let _ = write!(
+            options,
+            "<option value=\"{id}\">{id}: {}</option>",
+            esc(&crate::render::source_link_text(s)),
+            id = esc(&s.id)
+        );
+    }
+    if !options.is_empty() {
+        let _ = writeln!(
+            html,
+            "<details class=\"panel\"><summary>Attach text you captured yourself</summary>\
+             <form method=post action=\"/sessions/{slug}/attach\" class=\"stack\">\
+             <label class=\"field\">Source<select name=source>{options}</select></label>\
+             <label class=\"field\">Text of the page\
+             <textarea name=text rows=6 required></textarea></label>\
+             <button>Attach text</button></form></details>"
+        );
+    }
+    html
+}
+
+/// The model-drafting step: how many findings exist, whether an edit is
+/// staged, and the two judgment-point actions.
+fn draft_section(slug: &str, dir: &std::path::Path) -> String {
+    let findings = crate::session::FindingsFile::load(&dir.join("findings.json"))
+        .map_or(0, |f| f.findings.len());
+    let base = std::fs::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
+    let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
+    let staged = !proposed.trim().is_empty() && proposed != base;
+    format!(
+        "<h2>Draft</h2>\n<p>{} {}</p>\n<div class=\"row\">\
+         <form method=post action=\"/sessions/{slug}/driver/findings\">\
+         <button>Write findings</button></form>\
+         <form method=post action=\"/sessions/{slug}/driver/propose\">\
+         <button{}>Draft the edit</button></form></div>\n\
+         <p class=\"meta\">Both call the drafting model. A finding is kept only if it quotes a \
+         fetched source, and the draft is checked when you render the review.{}</p>\n",
+        if findings == 0 {
+            "No findings yet.".to_string()
+        } else {
+            format!("{}.", plural(findings, "finding"))
+        },
+        if staged {
+            "An edit is staged."
+        } else {
+            "No edit is staged yet."
+        },
+        if findings == 0 { " disabled" } else { "" },
+        if findings == 0 {
+            " Drafting the edit needs at least one finding."
+        } else {
+            ""
+        },
+    )
+}
+
+/// The review step: where the review stands, the render form (round
+/// prefilled with the one that makes sense next), and the comment queue.
+fn review_section(slug: &str, dir: &std::path::Path) -> String {
+    let state = artifact_state(dir);
+    let mut html = String::from("<h2>Review</h2>\n");
+    match &state {
+        Some(ArtifactState::Current { round }) => {
+            let _ = writeln!(
+                html,
+                "<p>Round {round} is ready to read. Comment under any paragraph there; \
+                 publish from the same page when it reads right.</p>\
+                 <p><a class=\"btn primary\" href=\"/sessions/{slug}/review\">Open the review</a></p>"
+            );
+        }
+        Some(ArtifactState::Stale { round, kind }) => {
+            let _ = writeln!(
+                html,
+                "<p>The round {round} review is out of date. {} \
+                 <a href=\"/sessions/{slug}/review\">View it anyway</a></p>",
+                kind.sentence()
+            );
+        }
+        None => html.push_str("<p>Nothing has been rendered for review yet.</p>\n"),
+    }
+    let _ = writeln!(
+        html,
+        "<form method=post action=\"/sessions/{slug}/render\" class=\"row\">\
+         <label class=\"field\">Round<input name=round type=number min=1 value={} \
+         style=\"width:5rem\"></label>\
+         <label class=\"field grow\">What changed this round\
+         <input name=summary placeholder=\"e.g. corrected the marriage date\"></label>\
+         <button>Render review</button></form>",
+        next_round(state.as_ref())
+    );
+    html.push_str("<h3>Comments</h3>\n");
+    html.push_str(&queue_html(slug, dir));
+    html
+}
+
+/// The publish step on the session page (the review page carries its own
+/// copy, next to the evidence).
+fn publish_section(slug: &str, meta: &SessionMeta) -> String {
+    let mut html = String::from("<h2>Publish</h2>\n");
+    if let Some(last) = &meta.last_published_diff_url {
+        let _ = writeln!(
+            html,
+            "<p>Last published: <a href=\"{0}\">{0}</a></p>",
+            esc(last)
+        );
+    }
+    let _ = writeln!(html, "{}", publish_form(slug, false, false));
+    html
+}
+
+/// The publish form and what pressing it does.
+fn publish_form(slug: &str, from_review: bool, primary: bool) -> String {
+    format!(
+        "<form method=post action=\"/sessions/{slug}/publish{}\" class=\"row\">\
+         <label class=\"field grow\">Edit summary\
+         <input name=summary required placeholder=\"Shown in the page history\"></label>\
+         <button{}>Publish this edit</button></form>\
+         <p class=\"meta\">The checks run first. You then see the exact edit and approve it \
+         before anything is written to Wikipedia.</p>",
+        if from_review { "?from=review" } else { "" },
+        if primary { " class=\"primary\"" } else { "" },
+    )
+}
 
 /// GET /sessions/{slug}/review — the review artifact, served in-app with
 /// the comment UI and — when the review is live — the publish action and
@@ -513,19 +777,31 @@ pre { font-family: ui-monospace, monospace; font-size: .8rem; background: #fff; 
 async fn review_artifact(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
 ) -> axum::response::Response {
     let path = session_dir(&slug).join("review.html");
-    let pendings: Vec<(String, String, String)> = state
-        .confirmations
-        .lock()
-        .expect("confirmations")
-        .iter()
-        .filter(|(_, p)| p.slug == slug)
-        .map(|(id, p)| (id.clone(), p.summary.clone(), p.prompt.clone()))
-        .collect();
     match std::fs::read_to_string(&path) {
-        Ok(html) => Html(inject_comment_ui(&slug, &html, &pendings)).into_response(),
-        Err(_) => axum::http::StatusCode::NOT_FOUND.into_response(),
+        Ok(html) => Html(inject_comment_ui(
+            &slug,
+            &html,
+            &state.pending_for(&slug),
+            q.get("notice").map(String::as_str),
+            &state.outcome(&slug),
+        ))
+        .into_response(),
+        Err(_) => (
+            axum::http::StatusCode::NOT_FOUND,
+            Html(crate::ui::page(
+                "No review yet",
+                &[("Sessions", "/")],
+                &format!(
+                    "<h1>No review yet</h1><p>Nothing has been rendered for this session. \
+                     <a href=\"/sessions/{}\">Render a review from the session page.</a></p>",
+                    esc(&slug)
+                ),
+            )),
+        )
+            .into_response(),
     }
 }
 
@@ -541,9 +817,58 @@ enum ArtifactState {
     /// The render is the session's latest event — commenting is live.
     Current { round: u32 },
     /// Do not comment against this artifact: forms suppressed, banner
-    /// shown, driver-resolve refuses. `kind` is the short console label;
-    /// `reason` is the full sentence for the banner.
-    Stale { kind: &'static str, reason: String },
+    /// shown, driver-resolve refuses.
+    Stale { round: u32, kind: StaleKind },
+}
+
+/// Why a rendered review no longer describes the session.
+#[derive(Clone, Copy)]
+enum StaleKind {
+    Published,
+    CommentsApplied,
+    TextChanged,
+}
+
+impl StaleKind {
+    /// Clause form, for the console and the driver's refusal message.
+    fn short(self) -> &'static str {
+        match self {
+            Self::Published => "the edit was published",
+            Self::CommentsApplied => "comments were applied after the render",
+            Self::TextChanged => "the text changed after the render",
+        }
+    }
+
+    /// Full sentence with the next step, for banners.
+    fn sentence(self) -> &'static str {
+        match self {
+            Self::Published => "This edit was published, so the review is closed.",
+            Self::CommentsApplied => {
+                "Comments were applied after it was rendered. Render again to review the \
+                 revised text."
+            }
+            Self::TextChanged => {
+                "The session's text changed after it was rendered (a hand edit?). Render \
+                 again before commenting."
+            }
+        }
+    }
+}
+
+/// The round a render started now should carry: the first round, the same
+/// round again while nothing was reviewed in between, else the next one.
+fn next_round(state: Option<&ArtifactState>) -> u32 {
+    match state {
+        None => 1,
+        Some(
+            ArtifactState::Current { round }
+            | ArtifactState::Stale {
+                round,
+                kind: StaleKind::TextChanged,
+            },
+        ) => (*round).max(1),
+        Some(ArtifactState::Stale { round, .. }) => round + 1,
+    }
 }
 
 fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
@@ -557,19 +882,12 @@ fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
     let round = rounds[render_idx].round;
     // Anything the loop did AFTER that render makes the artifact history.
     let later: &[crate::session::RoundEntry] = &rounds[render_idx + 1..];
+    let stale = |kind| Some(ArtifactState::Stale { round, kind });
     if later.iter().any(|e| e.phase == "published") {
-        return Some(ArtifactState::Stale {
-            kind: "published",
-            reason: "this edit was published — the review is done".into(),
-        });
+        return stale(StaleKind::Published);
     }
     if later.iter().any(|e| e.phase == "comments-resolved") {
-        return Some(ArtifactState::Stale {
-            kind: "comments applied",
-            reason: "comments were applied after this render — re-render to review the \
-                     revised text"
-                .into(),
-        });
+        return stale(StaleKind::CommentsApplied);
     }
     // A hand edit (or anything else) touched the session text after the
     // artifact was written: mtime is the basic on-disk fact.
@@ -583,37 +901,33 @@ fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
         .filter_map(|m| m.modified().ok())
         .any(|t| t > artifact_mtime);
     if text_touched_after {
-        return Some(ArtifactState::Stale {
-            kind: "text changed",
-            reason: "the session's text changed after the render (hand edit?) — re-render \
-                     before commenting"
-                .into(),
-        });
+        return stale(StaleKind::TextChanged);
     }
     Some(ArtifactState::Current { round })
 }
 
 /// The per-block insertion plan for [`inject_comment_ui`]: for each
-/// changed block and evidence card, the comment HTML to insert directly
+/// changed block and evidence card, the comment thread to insert directly
 /// after that element's closing `</div>` (blocks are flat — the next
 /// `</div>` after the opening tag is the element's own close), plus the
 /// anchors that received a form (everything else lands in the stray
-/// footer).
+/// footer). A thread is the block's existing comments, then the collapsed
+/// "Comment" form(s) — one for a plain block, new-wording and
+/// removed-wording forms for a changed pair.
 fn block_insertions(
     slug: &str,
     artifact_html: &str,
     queue: &crate::comments::CommentQueue,
 ) -> (Vec<(usize, String)>, Vec<String>) {
-    use std::fmt::Write as _;
-
     let blocks = crate::render::review_targets(artifact_html);
     let evidence = crate::render::evidence_targets(artifact_html);
-    let by_anchor = |anchor: &str| -> Vec<&crate::comments::Comment> {
-        queue
-            .comments
-            .iter()
-            .filter(|c| c.target == anchor)
-            .collect()
+    let cards = |anchor: &str, place: &str, back: &str| -> String {
+        comment_cards(
+            slug,
+            queue.comments.iter().filter(|c| c.target == anchor),
+            |_| place.to_string(),
+            back,
+        )
     };
     let div_end = |id: &str| -> Option<usize> {
         let needle = format!("id=\"{id}\"");
@@ -628,135 +942,125 @@ fn block_insertions(
         let Some(end) = div_end(&block.element_id) else {
             continue;
         };
-        let mut html = String::new();
-        html.push_str(&comment_form(
-            slug,
-            &block.wikitext_anchor,
-            if block.old_sides.is_empty() {
-                "leave a comment on this paragraph"
-            } else {
-                "leave a comment on the new (highlighted) wording"
-            },
-        ));
+        let back = format!("?from=review&amp;at={}", block.element_id);
+        let mut html = String::from("<div class=\"wa-thread\">");
         for old in &block.old_sides {
-            let _ = write!(
-                html,
-                "<details class=\"wa-old-toggle\"><summary>comment on the removed \
-                 (struck-through) wording</summary>{}</details>",
-                comment_form(
-                    slug,
-                    &old.wikitext_anchor,
-                    "what should change about the removed wording?"
-                )
-            );
-            html.push_str(&comments_html(slug, &by_anchor(&old.wikitext_anchor)));
+            html.push_str(&cards(
+                &old.wikitext_anchor,
+                " on the removed wording",
+                &back,
+            ));
             placed.push(old.wikitext_anchor.clone());
         }
-        html.push_str(&comments_html(slug, &by_anchor(&block.wikitext_anchor)));
+        html.push_str(&cards(&block.wikitext_anchor, "", &back));
         placed.push(block.wikitext_anchor.clone());
+        if block.old_sides.is_empty() {
+            html.push_str(&comment_form(
+                slug,
+                &block.wikitext_anchor,
+                &back,
+                "Comment",
+                "What should change here?",
+            ));
+        } else {
+            html.push_str(&comment_form(
+                slug,
+                &block.wikitext_anchor,
+                &back,
+                "Comment on the new wording",
+                "What should change in the new wording?",
+            ));
+            for old in &block.old_sides {
+                html.push_str(&comment_form(
+                    slug,
+                    &old.wikitext_anchor,
+                    &back,
+                    "Comment on the removed wording",
+                    "What about the removed wording?",
+                ));
+            }
+        }
+        html.push_str("</div>");
         insertions.push((end, html));
     }
     for ev in &evidence {
         let Some(end) = div_end(&ev.element_id) else {
             continue;
         };
-        let mut html = comment_form(
+        let back = format!("?from=review&amp;at={}", ev.element_id);
+        let mut html = String::from("<div class=\"wa-thread\">");
+        html.push_str(&cards(&ev.wikitext_anchor, "", &back));
+        html.push_str(&comment_form(
             slug,
             &ev.wikitext_anchor,
-            "comment on this source (its quotes, its reliability)",
-        );
-        html.push_str(&comments_html(slug, &by_anchor(&ev.wikitext_anchor)));
+            &back,
+            "Comment on this source",
+            "What is wrong with this source or its quote?",
+        ));
+        html.push_str("</div>");
         placed.push(ev.wikitext_anchor.clone());
         insertions.push((end, html));
     }
     (insertions, placed)
 }
 
-/// Injected-comment styling for the served artifact (matches the
-/// artifact's own palette: it styles .block/.evidence, these style the
-/// comment layer only).
-const ARTIFACT_COMMENT_STYLE: &str = "<style>
-  .wa-stale { font-family: system-ui, sans-serif; font-size: .9rem; \
-border: 2px solid #b77; background: #fdf3f3; border-radius: 8px; \
-padding: .6rem .9rem; margin: .75rem 0; }
-  .wa-bar { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); \
-border: 1px solid var(--line); border-radius: 8px; background: #fff; \
-padding: .5rem .75rem; margin: .75rem 0; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-  .wa-bar-form { display: inline; margin-left: auto; }
-  .wa-cmt, .wa-stray { font-family: system-ui, sans-serif; font-size: .85rem; \
-margin: .25rem 0 .75rem 0; }
-  .wa-cmt form, .wa-old-toggle form { display: flex; gap: .4rem; align-items: flex-start; \
-flex-wrap: wrap; margin: .2rem 0; }
-  .wa-cmt textarea { flex: 1 1 22rem; font: inherit; padding: .35rem .5rem; \
-border: 1px solid var(--line); border-radius: 6px; background: #fff; }
-  .wa-cmt button { font: inherit; border: 1px solid var(--accent); color: var(--accent); \
-background: #fff; border-radius: 6px; padding: .35rem .7rem; cursor: pointer; }
-  .wa-cmt button:hover { background: #f6f2fc; }
-  .wa-old-toggle { margin-top: .2rem; color: var(--muted); }
-  .wa-old-toggle summary { cursor: pointer; }
-  .wa-comment { border-left: 3px solid var(--accent); background: #f6f2fc; \
-border-radius: 0 6px 6px 0; padding: .4rem .6rem; margin: .35rem 0; }
-  .wa-comment.wa-resolved-note { border-left-color: var(--line); background: #faf9f7; \
-color: var(--muted); }
-  .wa-comment .wa-note { display: block; margin-top: .25rem; white-space: pre-wrap; }
-  .wa-resolve { display: inline-flex; gap: .3rem; margin-top: .3rem; flex-wrap: wrap; }
-  .wa-resolve input { font: inherit; padding: .25rem .4rem; \
-border: 1px solid var(--line); border-radius: 6px; min-width: 14rem; }
-  .wa-resolve button { font: inherit; border: 1px solid var(--line); color: var(--muted); \
-background: #fff; border-radius: 6px; padding: .25rem .6rem; cursor: pointer; }
-  .wa-publish, .wa-confirm { font-family: system-ui, sans-serif; font-size: .85rem; \
-border: 1px solid var(--line); border-radius: 8px; background: #fff; \
-padding: .75rem .9rem; margin: 1rem 0; }
-  .wa-publish h2, .wa-confirm h2 { margin: 0 0 .5rem 0; border: none; font-size: 1rem; }
-  .wa-publish form { display: flex; gap: .4rem; flex-wrap: wrap; }
-  .wa-publish input { flex: 1 1 18rem; font: inherit; padding: .35rem .5rem; \
-border: 1px solid var(--line); border-radius: 6px; }
-  .wa-publish button, .wa-confirm button { font: inherit; border: 1px solid var(--accent); \
-color: var(--accent); background: #fff; border-radius: 6px; \
-padding: .35rem .9rem; cursor: pointer; }
-  .wa-publish p { color: var(--muted); margin: .4rem 0 0 0; }
-  .wa-confirm { border: 2px solid #b7a14b; background: #fdfaf1; }
-  .wa-confirm pre { font-family: ui-monospace, monospace; font-size: .75rem; \
-background: #fff; border: 1px solid var(--line); border-radius: 6px; \
-padding: .5rem .6rem; white-space: pre-wrap; }
-  .wa-confirm button.wa-decline { border-color: var(--line); color: var(--muted); }
-</style>";
+/// The banner on a review that no longer describes the session: why, and
+/// (unless it was published) the render form for the round that replaces
+/// it, right there.
+fn stale_banner(slug: &str, round: u32, kind: StaleKind) -> String {
+    let action = if matches!(kind, StaleKind::Published) {
+        format!(" <a href=\"/sessions/{slug}\">Back to the session</a>")
+    } else {
+        let next = next_round(Some(&ArtifactState::Stale { round, kind }));
+        format!(
+            "<form method=post action=\"/sessions/{slug}/render?from=review\" class=\"row\">\
+             <input type=hidden name=round value={next}>\
+             <label class=\"field grow\">What changed this round\
+             <input name=summary placeholder=\"e.g. applied the review comments\"></label>\
+             <button class=\"primary\">Render round {next}</button></form>"
+        )
+    };
+    format!(
+        "<div class=\"notice warn\"><strong>This review is out of date.</strong> {}{action}</div>\n",
+        kind.sentence()
+    )
+}
 
-/// Serve-time injection of the comment UI into the review artifact: each
-/// changed block and evidence card gets its comment form(s) DIRECTLY
-/// beneath it (the block itself is the context — no snippets, no
-/// jargon-labels), plus that block's comments and resolution notes
-/// inline, a header bar with the driver action, and styling to match the
-/// artifact's own. The on-disk artifact stays pristine (self-contained,
-/// structurally unchanged — plan-004's invariant); this is presentation
-/// only.
+/// Serve-time injection of the review UI into the artifact: breadcrumbs,
+/// a status bar with the apply-comments action, each changed block's and
+/// evidence card's comment thread DIRECTLY beneath it (the block itself
+/// is the context), the publish section, and the current stylesheet. The
+/// on-disk artifact stays pristine (self-contained, structurally
+/// unchanged — plan-004's invariant); this is presentation only.
+///
+/// `notice` says where to show the last action's `outcome`: `top` (under
+/// the breadcrumbs) or `publish` (in the publish section).
 fn inject_comment_ui(
     slug: &str,
     artifact_html: &str,
     pendings: &[(String, String, String)],
+    notice: Option<&str>,
+    outcome: &str,
 ) -> String {
     let dir = session_dir(slug);
     let queue =
         crate::comments::CommentQueue::load(&dir.join("comments.jsonl")).unwrap_or_default();
     let state = artifact_state(&dir);
-
-    // A STALE artifact is history: no comment forms (never comment
-    // against an old anchor table), just the banner saying what happened
-    // and what to do. Everything below the banner stays read-only.
-    let stale_banner = |reason: &str| {
-        format!(
-            "<div class=\"wa-stale\"><strong>This review is out of date.</strong> {} \
-             · <a href=\"/sessions/{slug}\">session page</a> — re-render there to review \
-             the current edit.</div>",
-            esc(reason)
-        )
-    };
+    let article = read_meta(slug).map_or_else(|| slug.to_string(), |m| m.article);
+    let mut head = crate::ui::crumbs(
+        &[("Sessions", "/"), (&article, &format!("/sessions/{slug}"))],
+        "Review",
+    );
+    if notice == Some("top") {
+        head.push_str(&notice_html(outcome));
+    }
 
     let mut out = artifact_html.to_string();
-    if let Some(ArtifactState::Stale { reason, .. }) = state {
-        if let Some(i) = out.find("<main>") {
-            out.insert_str(i + "<main>".len(), &stale_banner(&reason));
-        }
+    if let Some(ArtifactState::Stale { round, kind }) = state {
+        // A STALE artifact is history: no comment forms (never comment
+        // against an old anchor table), just the banner saying what
+        // happened and what to do. Everything below stays read-only.
+        head.push_str(&stale_banner(slug, round, kind));
     } else {
         let (mut insertions, placed_anchors) = block_insertions(slug, artifact_html, &queue);
 
@@ -766,50 +1070,49 @@ fn inject_comment_ui(
             out.insert_str(pos, &html);
         }
 
-        // Header bar (status + driver action) right after <main> opens.
         let open_count = queue.open().len();
-        let round_note = match state {
-            Some(ArtifactState::Current { round }) => format!(" · round {round}"),
-            _ => String::new(),
-        };
-        let bar = format!(
-            "<div class=\"wa-bar\">review comments: {open_count} open{round_note} \
-                 · <a href=\"/sessions/{slug}\">session page</a>\
-                 <form method=post action=\"/sessions/{slug}/driver/resolve\" class=\"wa-bar-form\">\
-                 <button>apply comments — the drafting model revises the text</button></form></div>"
-        );
-        if let Some(i) = out.find("<main>") {
-            out.insert_str(i + "<main>".len(), &bar);
+        if open_count == 0 {
+            head.push_str(
+                "<div class=\"wa-bar\"><span>No open comments. Use <strong>Comment</strong> \
+                 under any paragraph or source to ask for a change, or publish at the bottom \
+                 of the page.</span></div>\n",
+            );
+        } else {
+            let _ = writeln!(
+                head,
+                "<div class=\"wa-bar\"><span><strong>{}.</strong> Applying them has the \
+                 drafting model revise each commented paragraph; you then render the next \
+                 round. Comments on sources stay open for you to resolve by hand.</span>\
+                 <form method=post action=\"/sessions/{slug}/driver/resolve?from=review\">\
+                 <button class=\"primary\">Apply comments</button></form></div>",
+                plural(open_count, "open comment")
+            );
         }
 
         // The publish leg lives HERE: a pending approval, if one exists,
         // renders as the prominent block (approve/decline); otherwise the
-        // start-publish form sits at the end of the diff — the reviewer
-        // decides with the evidence in view, not a page-hop away.
+        // publish form sits at the end of the diff — the reviewer decides
+        // with the evidence in view, not a page-hop away.
         let publish_html = if pendings.is_empty() {
             format!(
-                "<div class=\"wa-publish\"><h2>looks right? publish this edit</h2>\
-                 <form method=post action=\"/sessions/{slug}/publish\">\
-                 <input name=summary size=50 placeholder=\"edit summary (for the page history)\">\
-                 <button>start publish</button></form>\
-                 <p>publishing asks for your approval — with the exact edit shown — \
-                 before anything is written.</p></div>"
+                "<section class=\"wa-publish\" id=\"wa-publish\"><h2>Publish</h2>{}{}{}</section>\n",
+                if notice == Some("publish") {
+                    notice_html(outcome)
+                } else {
+                    String::new()
+                },
+                if open_count == 0 {
+                    String::new()
+                } else {
+                    format!(
+                        "<p>{} still open. Publishing now sends the text as shown above.</p>",
+                        plural(open_count, "comment")
+                    )
+                },
+                publish_form(slug, true, open_count == 0)
             )
         } else {
-            let mut blocks = String::new();
-            for (id, summary, prompt) in pendings {
-                let _ = write!(
-                    blocks,
-                    "<div class=\"wa-confirm\"><h2>publish approval</h2>\
-                     <p>summary: {}</p><pre>{}</pre>\
-                     <form method=post action=\"/confirmations/{id}\">\
-                     <button name=approve value=true>approve — publish</button>\
-                     <button name=approve value=false class=wa-decline>decline</button></form></div>",
-                    esc(summary),
-                    esc(prompt)
-                );
-            }
-            blocks
+            pendings.iter().map(|p| approval_html(p, true)).collect()
         };
         if let Some(i) = out.rfind("</main>") {
             out.insert_str(i, &publish_html);
@@ -817,181 +1120,148 @@ fn inject_comment_ui(
 
         // Any comments that did NOT land under a block (unknown
         // targets, manual anchors): a catch-all footer before </main>.
-        let stray: Vec<&crate::comments::Comment> = queue
-            .comments
-            .iter()
-            .filter(|c| !placed_anchors.contains(&c.target))
-            .collect();
+        let stray = comment_cards(
+            slug,
+            queue
+                .comments
+                .iter()
+                .filter(|c| !placed_anchors.contains(&c.target)),
+            |c| format!(" on {}", target_label(&c.target)),
+            "?from=review",
+        );
         if !stray.is_empty() {
-            let mut footer = String::from(
-                "<div class=\"wa-stray\"><h2>Other comments (not attached to a block)</h2>",
+            let footer = format!(
+                "<section class=\"wa-stray\"><h2>Other comments</h2>\
+                 <p class=\"meta\">These are not attached to a paragraph or source shown on \
+                 this page.</p>{stray}</section>\n"
             );
-            for c in &stray {
-                footer.push_str(&comments_html(slug, &[c]));
-            }
-            footer.push_str("</div>");
             if let Some(i) = out.rfind("</main>") {
                 out.insert_str(i, &footer);
             }
         }
     }
+    if let Some(i) = out.find("<main>") {
+        out.insert_str(i + "<main>".len(), &head);
+    }
 
-    // Styling to match the artifact's own palette (it styles .block and
-    // .evidence; these style the injected comment layer only).
+    // The current stylesheet, after the artifact's own: an artifact
+    // rendered by an older build still gets today's look.
     if let Some(i) = out.find("</head>") {
-        out.insert_str(i, ARTIFACT_COMMENT_STYLE);
+        out.insert_str(i, &format!("<style>\n{}</style>\n", crate::ui::CSS));
     }
     out
 }
 
-/// One plain-language comment form; the hidden target is the anchor,
-/// verbatim (AC.2).
-fn comment_form(slug: &str, target: &str, placeholder: &str) -> String {
+/// One collapsed comment form; the hidden target is the anchor, verbatim
+/// (AC.2). `back` is the query string that returns the operator to this
+/// block.
+fn comment_form(slug: &str, target: &str, back: &str, label: &str, placeholder: &str) -> String {
     format!(
-        "<div class=\"wa-cmt\">\
-         <form method=post action=\"/sessions/{slug}/comments\">\
+        "<details><summary>{label}</summary>\
+         <form method=post action=\"/sessions/{slug}/comments{back}\">\
          <input type=hidden name=target value=\"{target}\">\
-         <textarea name=text rows=2 placeholder=\"{}\"></textarea>\
-         <button>comment</button></form></div>",
+         <textarea name=text rows=2 required placeholder=\"{}\" aria-label=\"{label}\"></textarea>\
+         <button>Add comment</button></form></details>",
         esc(placeholder)
     )
 }
 
-/// Comments for one anchor, inline: open first (each with its manual
-/// resolve form), then resolved ones with their notes.
-fn comments_html(slug: &str, comments: &[&crate::comments::Comment]) -> String {
+/// What a comment target points at, in reviewer language.
+fn target_label(target: &str) -> String {
+    if target.starts_with("ledger:") {
+        return "a source".to_string();
+    }
+    crate::render::human_line_label(target)
+        .unwrap_or_else(|| format!("<code>{}</code>", esc(target)))
+}
+
+/// Comment cards: open ones first (each with its by-hand resolve form),
+/// then resolved ones with their notes. `place` says where a comment sits
+/// (" on line 11", " on the removed wording", or nothing when the card is
+/// already under its block).
+fn comment_cards<'a>(
+    slug: &str,
+    comments: impl Iterator<Item = &'a crate::comments::Comment>,
+    place: impl Fn(&crate::comments::Comment) -> String,
+    back: &str,
+) -> String {
     use crate::comments::CommentStatus;
+    let (open, resolved): (Vec<_>, Vec<_>) =
+        comments.partition(|c| c.status == CommentStatus::Open);
     let mut html = String::new();
-    for c in comments.iter().filter(|c| c.status == CommentStatus::Open) {
+    for c in open {
         let _ = write!(
             html,
-            "<div class=\"wa-comment\"><strong>{}</strong> {}\
-             <form method=post action=\"/sessions/{slug}/comments/resolve\" class=\"wa-resolve\">\
-             <input type=hidden name=id value=\"{}\">\
-             <input name=note placeholder=\"resolution note (optional)\">\
-             <button>mark resolved</button></form></div>",
-            esc(&c.id),
-            esc(&c.text),
-            esc(&c.id)
+            "<div class=\"wa-comment\"><p>{text}</p>{quoted}<div class=\"who\">\
+             <span>{id}{place}</span><details><summary>Resolve by hand</summary>\
+             <form method=post action=\"/sessions/{slug}/comments/resolve{back}\">\
+             <input type=hidden name=id value=\"{id}\">\
+             <input name=note placeholder=\"What you did (optional)\" aria-label=\"Resolution note\">\
+             <button>Mark resolved</button></form></details></div></div>",
+            text = esc(&c.text),
+            quoted = c
+                .quoted
+                .as_ref()
+                .map(|q| format!("<p class=\"meta\">Highlighted: “{}”</p>", esc(q)))
+                .unwrap_or_default(),
+            id = esc(&c.id),
+            place = place(c),
         );
     }
-    for c in comments
-        .iter()
-        .filter(|c| c.status == CommentStatus::Resolved)
-    {
+    for c in resolved {
         let _ = write!(
             html,
-            "<div class=\"wa-comment wa-resolved-note\"><strong>{}</strong> {} \
-             — resolved<span class=\"wa-note\">{}</span></div>",
-            esc(&c.id),
+            "<div class=\"wa-comment resolved\"><p>{}</p><div class=\"who\">\
+             <span>{}{}, resolved{}</span></div></div>",
             esc(&c.text),
-            esc(c.resolution.as_deref().unwrap_or(""))
+            esc(&c.id),
+            place(c),
+            c.resolution
+                .as_deref()
+                .filter(|r| !r.is_empty())
+                .map(|r| format!(": {}", esc(r)))
+                .unwrap_or_default()
         );
     }
     html
 }
 
-/// The "Review comments" section (plan-004 P.2, reworked after the
-/// operator's shakedown verdict): the COMMENTING surface is the review
-/// artifact itself (each block carries its own form + comments inline —
-/// see [`inject_comment_ui`]); the session page carries only the status,
-/// the queue (full text), and manual resolution.
-fn review_comments_section(slug: &str) -> String {
-    let dir = session_dir(slug);
-    let mut html = String::from("\n<h2>Review comments</h2>\n");
-    // Artifact status first: is there a CURRENT review to comment on?
-    match artifact_state(&dir) {
-        Some(ArtifactState::Current { round }) => {
-            let _ = writeln!(
-                html,
-                "<p>Review artifact: current (round {round}). <a href=\"/sessions/{slug}/review\">\
-                 Open it</a> to read the edit and leave comments — each paragraph carries \
-                 its own comment box, right under the text.</p>"
-            );
-        }
-        Some(ArtifactState::Stale { reason, .. }) => {
-            let _ = writeln!(
-                html,
-                "<p>Review artifact: <strong>out of date</strong> — {}. Use \
-                 <em>render review artifact</em> below to review the current edit.</p>",
-                esc(&reason)
-            );
-        }
-        None => {
-            let _ = writeln!(
-                html,
-                "<p>No current review artifact — use <em>render review artifact</em> below.</p>"
-            );
-        }
-    }
-    match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
-        Ok(_queue) => {
-            html.push_str(&queue_html(slug, &dir));
-        }
-        Err(e) => {
-            let _ = writeln!(html, "<p class=error>comment queue: {e}</p>");
-        }
-    }
-    html
-}
-
-/// The queue: open comments highlighted (each with its resolve form and
-/// the shared driver button), resolved ones with their notes.
+/// The session page's comment queue: the apply action when anything is
+/// open, then every comment (open first) with where it points. Commenting
+/// itself happens on the review page, under the text.
 fn queue_html(slug: &str, dir: &std::path::Path) -> String {
-    let mut html = String::new();
     let queue = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
         Ok(queue) if queue.comments.is_empty() => {
-            return "<p>queue empty</p>\n".into();
+            return "<p class=\"meta\">No comments yet. They are added on the review page, \
+                    under the paragraph they concern.</p>\n"
+                .into();
         }
         Ok(queue) => queue,
-        Err(e) => return format!("<p class=error>comment queue: {e}</p>\n"),
+        Err(e) => {
+            return format!(
+                "<div class=\"notice error\">The comment queue could not be read: {}</div>\n",
+                esc(&e)
+            );
+        }
     };
-    let open = queue.open();
-    if !open.is_empty() {
+    let mut html = String::new();
+    let open = queue.open().len();
+    if open > 0 {
         let _ = writeln!(
             html,
-            "<h3>Open ({})</h3><form method=post action=\"/sessions/{slug}/driver/resolve\">\
-             <button>apply open comments — the drafting model revises the text</button></form>",
-            open.len()
+            "<form method=post action=\"/sessions/{slug}/driver/resolve\" class=\"row\">\
+             <button>Apply {}</button></form>\
+             <p class=\"meta\">The drafting model revises each commented paragraph. Comments \
+             on sources stay open for you to resolve by hand.</p>",
+            plural(open, "open comment")
         );
-        for c in open {
-            let _ = writeln!(
-                html,
-                "<div class=\"comment comment-open\"><strong>{} OPEN</strong> → <code>{}</code><br>{}{}\
-                 <form method=post action=\"/sessions/{slug}/comments/resolve\" class=inline>\
-                 <input type=hidden name=id value=\"{}\">\
-                 <input name=note size=50 placeholder=\"resolution note\">\
-                 <button>resolve manually</button></form></div>",
-                esc(&c.id),
-                esc(&c.target),
-                esc(&c.text),
-                c.quoted
-                    .as_ref()
-                    .map(|q| format!("<br><em>highlighted:</em> {}", esc(q)))
-                    .unwrap_or_default(),
-                esc(&c.id)
-            );
-        }
     }
-    let resolved: Vec<_> = queue
-        .comments
-        .iter()
-        .filter(|c| c.status == crate::comments::CommentStatus::Resolved)
-        .collect();
-    if !resolved.is_empty() {
-        html.push_str("<h3>Resolved</h3>\n");
-        for c in resolved {
-            let _ = writeln!(
-                html,
-                "<div class=\"comment comment-resolved\"><strong>{}</strong> → <code>{}</code><br>{}\
-                 <br><em>resolution:</em> {}</div>",
-                esc(&c.id),
-                esc(&c.target),
-                esc(&c.text),
-                esc(c.resolution.as_deref().unwrap_or("(none recorded)"))
-            );
-        }
-    }
+    html.push_str(&comment_cards(
+        slug,
+        queue.comments.iter(),
+        |c| format!(" on {}", target_label(&c.target)),
+        "",
+    ));
     html
 }
 
@@ -1010,6 +1280,7 @@ struct CommentForm {
 async fn comments_add(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
     Form(form): Form<CommentForm>,
 ) -> axum::response::Response {
     use axum::response::IntoResponse as _;
@@ -1017,7 +1288,7 @@ async fn comments_add(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let dir = session_dir(&slug);
-    match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+    let added = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
         Ok(mut queue) => {
             let comment = crate::comments::Comment::new(
                 &form.target,
@@ -1027,14 +1298,21 @@ async fn comments_add(
             );
             match queue.append(&dir.join("comments.jsonl"), comment) {
                 Ok(id) => {
-                    state.note_outcome(&slug, &format!("comment {id} queued → {}", form.target));
+                    state.note_outcome(&slug, &format!("comment {id} added"));
+                    true
                 }
-                Err(e) => state.note_outcome(&slug, &format!("comment queue write failed: {e}")),
+                Err(e) => {
+                    state.note_outcome(&slug, &format!("comment queue write failed: {e}"));
+                    false
+                }
             }
         }
-        Err(e) => state.note_outcome(&slug, &format!("comment queue: {e}")),
-    }
-    Redirect::to(&format!("/sessions/{slug}")).into_response()
+        Err(e) => {
+            state.note_outcome(&slug, &format!("comment queue failed to load: {e}"));
+            false
+        }
+    };
+    back_to(&slug, &q, (!added).then_some("top")).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -1048,6 +1326,7 @@ struct CommentResolveForm {
 async fn comments_resolve(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
     Form(form): Form<CommentResolveForm>,
 ) -> axum::response::Response {
     use axum::response::IntoResponse as _;
@@ -1055,15 +1334,16 @@ async fn comments_resolve(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let dir = session_dir(&slug);
-    let outcome = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+    let (resolved, outcome) = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl"))
+    {
         Ok(mut queue) => match queue.resolve(&dir.join("comments.jsonl"), &form.id, &form.note) {
-            Ok(()) => format!("comment {} resolved manually", form.id),
-            Err(e) => format!("comment resolve failed: {e}"),
+            Ok(()) => (true, format!("comment {} resolved by hand", form.id)),
+            Err(e) => (false, format!("comment resolve failed: {e}")),
         },
-        Err(e) => format!("comment queue: {e}"),
+        Err(e) => (false, format!("comment queue failed to load: {e}")),
     };
     state.note_outcome(&slug, &outcome);
-    Redirect::to(&format!("/sessions/{slug}")).into_response()
+    back_to(&slug, &q, (!resolved).then_some("top")).into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -1074,6 +1354,7 @@ struct DisposeForm {
 
 /// POST /sessions/{slug}/sweep-dispose — operator-signed disposition.
 async fn sweep_dispose(
+    State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
     Form(form): Form<DisposeForm>,
 ) -> axum::response::Response {
@@ -1082,23 +1363,39 @@ async fn sweep_dispose(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let dir = session_dir(&slug);
-    if let Ok(mut ledger) = Ledger::load(&dir.join("ledger.json"))
-        && ledger
-            .set_disposition(&form.source, &form.disposition)
-            .is_ok()
-    {
-        let _ = ledger.save(&dir.join("ledger.json"));
-    }
+    let saved = Ledger::load(&dir.join("ledger.json")).and_then(|mut ledger| {
+        ledger.set_disposition(&form.source, &form.disposition)?;
+        ledger.save(&dir.join("ledger.json"))
+    });
+    state.note_outcome(
+        &slug,
+        &match saved {
+            Ok(()) => format!(
+                "disposition signed for {}: {}",
+                form.source, form.disposition
+            ),
+            Err(e) => format!("disposition for {} failed: {e}", form.source),
+        },
+    );
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 /// POST /sessions/{slug}/sweep-fetch — batch fetch + classify (network).
-async fn sweep_fetch_route(Path(slug): Path<String>) -> axum::response::Response {
+async fn sweep_fetch_route(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+) -> axum::response::Response {
     use axum::response::IntoResponse as _;
     if !known_session(&slug) {
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
-    let _ = crate::cli::sweep_fetch(&slug).await;
+    state.note_outcome(
+        &slug,
+        &match crate::cli::sweep_fetch(&slug).await {
+            Ok(()) => "source fetch finished; statuses are in the table below".to_string(),
+            Err(e) => format!("source fetch failed: {e}"),
+        },
+    );
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
@@ -1111,6 +1408,7 @@ struct AttachForm {
 /// POST /sessions/{slug}/attach — ingest pasted operator-captured text
 /// for one source (same ingestion as `wa ledger attach`).
 async fn attach(
+    State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
     Form(form): Form<AttachForm>,
 ) -> axum::response::Response {
@@ -1120,10 +1418,17 @@ async fn attach(
     }
     let dir = session_dir(&slug);
     let tmp = dir.join("attach-upload.txt");
-    if std::fs::write(&tmp, &form.text).is_ok() {
-        let _ = crate::cli::ledger_attach(&slug, &form.source, &tmp.to_string_lossy());
-        let _ = std::fs::remove_file(&tmp);
-    }
+    let attached = std::fs::write(&tmp, &form.text)
+        .map_err(anyhow::Error::from)
+        .and_then(|()| crate::cli::ledger_attach(&slug, &form.source, &tmp.to_string_lossy()));
+    let _ = std::fs::remove_file(&tmp);
+    state.note_outcome(
+        &slug,
+        &match attached {
+            Ok(()) => format!("text attached to {}", form.source),
+            Err(e) => format!("attaching text to {} failed: {e}", form.source),
+        },
+    );
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
@@ -1279,6 +1584,7 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
 async fn driver_resolve(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
 ) -> axum::response::Response {
     use axum::response::IntoResponse as _;
     if !known_session(&slug) {
@@ -1286,7 +1592,7 @@ async fn driver_resolve(
     }
     let outcome = run_driver_resolve(&state, &slug).await;
     state.note_outcome(&slug, &outcome);
-    Redirect::to(&format!("/sessions/{slug}")).into_response()
+    back_to(&slug, &q, Some("top")).into_response()
 }
 
 /// `L{s}:C{a}-L{e}:C{b}` (optionally `base:`-prefixed) → 1-based
@@ -1360,10 +1666,11 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
     // table would not describe the current text (operator shakedown
     // catch: an old page-creation draft served as current).
     match artifact_state(&dir) {
-        Some(ArtifactState::Stale { reason, .. }) => {
+        Some(ArtifactState::Stale { kind, .. }) => {
             return format!(
-                "driver resolve: the review artifact is out of date ({reason}) — re-render \
-                 before applying comments"
+                "driver resolve: the review artifact is out of date ({}) — re-render \
+                 before applying comments",
+                kind.short()
             );
         }
         Some(ArtifactState::Current { .. }) => {}
@@ -1759,17 +2066,23 @@ struct RenderForm {
     html_proposed: Option<String>,
 }
 
-/// POST /sessions/{slug}/render — gate + render the artifact. The web
+/// POST /sessions/{slug}/render — gate + render the artifact, then show
+/// it (or show why the gate refused). The web
 /// path never opens or probes lavish (`Via::Web`): the review surface is
 /// the in-app artifact + the comment forms (plan-004).
-async fn render(Path(slug): Path<String>, Form(form): Form<RenderForm>) -> Redirect {
+async fn render(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
+    Form(form): Form<RenderForm>,
+) -> Redirect {
     let pair = |v: &Option<String>| {
         v.as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(std::path::PathBuf::from)
     };
-    let _ = crate::cli::render_cmd(
+    let rendered = crate::cli::render_cmd(
         &slug,
         form.round,
         pair(&form.html_base),
@@ -1780,7 +2093,19 @@ async fn render(Path(slug): Path<String>, Form(form): Form<RenderForm>) -> Redir
         crate::cli::Via::Web,
     )
     .await;
-    Redirect::to(&format!("/sessions/{slug}"))
+    // A successful render lands on the review it produced; a failure (a
+    // blocked gate above all) must be READ, so it goes back with the
+    // reasons shown.
+    match rendered {
+        Ok(()) => {
+            state.note_outcome(&slug, &format!("rendered round {}", form.round));
+            Redirect::to(&format!("/sessions/{slug}/review"))
+        }
+        Err(e) => {
+            state.note_outcome(&slug, &format!("render failed: {e}"));
+            back_to(&slug, &q, Some("top"))
+        }
+    }
 }
 
 /// POST /sessions/{slug}/publish — start the shared publish flow with a
@@ -1789,6 +2114,7 @@ async fn render(Path(slug): Path<String>, Form(form): Form<RenderForm>) -> Redir
 async fn publish(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
     Form(form): Form<PublishForm>,
 ) -> Redirect {
     let runs_before = state.run_count(&slug);
@@ -1810,7 +2136,7 @@ async fn publish(
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    Redirect::to(&format!("/sessions/{slug}"))
+    back_to(&slug, &q, Some("publish"))
 }
 
 async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> String {
@@ -1881,53 +2207,78 @@ struct ConfirmForm {
 }
 
 /// POST /confirmations/{id} — the operator's explicit decision on a
-/// pending publish confirmation.
+/// pending publish confirmation. Responds once the publish flow has
+/// finished (bounded wait), so the page the operator lands on says what
+/// happened: the session page after an approval, the review page after a
+/// decline made there.
 async fn confirm(
     State(state): State<Arc<ServeState>>,
     Path(id): Path<String>,
+    axum::extract::Query(q): Params,
     Form(form): Form<ConfirmForm>,
-) -> Html<String> {
+) -> axum::response::Response {
     let approve = form.approve.as_deref().is_some_and(|v| v == "true");
-    if state.resolve(&id, approve) {
-        Html(format!(
-            "<p>confirmation {id} resolved: {}.</p><p><a href=\"/\">console</a></p>",
-            if approve {
-                "APPROVED — publishing"
-            } else {
-                "declined — nothing will be written"
-            }
+    let slug = state
+        .confirmations
+        .lock()
+        .expect("confirmations")
+        .get(&id)
+        .map(|p| p.slug.clone());
+    let runs_before = slug.as_deref().map_or(0, |s| state.run_count(s));
+    let (Some(slug), true) = (slug, state.resolve(&id, approve)) else {
+        return Html(crate::ui::page(
+            "Approval not found",
+            &[("Sessions", "/")],
+            "<h1>Approval not found</h1><p>This publish approval was already answered, or it \
+             expired. Nothing was written. Start the publish again from the session.</p>",
         ))
+        .into_response();
+    };
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    while std::time::Instant::now() < deadline && state.run_count(&slug) == runs_before {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    if approve {
+        Redirect::to(&format!("/sessions/{slug}")).into_response()
     } else {
-        Html(format!(
-            "<p>confirmation {id} not found (already resolved or expired).</p><p><a href=\"/\">console</a></p>"
-        ))
+        back_to(&slug, &q, Some("publish")).into_response()
     }
 }
 
-/// GET /confirmations — the pending list (operator catch-all; the session
-/// page embeds the same forms).
+/// GET /confirmations — every pending publish approval across sessions
+/// (operator catch-all; the session and review pages embed the same
+/// blocks).
 async fn confirmations(State(state): State<Arc<ServeState>>) -> Html<String> {
-    let mut body = String::from("<h1>pending confirmations</h1>");
-    let pending: Vec<(String, String, String)> = state
+    let mut pending: Vec<(String, (String, String, String))> = state
         .confirmations
         .lock()
         .expect("confirmations")
         .iter()
-        .map(|(id, p)| (id.clone(), p.slug.clone(), p.summary.clone()))
+        .map(|(id, p)| {
+            (
+                p.slug.clone(),
+                (id.clone(), p.summary.clone(), p.prompt.clone()),
+            )
+        })
         .collect();
+    pending.sort();
+    let mut body = String::from("<h1>Publish approvals</h1>\n");
     if pending.is_empty() {
-        body.push_str("<p>none</p>");
+        body.push_str("<p class=\"empty\">No publish is waiting for your approval.</p>");
     }
-    for (id, slug, summary) in pending {
+    for (slug, p) in &pending {
         let _ = writeln!(
             body,
-            "<p><strong>{slug}</strong>: {}<br>\
-             <form method=post action=\"/confirmations/{id}\"><button name=approve value=true>approve — publish</button>\
-             <button name=approve value=false>decline</button></form></p>",
-            esc(&summary)
+            "<p>Session <a href=\"/sessions/{0}\"><code>{0}</code></a></p>{1}",
+            esc(slug),
+            approval_html(p, false)
         );
     }
-    Html(body)
+    Html(crate::ui::page(
+        "Publish approvals",
+        &[("Sessions", "/")],
+        &body,
+    ))
 }
 
 /// The router (exported for tests).

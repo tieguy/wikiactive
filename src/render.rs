@@ -240,7 +240,8 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
                              {combined}"
                         )
                     };
-                    let (tag, tag_title) = block_tag(Some(&new_id), Some(&new_anchor), new_kind);
+                    let (tag, tag_title) =
+                        block_tag(Some(&new_id), Some(&new_anchor), new_kind, "change");
                     let _ = writeln!(
                         diff_html,
                         "<div class=\"block change {}\" id=\"{new_id}\" \
@@ -279,6 +280,15 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
         });
         updated_findings[idx].rendered_span_id = Some(ev_id);
     }
+    if input.findings.is_empty() {
+        evidence_html.push_str("<p class=\"meta\">This edit cites no new evidence.</p>\n");
+    }
+    evidence_html.push_str(&consulted_html(input.findings, input.ledger));
+    if diff_html.is_empty() {
+        diff_html.push_str(
+            "<p class=\"meta\">The proposed text is identical to the current article.</p>\n",
+        );
+    }
 
     // 6. Assemble artifact.
     let anchor_json = serde_json::to_string_pretty(&anchor_table).unwrap_or_default();
@@ -291,7 +301,6 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
         evidence_html: &evidence_html,
         anchor_json: &anchor_json,
         revisions_json: &revisions_json,
-        round_id: &round_id,
         wiki_links: include_str!("../vendor/enwiki-link-affordances.css"),
     });
 
@@ -337,13 +346,12 @@ impl BlockKind {
 
     fn label(self) -> &'static str {
         match self {
-            Self::Heading(2) => "h2 heading",
-            Self::Heading(3) => "h3 heading",
-            Self::Heading(_) => "heading",
+            Self::Heading(2) => "section heading",
+            Self::Heading(_) => "subsection heading",
             Self::Paragraph => "paragraph",
             Self::ListItem => "list item",
             Self::Quote => "quote",
-            Self::Pre => "pre",
+            Self::Pre => "preformatted text",
             Self::Def => "definition",
         }
     }
@@ -498,7 +506,7 @@ fn emit_ctx_sep(out: &mut String, skipped: &mut usize) {
     if *skipped > 0 {
         let _ = writeln!(
             out,
-            "<div class=\"ctx-sep\">⋯ {} unchanged block{} ⋯</div>",
+            "<div class=\"ctx-sep\">{} unchanged block{}</div>",
             skipped,
             if *skipped == 1 { "" } else { "s" }
         );
@@ -639,15 +647,31 @@ fn inline_word_diff(old: &str, new: &str) -> String {
     html
 }
 
-/// Block anchor tag in reviewer language: kind plus wikitext line
-/// ("paragraph · line 11"; "original line 11" for old-side base anchors).
-/// The technical wa-N + range string becomes a hover tooltip only — raw
-/// anchor text in the visible UI is cruft (operator round-4 catch).
-fn block_tag(id: Option<&str>, anchor: Option<&str>, kind: BlockKind) -> (String, String) {
-    let label = kind.label();
+/// Block anchor tag in reviewer language: what happened to the block, its
+/// kind, and its wikitext line ("Paragraph, line 11"; "Removed paragraph,
+/// original line 11"). The technical wa-N + range string is a hover
+/// tooltip only — raw anchor text in the visible UI is cruft (operator
+/// round-4 catch).
+fn block_tag(
+    id: Option<&str>,
+    anchor: Option<&str>,
+    kind: BlockKind,
+    class: &str,
+) -> (String, String) {
+    let label = match class {
+        "add" => format!("New {}", kind.label()),
+        "del" => format!("Removed {}", kind.label()),
+        _ => {
+            let l = kind.label();
+            let mut chars = l.chars();
+            chars.next().map_or_else(String::new, |first| {
+                first.to_uppercase().collect::<String>() + chars.as_str()
+            })
+        }
+    };
     let visible = match anchor.and_then(human_line) {
-        Some(line) => format!("{label} · {line}"),
-        None => label.to_string(),
+        Some(line) => format!("{label}, {line}"),
+        None => label,
     };
     let title = match (id, anchor) {
         (Some(i), Some(a)) => format!(" title=\"{i} · {a}\""),
@@ -656,32 +680,11 @@ fn block_tag(id: Option<&str>, anchor: Option<&str>, kind: BlockKind) -> (String
     (visible, title)
 }
 
-/// "L11:…" / "base:L11:…" anchor → "line 11" / "original line 11".
 fn human_line(anchor: &str) -> Option<String> {
-    let (base, rest) = match anchor.strip_prefix("base:") {
-        Some(r) => (true, r),
-        None => (false, anchor),
-    };
-    let line = rest
-        .split(&[':', '-'][..])
-        .next()?
-        .strip_prefix('L')?
-        .parse::<usize>()
-        .ok()?;
-    Some(if base {
-        format!("original line {line}")
-    } else {
-        format!("line {line}")
-    })
+    human_line_label(anchor)
 }
 
-/// HTML-escape text.
-fn esc(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
+use crate::ui::esc;
 
 /// Wrap one block for a pane.
 fn block_html(
@@ -697,9 +700,9 @@ fn block_html(
     let rev_attr = id.map_or_else(String::new, |_| {
         format!(" data-lavish-revision=\"{round_id}\"")
     });
-    let (tag, tag_title) = block_tag(id, anchor, kind);
+    let (tag, tag_title) = block_tag(id, anchor, kind, class);
     format!(
-        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}>{rev_attr}<span class=\"anchor-tag\"{tag_title}>{tag}</span>{}</div>\n",
+        "<div class=\"block {class} {}\"{id_attr}{anchor_attr}{rev_attr}><span class=\"anchor-tag\"{tag_title}>{tag}</span>{}</div>\n",
         kind.css(),
         marked_text_to_html(text),
     )
@@ -768,73 +771,45 @@ fn next_line_anchor(wikitext: &str, prop_idx: usize) -> String {
     format!("L{line}:C0-L{line}:C{col_end}")
 }
 
-/// One evidence card, in reviewer language: the verbatim excerpt first
-/// (the reviewer verifies quote→prose mapping), the source under its real
-/// title with clickable url + archive links, then the finding note and fix.
-/// Internal ids (Q/S/F, ledger refs) live only in element ids and
-/// data-wiki-anchor attributes — never in visible text (operator L2
-/// round-3 catch: "Q1/F1/S1/locator-verified are internal jargon").
+/// One evidence card, in reviewer language: what the finding says and the
+/// fix it proposes, then each verbatim excerpt directly above the source
+/// it came from (real title, clickable url + archive link), then the
+/// guidance it rests on. Internal ids (Q/S/F, ledger refs) live only in
+/// element ids and data-wiki-anchor attributes — never in visible text
+/// (operator L2 round-3 catch: "Q1/F1/S1/locator-verified are internal
+/// jargon").
 fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
     let mut quotes_html = String::new();
-    let mut sources_html = String::new();
-    let mut consulted_html = String::new();
-    let evidence_source_ids: Vec<&str> = finding
-        .evidence
-        .iter()
-        .filter_map(|qid| ledger.quote(qid).map(|q| q.source_id.as_str()))
-        .collect();
-    for source in &ledger.sources {
-        // Every consulted source appears with a link and fetch status —
-        // the reviewer must be able to chase paywalled/403 sources from
-        // the UI (operator round-6 catch: "not enough detail to google
-        // them, no link to the 403").
-        if evidence_source_ids.contains(&source.id.as_str()) {
+    for qid in &finding.evidence {
+        let Some(quote) = ledger.quote(qid) else {
             continue;
-        }
-        let status = match (&source.fetched_text, source.fetched_via.as_deref()) {
-            (Some(t), Some(via)) if !t.is_empty() && via.starts_with("operator") => {
-                "fetched (operator-provided)"
-            }
-            (Some(t), _) if !t.is_empty() => "fetched",
-            _ => "not fetched (access failed)",
         };
         let _ = writeln!(
-            consulted_html,
-            "<p class=\"src\"><a href=\"{url}\">{text}</a> — {status}</p>",
-            url = esc(&source.url),
-            text = esc(&source_link_text(source)),
-            status = status,
+            quotes_html,
+            "<blockquote data-wiki-anchor=\"ledger:{qid}\">{text}</blockquote>",
+            text = esc(&quote.text),
         );
-    }
-    for qid in &finding.evidence {
-        if let Some(quote) = ledger.quote(qid) {
-            if let Some(source) = ledger.sources.iter().find(|s| s.id == quote.source_id) {
-                let is_archive_snapshot = source.url.contains("web.archive.org/");
-                let archive_html = match source.archive_url.as_deref() {
-                    Some(a) if !a.is_empty() => format!("<a href=\"{}\">{}</a>", esc(a), esc(a)),
-                    _ if is_archive_snapshot => {
-                        // The source URL is itself an archived snapshot (a
-                        // dead live page registered from Wayback) — no
-                        // separate archive exists or is needed (operator
-                        // catch: "the archive is there and has been since
-                        // 2013").
-                        "this link is the archived snapshot".to_string()
-                    }
-                    _ => "(archive pending)".to_string(),
-                };
-                let _ = writeln!(
-                    sources_html,
-                    "<p class=\"src\">Source: <a href=\"{url}\">{text}</a><br>archive: {archive} · accessed {accessed}</p>",
-                    url = esc(&source.url),
-                    text = esc(&source_link_text(source)),
-                    archive = archive_html,
-                    accessed = esc(&source.access_date),
-                );
-            }
+        if let Some(source) = ledger.sources.iter().find(|s| s.id == quote.source_id) {
+            let archive_html = match source.archive_url.as_deref() {
+                Some(a) if !a.is_empty() => {
+                    format!("<a href=\"{}\">archived copy</a>", esc(a))
+                }
+                // The source URL is itself an archived snapshot (a dead
+                // live page registered from Wayback) — no separate archive
+                // exists or is needed (operator catch: "the archive is
+                // there and has been since 2013").
+                _ if source.url.contains("web.archive.org/") => {
+                    "the link is itself an archived snapshot".to_string()
+                }
+                _ => "not archived yet".to_string(),
+            };
             let _ = writeln!(
                 quotes_html,
-                "<p class=\"quote-head\">Verbatim excerpt from the source (re-checked automatically against the fetched text):</p>\n<blockquote data-wiki-anchor=\"ledger:{qid}\">{text}</blockquote>",
-                text = esc(&quote.text),
+                "<p class=\"src\">Source: <a href=\"{url}\">{text}</a><br>accessed {accessed}, {archive}</p>",
+                url = esc(&source.url),
+                text = esc(&source_link_text(source)),
+                archive = archive_html,
+                accessed = esc(&source.access_date),
             );
         }
     }
@@ -853,34 +828,67 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
             })
             .collect();
         format!(
-            "<p class=\"rules\">Relevant guidance: {}</p>",
-            links.join(" · ")
+            "<p class=\"rules\">Relevant guidance: {}</p>\n",
+            links.join(", ")
         )
-    };
-    let consulted = if consulted_html.is_empty() {
-        String::new()
-    } else {
-        format!("<p class=\"quote-head\">Also consulted:</p>\n{consulted_html}")
     };
     format!(
         "<div class=\"evidence\" id=\"{ev_id}\" data-wiki-anchor=\"ledger:{primary}\">\n\
-         <span class=\"anchor-tag\">evidence for this edit</span>\n\
          <p class=\"finding\">{note}</p>\n\
-         {rules}\n{quotes}\n{sources}\n{consulted}\
-         <p class=\"fix\">Proposed fix: {fix}</p>\n</div>\n",
+         <p class=\"fix\">Proposed fix: {fix}</p>\n\
+         {quotes}{rules}</div>\n",
         primary = finding.evidence[0],
         note = esc(&finding.factual_note),
         rules = rules_html,
         fix = esc(&finding.proposed_fix),
-        sources = sources_html,
         quotes = quotes_html,
+    )
+}
+
+/// The ledger sources no finding quotes, listed once under the cards with
+/// a link and fetch status — the reviewer must be able to chase
+/// paywalled/403 sources from the UI (operator round-6 catch: "not enough
+/// detail to google them, no link to the 403").
+fn consulted_html(findings: &[Finding], ledger: &Ledger) -> String {
+    let quoted: Vec<&str> = findings
+        .iter()
+        .flat_map(|f| f.evidence.iter())
+        .filter_map(|qid| ledger.quote(qid).map(|q| q.source_id.as_str()))
+        .collect();
+    let mut items = String::new();
+    let mut count = 0usize;
+    for source in &ledger.sources {
+        if quoted.contains(&source.id.as_str()) {
+            continue;
+        }
+        let status = match (&source.fetched_text, source.fetched_via.as_deref()) {
+            (Some(t), Some(via)) if !t.is_empty() && via.starts_with("operator") => {
+                "text provided by you"
+            }
+            (Some(t), _) if !t.is_empty() => "fetched",
+            _ => "could not be fetched",
+        };
+        count += 1;
+        let _ = writeln!(
+            items,
+            "<li><a href=\"{url}\">{text}</a> ({status})</li>",
+            url = esc(&source.url),
+            text = esc(&source_link_text(source)),
+        );
+    }
+    if count == 0 {
+        return String::new();
+    }
+    format!(
+        "<details class=\"consulted\"><summary>Also consulted: {}</summary>\n<ul>\n{items}</ul></details>\n",
+        crate::ui::plural(count, "source"),
     )
 }
 
 /// Link text for a source: its citation if we have one, else the URL's
 /// host — the raw URL stays in the href only (compactness, operator
 /// round-7 request).
-fn source_link_text(source: &crate::ledger::SourceEntry) -> String {
+pub(crate) fn source_link_text(source: &crate::ledger::SourceEntry) -> String {
     let cite = source_cite(source);
     if !cite.is_empty() {
         return cite;
@@ -912,12 +920,15 @@ struct AssembleArgs<'a> {
     evidence_html: &'a str,
     anchor_json: &'a str,
     revisions_json: &'a str,
-    round_id: &'a str,
     /// Enwiki link affordances (vendored snapshot,
     /// `vendor/enwiki-link-affordances.css` — checksum-pinned by test).
     wiki_links: &'a str,
 }
 
+/// The artifact document. `<main>`, `<section class="diff-col">` and
+/// `<aside class="evidence-col">` are parse/injection landmarks for
+/// [`review_targets`], [`evidence_targets`] and `wa serve` — keep them
+/// verbatim.
 fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
     format!(
         r#"<!doctype html>
@@ -925,7 +936,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>wikiloop review — {article} — round {round}</title>
+<title>{article}: review, round {round} | wikiloop</title>
 <script type="application/json" data-lavish-revisions>
 {revisions}
 </script>
@@ -933,57 +944,25 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
 {anchors}
 </script>
 <style>
-  :root {{ --ink:#1a1a1a; --muted:#667; --paper:#faf9f7; --line:#ddd8d0; --add:#e6f4e6; --del:#fde8e8; --accent:#7c5cbf; }}
-  * {{ box-sizing: border-box; }}
-  body {{ font: 15px/1.6 Georgia, serif; color: var(--ink); background: var(--paper); margin: 0; padding: 2rem; }}
-  main {{ max-width: 1400px; margin: 0 auto; }}
-  h1 {{ font-size: 1.4rem; }} h2 {{ font-size: 1.1rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }}
-  .meta {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .8rem; }}
-  /* Word-style single-column diff + right-hand evidence rail (operator
-     round-5 layout request); stacks on narrow viewports. */
-  .layout {{ display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); gap: 1.25rem; align-items: start; }}
-  @media (max-width: 980px) {{ .layout {{ grid-template-columns: 1fr; }} }}
-  .diff-col {{ border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 1rem; }}
-  .evidence-col h2 {{ margin-top: 0; }}
-  .block {{ border: 1px solid var(--line); border-radius: 6px; padding: .75rem; margin: .5rem 0; position: relative; overflow: auto; }}
-  .block.change {{ border-left: 3px solid var(--accent); }}
-  .block .anchor-tag {{ display: block; font-family: ui-monospace, monospace; font-size: .7rem; color: var(--muted); margin-bottom: .4rem; }}
-  .block.del {{ background: var(--del); }} .block.add {{ background: var(--add); }} .block.equal {{ opacity: .8; }}
-  .ctx-sep {{ color: var(--muted); font-family: ui-monospace, monospace; font-size: .75rem; text-align: center; padding: .15rem 0; }}
-  /* enwiki link affordances: vendored snapshot (see vendor/PROVENANCE.md) */
+{css}
+/* enwiki link affordances: vendored snapshot (see vendor/PROVENANCE.md) */
 {wiki_links}
-  .block.heading {{ font-weight: 700; font-family: system-ui, sans-serif; font-size: 1.05em; }}
-  .block.listitem {{ padding-left: 1.5rem; }}
-  .block.listitem::before {{ content: "\2022  "; color: var(--muted); }}
-  .block.quote {{ font-style: italic; border-left: 3px solid var(--line); }}
-  .block.pre {{ font-family: ui-monospace, monospace; font-size: .85em; }}
-  .block del {{ background: #f3b8b8; text-decoration: line-through; }}
-  .block ins {{ background: #a8d8a8; text-decoration: none; }}
-  .evidence {{ border: 1px solid var(--accent); border-radius: 6px; margin: 1rem 0; padding: .75rem; background: #f6f2fc; overflow: auto; }}
-  .evidence blockquote {{ margin: .5rem 0; padding: .5rem .75rem; border-left: 3px solid var(--accent); background: #fff; }}
-  .evidence .src, .evidence .finding, .evidence .fix {{ font-size: .85rem; }}
-  .evidence .quote-head {{ font-size: .8rem; color: var(--muted); font-family: ui-monospace, monospace; margin: .4rem 0 .1rem; }}
-  .evidence a {{ color: #36c; word-break: break-all; overflow-wrap: anywhere; }}
-  .evidence .src {{ overflow-wrap: anywhere; }}
-  .evidence .fix {{ color: var(--muted); }}
 </style>
 </head>
 <body>
 <main>
-  <h1>wikiloop review — {article}</h1>
-  <p class="meta">round {round} · one logical edit per round · deletions struck, insertions highlighted · comments anchor to the excerpt or the wikitext</p>
+  <h1>{article}</h1>
+  <p class="meta">Proposed edit, round {round} <span class="key"><del>removed</del> <ins>added</ins></span></p>
   <div class="layout">
     <section class="diff-col">
-      <h2>Proposed edit</h2>
 {diff}
     </section>
     <aside class="evidence-col">
       <h2>Evidence</h2>
+      <p class="meta">Quotes are verbatim and were checked against the fetched source text.</p>
 {evidence}
     </aside>
   </div>
-  <p class="meta">current round marker: {round_marker} · anchor table embedded as #wa-anchor-table</p>
-  <p>looks right? <strong>publish it below</strong> — nothing is published without your approval · want changes? comment on any paragraph: the drafting model revises the text and you re-review the result</p>
 </main>
 </body>
 </html>
@@ -994,7 +973,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
         anchors = a.anchor_json,
         diff = a.diff_html,
         evidence = a.evidence_html,
-        round_marker = a.round_id,
+        css = crate::ui::CSS,
         wiki_links = a.wiki_links,
     )
 }
@@ -1096,9 +1075,8 @@ pub struct ReviewTarget {
     pub old_sides: Vec<OldSideTarget>,
 }
 
-/// "L11:…" / "base:L11:…" anchor → "line 11" / "original line 11" (the
-/// public twin of the renderer-internal `human_line`, for the comment-form
-/// fallback labels).
+/// "L11:…" / "base:L11:…" anchor → "line 11" / "original line 11" (block
+/// tags and comment labels).
 #[must_use]
 pub fn human_line_label(anchor: &str) -> Option<String> {
     let (base, rest) = match anchor.strip_prefix("base:") {

@@ -154,7 +154,7 @@ async fn console_and_manifest_routes_render_on_loopback() {
         .text()
         .await
         .unwrap();
-    assert!(console.contains("session console"), "{console}");
+    assert!(console.contains("<h1>Sessions</h1>"), "{console}");
     assert!(console.contains("test-article"), "{console}");
 
     let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
@@ -163,11 +163,11 @@ async fn console_and_manifest_routes_render_on_loopback() {
         .text()
         .await
         .unwrap();
-    assert!(page.contains("Source sweep (1 unresolved)"), "{page}");
+    assert!(page.contains("1 of 2 sources"), "{page}");
     assert!(page.contains("example.com/paywalled"), "{page}");
     assert!(page.contains("print: no web text"), "{page}");
-    assert!(page.contains("sign disposition"), "{page}");
-    assert!(page.contains("start publish"), "{page}");
+    assert!(page.contains("Sign disposition"), "{page}");
+    assert!(page.contains("Publish this edit"), "{page}");
 
     let pendings = reqwest::get(format!("{}/confirmations", base_url(port)))
         .await
@@ -175,7 +175,7 @@ async fn console_and_manifest_routes_render_on_loopback() {
         .text()
         .await
         .unwrap();
-    assert!(pendings.contains("none"), "{pendings}");
+    assert!(pendings.contains("No publish is waiting"), "{pendings}");
 
     let _ = child.kill();
     let _ = std::fs::remove_dir_all(&dir);
@@ -278,7 +278,7 @@ async fn publish_requires_the_explicit_web_confirmation() {
     let page = poll_page_contains(
         &client,
         &format!("{}/sessions/test-article", base_url(port)),
-        "PENDING PUBLISH CONFIRMATION",
+        "Approve this publish",
         Duration::from_secs(15),
     )
     .await;
@@ -317,7 +317,7 @@ async fn publish_requires_the_explicit_web_confirmation() {
         .send()
         .await
         .unwrap();
-    assert!(resp.status().is_success());
+    assert!(resp.status().is_redirection(), "lands on the session page");
 
     let published = poll_page_contains(
         &client,
@@ -381,7 +381,7 @@ async fn declined_confirmation_never_edits() {
     let page = poll_page_contains(
         &client,
         &format!("{}/sessions/test-article", base_url(port)),
-        "PENDING PUBLISH CONFIRMATION",
+        "Approve this publish",
         Duration::from_secs(15),
     )
     .await;
@@ -565,13 +565,9 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .text()
         .await
         .unwrap();
-    assert!(page.contains("Review comments"), "{page}");
-    assert!(
-        page.contains("Review artifact: current (round 1)"),
-        "{page}"
-    );
-    assert!(page.contains("Open it</a> to read the edit"), "{page}");
-    assert!(page.contains("queue empty"), "{page}");
+    assert!(page.contains("Round 1 is ready to read"), "{page}");
+    assert!(page.contains("Open the review</a>"), "{page}");
+    assert!(page.contains("No comments yet"), "{page}");
     assert!(
         !page.contains("lavish"),
         "session page must not link lavish: {page}"
@@ -587,19 +583,19 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .await
         .unwrap();
     assert!(
-        artifact_page.contains("leave a comment on the new (highlighted) wording"),
+        artifact_page.contains("Comment on the new wording"),
         "plain-language new-side form: {artifact_page}"
     );
     assert!(
-        artifact_page.contains("looks right? publish this edit"),
+        artifact_page.contains("id=\"wa-publish\""),
         "the publish action lives on the artifact page: {artifact_page}"
     );
     assert!(
-        artifact_page.contains(">start publish</button>"),
+        artifact_page.contains(">Publish this edit</button>"),
         "{artifact_page}"
     );
     assert!(
-        artifact_page.contains("comment on the removed (struck-through) wording"),
+        artifact_page.contains("Comment on the removed wording"),
         "plain-language old-side affordance: {artifact_page}"
     );
     assert!(
@@ -693,7 +689,10 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .await
         .unwrap();
     assert!(page.contains("handled by hand"), "resolution note renders");
-    assert!(page.contains("K1 OPEN"), "open comment highlighted");
+    assert!(
+        page.contains("name=id value=\"K1\""),
+        "open comment carries its resolve form"
+    );
 
     // AC.1: the web render path printed the in-app artifact path, and the
     // drained server stdout carries no lavish invocation or URL.
@@ -740,15 +739,15 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         "stale banner: {stale}"
     );
     assert!(
-        stale.contains("this edit was published — the review is done"),
+        stale.contains("This edit was published, so the review is closed."),
         "{stale}"
     );
     assert!(
-        !stale.contains("leave a comment"),
+        !stale.contains("name=target"),
         "no comment forms on a stale artifact: {stale}"
     );
     assert!(
-        !stale.contains("start publish"),
+        !stale.contains("Publish this edit"),
         "no publish action on a stale artifact: {stale}"
     );
     let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
@@ -758,7 +757,7 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .await
         .unwrap();
     assert!(
-        page.contains("Review artifact: <strong>out of date</strong>"),
+        page.contains("The round 1 review is out of date."),
         "{page}"
     );
     // And driver-resolve refuses the stale artifact.

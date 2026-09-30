@@ -181,17 +181,20 @@ record).
 ./target/debug/wa serve --tsnet    # thin-client: bind the tailnet only
 ```
 
-Protocol: init the session CLI-side (`wa session init …`), then in the
-console — sweep fetch + resolve (dispositions, pasted captures), **driver:
-author findings**, review what the model proposed against the manifest,
-**driver: draft proposal**, **render review artifact** (in-app: the
-session page links it, no external review server), leave comments in the
-session page's **Review comments** section (one per changed block + one
-per evidence card; the queue is `sessions/<slug>/comments.jsonl`), then
-**driver: apply review comments** (judgment point 3: open comments →
-model, grouped per changed block → spliced revisions + per-group notes),
-re-render, and finally **start publish** and approve/decline the pending
-confirmation, which shows the exact prompt. The whole loop runs in this
+Protocol: init the session CLI-side (`wa session init …`), then work the
+session page top to bottom. **Sources**: **Fetch pending sources**, then
+resolve what is left (**Sign disposition**, or **Attach text you captured
+yourself**). **Draft**: **Write findings**, check what the model proposed
+against the sources table, then **Draft the edit**. **Review**: **Render
+review** opens the in-app review (no external review server). On the
+review page, leave comments with the **Comment** control under each
+changed block and each evidence card (the queue is
+`sessions/<slug>/comments.jsonl`), then **Apply comments** (judgment
+point 3: open comments → model, grouped per changed block → spliced
+revisions + per-group notes) and render the next round from the banner.
+When the edit reads right, **Publish this edit** on the review page and
+answer the approval block (**Approve and publish** / **Don't publish**),
+which shows the exact prompt. The whole loop runs in this
 one process — no Node, no review-server lifecycle.
 
 Invariants preserved: no auto-publish (the edit posts only on the
