@@ -77,6 +77,20 @@ wikiactive/0.1 (en.wikipedia User:LuisVilla; luis@lu.is)
   never silently absorbed. The tool verifies outcomes, not only inputs
   (`tests/readback.rs`).
 
+The edit parameters come from one typed shape
+(`EditParams`/`Base` in `src/wikipedia.rs`; its `to_pairs` is the only
+place that names these keys, and the exact key set is pinned by a unit
+test — rule-enforcement item 2):
+
+| Parameter | Why it is sent |
+|---|---|
+| [`action=edit`](https://www.mediawiki.org/wiki/API:Edit) | the write module |
+| `title`, `text`, `summary` | the edit itself; the summary is validated (non-bare) and carries the disclosure suffix |
+| [`assert=user`](https://www.mediawiki.org/wiki/API:Assert) | fail the request if not authenticated — on the edit itself, not only client-wide (AC.7) |
+| [`notminor=1`](https://www.mediawiki.org/wiki/API:Edit#Parameters) | `minor` is a presence flag (any value, `"0"` included, marks the edit minor); `notminor` is the explicit opposite and also overrides a mark-all-minor account preference. There is deliberately no `minor` field in the typed shape |
+| [`baserevid` + `nocreate`](https://www.mediawiki.org/wiki/API:Edit#Parameters) | existing-page pin (client pre-checks currency; a moved base aborts without writing) and never-create on an update |
+| [`createonly`](https://www.mediawiki.org/wiki/API:Edit#Parameters) | create pin: a page that appeared since the session saw it missing is never overwritten |
+
 ## Source fetching (non-Wikimedia hosts)
 
 - SSRF guard: only `http`/`https`, ports 80/443, no loopback/private/

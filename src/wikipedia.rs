@@ -199,6 +199,71 @@ impl EditOutcome {
     }
 }
 
+/// The typed shape of one edit's API parameters (rule-enforcement item
+/// 2). A presence flag such as `minor` cannot be written by mistake —
+/// there is no field for it — and [`EditParams::to_pairs`] is the ONLY
+/// place that names these keys, so each key a new edit sends needs a
+/// deliberate change there and in the key-set test.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EditParams<'a> {
+    title: &'a str,
+    text: &'a str,
+    summary: &'a str,
+    /// What the edit is pinned to.
+    base: Base,
+}
+
+/// The pin an edit carries (rule-enforcement item 2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Base {
+    /// Edit an existing page at this revid: posts `baserevid` + `nocreate`
+    /// — the server refuses if the base moved or the page vanished.
+    Existing(u64),
+    /// Create a page: posts `createonly` — a page that appeared in the
+    /// meantime is never overwritten.
+    Create,
+}
+
+impl Base {
+    /// From an `EditRequest::base_revid` (0 = create).
+    fn from_revid(base_revid: u64) -> Self {
+        if base_revid > 0 {
+            Self::Existing(base_revid)
+        } else {
+            Self::Create
+        }
+    }
+}
+
+impl EditParams<'_> {
+    /// The exact API pairs for `action=edit` — the only place that names
+    /// these keys. Always `assert=user` and `notminor=1`: `minor` is a
+    /// presence flag (any value, "0" included, marks the edit minor), so
+    /// the explicit opposite is the only safe form, and it also overrides
+    /// a mark-all-minor account preference. There is deliberately no
+    /// `minor` field.
+    fn to_pairs(&self) -> Vec<(&'static str, String)> {
+        let mut pairs = vec![
+            ("action", "edit".to_string()),
+            ("title", self.title.to_string()),
+            ("text", self.text.to_string()),
+            ("summary", self.summary.to_string()),
+            // Explicit on the edit itself (the client-wide builder assert
+            // covers reads; AC.7 wants it on the edit).
+            ("assert", "user".to_string()),
+            ("notminor", "1".to_string()),
+        ];
+        match self.base {
+            Base::Existing(revid) => {
+                pairs.push(("baserevid", revid.to_string()));
+                pairs.push(("nocreate", "1".to_string()));
+            }
+            Base::Create => pairs.push(("createonly", "1".to_string())),
+        }
+        pairs
+    }
+}
+
 /// What the read-back (`Wikipedia::verify_revision`) expects of a
 /// just-saved revision — everything the edit path promised, so a
 /// presence-flag or config regression on the server side is seen, not
@@ -514,31 +579,16 @@ impl Wikipedia {
             });
         }
 
-        // Fixed params for both create and update.
-        let mut params: Vec<(&str, &str)> = vec![
-            ("action", "edit"),
-            ("title", req.title),
-            ("text", req.wikitext),
-            ("summary", summary.as_str()),
-            // Explicit on the edit itself (the client-wide builder assert
-            // covers reads; AC.7 wants it on the edit).
-            ("assert", "user"),
-            // Never minor. `minor` is a presence-flag (any value, "0"
-            // included, marks the edit minor); `notminor` is the explicit
-            // opposite and also overrides a "mark all edits minor"
-            // account preference.
-            ("notminor", "1"),
-        ];
-        let base_str;
-        if req.base_revid > 0 {
-            base_str = req.base_revid.to_string();
-            params.push(("baserevid", base_str.as_str()));
-            params.push(("nocreate", "1"));
-        } else {
-            // A create must not overwrite a page that appeared since the
-            // session (or the log read) saw it missing.
-            params.push(("createonly", "1"));
+        // Fixed params for both create and update — through the typed
+        // shape (rule-enforcement item 2): to_pairs is the only place
+        // that names API keys, and no `minor` field exists to set.
+        let params = EditParams {
+            title: req.title,
+            text: req.wikitext,
+            summary: summary.as_str(),
+            base: Base::from_revid(req.base_revid),
         }
+        .to_pairs();
         let resp: Value = self.api.post_with_token("csrf", params).await?;
 
         if let Some((code, info)) = error_code_and_info(&resp) {
@@ -808,7 +858,9 @@ fn error_code_and_info(resp: &Value) -> Option<(String, String)> {
 
 #[cfg(test)]
 mod tests {
-    use super::{DenyConfirm, EditRequest, WikipediaError, summary_with_disclosure};
+    use super::{
+        Base, DenyConfirm, EditParams, EditRequest, WikipediaError, summary_with_disclosure,
+    };
 
     #[test]
     fn summary_appends_disclosure_suffix() {
@@ -854,5 +906,60 @@ mod tests {
         };
         assert_eq!(req.base_revid, 123);
         assert!(req.dry_run);
+    }
+
+    /// Rule-enforcement item 2: the exact keys (and their order) an edit
+    /// sends, pinned per `Base` variant — adding a parameter is a
+    /// deliberate change to `EditParams::to_pairs` AND this test. A
+    /// presence flag like `minor` has no field to be set through.
+    #[test]
+    fn edit_params_key_set_is_exact_per_base() {
+        let keys = |base: Base| {
+            EditParams {
+                title: "T",
+                text: "x",
+                summary: "s",
+                base,
+            }
+            .to_pairs()
+            .into_iter()
+            .map(|(k, _)| k)
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            keys(Base::Existing(500)),
+            [
+                "action",
+                "title",
+                "text",
+                "summary",
+                "assert",
+                "notminor",
+                "baserevid",
+                "nocreate"
+            ]
+        );
+        assert_eq!(
+            keys(Base::Create),
+            [
+                "action",
+                "title",
+                "text",
+                "summary",
+                "assert",
+                "notminor",
+                "createonly"
+            ]
+        );
+        // The pin's value rides along.
+        let pairs = EditParams {
+            title: "T",
+            text: "x",
+            summary: "s",
+            base: Base::Existing(500),
+        }
+        .to_pairs();
+        assert!(pairs.contains(&("baserevid", "500".to_string())));
+        assert!(!pairs.iter().any(|(k, _)| *k == "minor"));
     }
 }
