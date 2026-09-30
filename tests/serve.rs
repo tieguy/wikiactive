@@ -301,6 +301,16 @@ async fn publish_requires_the_explicit_web_confirmation() {
         "{confirm_path}"
     );
 
+    // Plan-005 D3: the pending prompt is confirm-source-neutral. The old
+    // wording leaked tty mechanics onto the web surface ("This tty
+    // confirmation … when you type yes") — pinned out.
+    assert!(
+        page.contains("This confirmation is the FINAL gate"),
+        "neutral final-gate sentence: {page}"
+    );
+    assert!(!page.contains("tty confirmation"), "{page}");
+    assert!(!page.contains("type yes"), "{page}");
+
     let resp = client
         .post(format!("{}{}", base_url(port), confirm_path))
         .form(&[("approve", "true")])
@@ -320,6 +330,19 @@ async fn publish_requires_the_explicit_web_confirmation() {
     assert_eq!(edit_mock.calls(), 1, "exactly one edit after approval");
     let meta = std::fs::read_to_string(dir.join("sessions/test-article/session.json")).unwrap();
     assert!(meta.contains("\"base_revid\": 501"), "re-pinned: {meta}");
+
+    // Plan-005 O.2: the web publish path logs plain URLs — no raw OSC-8
+    // escapes (the serve log is not a terminal) — while still pointing at
+    // the saved revision.
+    let stdout = std::fs::read_to_string(dir.join("serve-stdout.log")).unwrap();
+    assert!(
+        !stdout.contains('\u{1b}'),
+        "no escape sequences in the web serve log: {stdout}"
+    );
+    assert!(
+        stdout.contains("check it: http"),
+        "plain permalink in the web log: {stdout}"
+    );
 
     let _ = child.kill();
     let _ = std::fs::remove_dir_all(&dir);
@@ -932,6 +955,122 @@ async fn driver_resolve_merges_pair_sides_into_one_call_and_splices_both_groups(
         last_run.contains("evidence comments left for manual resolution: K4"),
         "{last_run}"
     );
+
+    let _ = child.kill();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Plan-005 O.3: driver-resolve over THREE disjoint groups — two separate
+/// changed pairs plus a pure insertion — splicing each group's revised
+/// block exactly once, with the combined proposed.wikitext pinned.
+#[allow(clippy::too_many_lines)]
+#[tokio::test]
+async fn driver_resolve_splices_three_groups_in_one_pass() {
+    // Pair at L2, pair at L4, pure insertion at L6 — each separated by
+    // unchanged lines so they stay three disjoint diff blocks.
+    let dir = setup_review_session(
+        "The keep is quiet.\nThe tower is old.\nThe gate is new.\nThe hall is grand.\nThe mill is stone.\n",
+        "The keep is quiet.\nThe tower is ancient.\nThe gate is new.\nThe hall is grander.\nThe mill is stone.\nThe well is deep.\n",
+    );
+    let session = dir.join("sessions/test-article");
+
+    let zai = MockServer::start_async().await;
+    let tower_mock = zai
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions")
+                .body_includes("make the tower older");
+            then.status(200).json_body(resolution_json(
+                "The tower is very ancient.",
+                "aged the tower",
+                "Aged the tower line.",
+            ));
+        })
+        .await;
+    let hall_mock = zai
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions")
+                .body_includes("the hall needs more");
+            then.status(200).json_body(resolution_json(
+                "The hall is grandest.",
+                "raised the hall",
+                "Raised the hall line.",
+            ));
+        })
+        .await;
+    let well_mock = zai
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions")
+                .body_includes("describe the well");
+            then.status(200).json_body(resolution_json(
+                "The well is deep and cold.",
+                "deepened the well",
+                "Deepened the well line.",
+            ));
+        })
+        .await;
+
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    render_offline(&client, port, &dir).await;
+    let table = anchor_table(&dir);
+    let anchor_of = |line_prefix: &str| {
+        table
+            .iter()
+            .find(|(_, a)| a.starts_with(line_prefix))
+            .unwrap_or_else(|| panic!("no anchor starting {line_prefix}: {table:?}"))
+            .1
+            .clone()
+    };
+    let tower_anchor = anchor_of("L2");
+    let hall_anchor = anchor_of("L4");
+    let well_anchor = anchor_of("L6");
+
+    for (target, text) in [
+        (&tower_anchor, "make the tower older".to_string()),
+        (&hall_anchor, "the hall needs more".to_string()),
+        (&well_anchor, "describe the well".to_string()),
+    ] {
+        let resp = client
+            .post(format!("{}/sessions/test-article/comments", base_url(port)))
+            .form(&[("target", target.as_str()), ("text", text.as_str())])
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), 303);
+    }
+
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/resolve",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+
+    assert_eq!(tower_mock.calls(), 1, "tower group: one call");
+    assert_eq!(hall_mock.calls(), 1, "hall group: one call");
+    assert_eq!(well_mock.calls(), 1, "insertion group: one call");
+
+    // The exact spliced result: each group's revised block in place,
+    // untouched lines preserved verbatim.
+    let proposed = std::fs::read_to_string(session.join("proposed.wikitext")).unwrap();
+    assert_eq!(
+        proposed,
+        "The keep is quiet.\nThe tower is very ancient.\nThe gate is new.\nThe hall is grandest.\nThe mill is stone.\nThe well is deep and cold.\n",
+        "three-group splice: {proposed}"
+    );
+
+    let last_run = std::fs::read_to_string(session.join("last-run.txt")).unwrap();
+    assert!(last_run.contains("3 comment(s) resolved"), "{last_run}");
 
     let _ = child.kill();
     let _ = std::fs::remove_dir_all(&dir);

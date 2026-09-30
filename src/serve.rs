@@ -251,19 +251,22 @@ fn list_sessions() -> Vec<String> {
     slugs
 }
 
+/// Console sort rank: smaller = more attention (live reviews with open
+/// comments first, then live reviews, then history/no-review rows).
+/// Module-level so the ordering is unit-testable (plan-005 O.3).
+fn console_rank(sort_key: &str) -> u8 {
+    match sort_key {
+        "current+comments" => 0,
+        "current" => 1,
+        _ => 2,
+    }
+}
+
 /// GET / — the console: every session with what actually decides "does
 /// this need me?" — the review state (current round / out of date and
 /// why / none) and the open-comment count — sorted attention-first
 /// (live reviews with open comments, then live reviews, then history).
 async fn console(State(state): State<Arc<ServeState>>) -> Html<String> {
-    /// Console sort rank: smaller = more attention.
-    fn rank(s: &str) -> u8 {
-        match s {
-            "current+comments" => 0,
-            "current" => 1,
-            _ => 2,
-        }
-    }
     struct Row {
         slug: String,
         article: String,
@@ -308,8 +311,8 @@ async fn console(State(state): State<Arc<ServeState>>) -> Html<String> {
         })
         .collect();
     rows.sort_by(|a, b| {
-        rank(&a.sort_key)
-            .cmp(&rank(&b.sort_key))
+        console_rank(&a.sort_key)
+            .cmp(&console_rank(&b.sort_key))
             .then_with(|| a.slug.cmp(&b.slug))
     });
 
@@ -489,6 +492,7 @@ h3 { font-size: .95rem; color: var(--muted); }\n\
 form { font-family: system-ui, sans-serif; font-size: .85rem; display: block; margin: .5rem 0; }\n\
 form.inline { display: inline-block; }\n\
 input, textarea, button { font: inherit; padding: .3rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; }\n\
+input, textarea { max-width: 100%; }\n\
 button { cursor: pointer; border: 1px solid var(--accent); color: var(--accent); }\n\
 button:hover { background: #f6f2fc; }\n\
 table { border-collapse: collapse; font-family: system-ui, sans-serif; font-size: .8rem; }\n\
@@ -677,7 +681,7 @@ border: 2px solid #b77; background: #fdf3f3; border-radius: 8px; \
 padding: .6rem .9rem; margin: .75rem 0; }
   .wa-bar { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); \
 border: 1px solid var(--line); border-radius: 8px; background: #fff; \
-padding: .5rem .75rem; margin: .75rem 0; display: flex; align-items: center; gap: 1rem; }
+padding: .5rem .75rem; margin: .75rem 0; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
   .wa-bar-form { display: inline; margin-left: auto; }
   .wa-cmt, .wa-stray { font-family: system-ui, sans-serif; font-size: .85rem; \
 margin: .25rem 0 .75rem 0; }
@@ -695,7 +699,7 @@ border-radius: 0 6px 6px 0; padding: .4rem .6rem; margin: .35rem 0; }
   .wa-comment.wa-resolved-note { border-left-color: var(--line); background: #faf9f7; \
 color: var(--muted); }
   .wa-comment .wa-note { display: block; margin-top: .25rem; white-space: pre-wrap; }
-  .wa-resolve { display: inline-flex; gap: .3rem; margin-top: .3rem; }
+  .wa-resolve { display: inline-flex; gap: .3rem; margin-top: .3rem; flex-wrap: wrap; }
   .wa-resolve input { font: inherit; padding: .25rem .4rem; \
 border: 1px solid var(--line); border-radius: 6px; min-width: 14rem; }
   .wa-resolve button { font: inherit; border: 1px solid var(--line); color: var(--muted); \
@@ -2014,7 +2018,123 @@ use std::io::Write as _;
 
 #[cfg(test)]
 mod tests {
-    use super::{CommentGroup, anchor_line_range, splice_plan, splices_overlap};
+    use super::{
+        CommentGroup, anchor_line_range, block_insertions, console_rank, splice_plan,
+        splices_overlap,
+    };
+
+    /// Plan-005 O.3: the console's attention-first ordering, pinned at the
+    /// unit level (live+comments → live → everything else).
+    #[test]
+    fn console_rank_orders_attention_first() {
+        assert_eq!(console_rank("current+comments"), 0);
+        assert_eq!(console_rank("current"), 1);
+        for history in ["stale", "none", "anything-else"] {
+            assert_eq!(console_rank(history), 2, "{history}");
+        }
+        assert!(console_rank("current+comments") < console_rank("current"));
+        assert!(console_rank("current") < console_rank("stale"));
+    }
+
+    /// Plan-005 O.3: on a multi-block artifact, every form lands directly
+    /// after ITS OWN block's closing `</div>` — including the link-rich
+    /// block whose old-side `<del>` follows a content-link `<span>` (the
+    /// `</span>` truncation class) — and nothing else's anchor rides along.
+    #[test]
+    fn block_insertions_place_each_form_after_its_own_block_close() {
+        let artifact = concat!(
+            "<main><section class=\"diff-col\">",
+            // Link-rich changed pair: a <span class="wl"> link BEFORE the
+            // old-side <del> — historically the del could be cut off.
+            "<div class=\"block change para\" id=\"wa-1\" data-wiki-anchor=\"L2:C0-L2:C20\">",
+            "<span class=\"anchor-tag\">paragraph · line 2</span>",
+            "Changed <span class=\"wl\">link text</span> ",
+            "<del id=\"wa-2\" data-wiki-anchor=\"base:L2:C0-L2:C17\">old</del> words</div>",
+            "<div class=\"block change para\" id=\"wa-3\" data-wiki-anchor=\"L4:C0-L4:C18\">",
+            "<span class=\"anchor-tag\">paragraph · line 4</span>Second block</div>",
+            "</section>",
+            "<aside class=\"evidence-col\">",
+            "<div class=\"evidence\" id=\"ev-1\" data-wiki-anchor=\"ledger:Q1\">",
+            "<span class=\"anchor-tag\">evidence for this edit</span>card</div>",
+            "</aside></main>",
+        );
+        let mk = |id: &str, target: &str| crate::comments::Comment {
+            id: id.into(),
+            target: target.into(),
+            text: format!("comment {id}"),
+            quoted: None,
+            timestamp: String::new(),
+            status: crate::comments::CommentStatus::Open,
+            resolution: None,
+        };
+        let queue = crate::comments::CommentQueue {
+            comments: vec![
+                mk("K1", "L2:C0-L2:C20"),
+                mk("K2", "base:L2:C0-L2:C17"),
+                mk("K3", "ledger:Q1"),
+            ],
+        };
+
+        let (insertions, placed) = block_insertions("test-slug", artifact, &queue);
+        assert_eq!(insertions.len(), 3, "two blocks + one evidence card");
+
+        // Every insertion sits exactly at its own `</div>` close.
+        for (pos, _) in &insertions {
+            assert_eq!(&artifact[pos - 6..*pos], "</div>", "pos {pos}");
+        }
+        // Document order, no overlaps.
+        let mut positions: Vec<usize> = insertions.iter().map(|(p, _)| *p).collect();
+        let mut sorted = positions.clone();
+        sorted.sort_unstable();
+        assert_eq!(positions, sorted, "insertions in document order");
+        positions.dedup();
+        assert_eq!(positions.len(), 3, "three distinct close positions");
+
+        let html_at = |anchor_of_block: usize| {
+            insertions
+                .iter()
+                .find(|(p, _)| *p == positions[anchor_of_block])
+                .map(|(_, h)| h.as_str())
+                .unwrap()
+        };
+        // Block 1 (link-rich pair): new-side form, the old-side toggle
+        // under it, and both comments — the del after a link span is not
+        // truncated away.
+        let first = html_at(0);
+        assert!(
+            first.contains("name=target value=\"L2:C0-L2:C20\""),
+            "{first}"
+        );
+        assert!(
+            first.contains("name=target value=\"base:L2:C0-L2:C17\""),
+            "{first}"
+        );
+        assert!(first.contains("comment K1"), "{first}");
+        assert!(first.contains("comment K2"), "{first}");
+        assert!(!first.contains("L4:C0-L4:C18"), "{first}");
+        // Block 2: only its own form, no old side.
+        let second = html_at(1);
+        assert!(
+            second.contains("name=target value=\"L4:C0-L4:C18\""),
+            "{second}"
+        );
+        assert!(!second.contains("base:"), "{second}");
+        assert!(!second.contains("L2:C0-L2:C20"), "{second}");
+        // Evidence card: its own form + the ledger comment.
+        let third = html_at(2);
+        assert!(third.contains("name=target value=\"ledger:Q1\""), "{third}");
+        assert!(third.contains("comment K3"), "{third}");
+
+        assert_eq!(
+            placed,
+            vec![
+                "base:L2:C0-L2:C17".to_string(),
+                "L2:C0-L2:C20".to_string(),
+                "L4:C0-L4:C18".to_string(),
+                "ledger:Q1".to_string(),
+            ]
+        );
+    }
 
     #[test]
     fn anchor_line_range_parses_both_families() {

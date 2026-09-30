@@ -96,6 +96,65 @@ rework so far (each fixed the same day):
 polish and layout work across the artifact/session/console; whatever
 surfaces in session 2's full comment → apply → re-render cycle.
 
+### Overnight findings (plan-005 UI self-review, 2026-09-30)
+
+Self-review on a realistic multi-block artifact: live **Laura de Force
+Gordon** wikitext (revid 1336672250) with a scratch edit in the "Modern
+speculation" section — one changed pair (rewritten Maupin sentence, the
+link- and ref-rich block), one pure deletion (the flyleaf sentence), one
+finding with a hand-written ledger quote (evidence card). Rendered via
+cached Parsoid transforms; served from a scratch CWD with BOTH z.ai and
+the wiki pointed at loopback mocks (publish walk decline-only, mock log
+confirmed the override — zero edit POSTs). Every console state (live /
+stale-published / stale-comments-applied / stale-text-changed / none),
+comment queue, manual + driver resolve, splice, re-render, publish
+approval block, and decline were exercised. Fixed the same night:
+
+1. **Evidence card nested paragraphs** — the guidance line was
+   `<p class="rules"><p class="rules">…</p></p>` (invalid HTML; browsers
+   close the outer `<p>` early). Fixed in `evidence_card`; pinned
+   (single rules paragraph, no nesting).
+2. **Revisions registry duplicated on re-render** — re-rendering the
+   SAME round appended a second registry entry ("Round 2" twice).
+   `registry_with_round` now replaces the round-keyed entry; pinned
+   (replace-on-rerender, append-on-new).
+3. **tty wording leaked into the web confirmation** — the shared publish
+   prompt said "This tty confirmation is the FINAL gate … when you type
+   yes" on the session page and the artifact approval block. Reworded
+   confirm-source-neutral ("This confirmation is … when you approve");
+   the tty bracket hint `[type yes to publish]` still carries the typing
+   instruction on the tty path. Pinned on the web pending page.
+4. **OSC-8 escapes in the web serve log** (plan O.2) — the post-publish
+   `check it:`/`session log updated:` prints emitted terminal links on
+   the web path. Now Via-aware: tty keeps the clickable link, web logs
+   the plain URL. Pinned (no ESC byte in the web log, plain permalink
+   present).
+
+CSS-only (no pins, per plan): `.wa-bar` and `.wa-resolve` gained
+`flex-wrap` and session-page inputs/textarea `max-width: 100%` — the
+~360px static-review pass found the top bar and resolve rows could
+overflow horizontally; actual thin-client verification stays the
+operator's morning pass (unattended agents cannot see pixels).
+
+Test hardening shipped with the above (plan O.3): three-group
+driver-resolve splice (two disjoint replacements + one pure insertion,
+exact `proposed.wikitext` pinned), console `rank` extracted to module
+level and unit-pinned (live+comments → live → history), and a
+multi-block `block_insertions` position test (each form directly after
+its own block's `</div>`, including the link-rich block whose old-side
+`<del>` follows a `<span class="wl">` — the `</span>` truncation class).
+
+**Deferred to the morning list (taste/product, not fixed):** the session
+page's `Publish` h2 wraps the driver-findings/propose and render forms
+too (heading mislabels the section); "archive: (archive pending)"
+phrasing on the evidence card for never-archived sources; the fetch-
+status icons (still operator-deferred from 2026-09-27). Note: the scratch
+walk's round-2 re-render initially showed a stale Maupin sentence — that
+was a stale HTML *fixture* passed to the offline render form (the test
+surface), not an app defect: production renders transform
+`proposed.wikitext` live. One extra Parsoid transform was spent
+correcting it (4 total vs the planned ≤2 — read-only, recorded here).
+
 ## Review-surface backlog (operator, 2026-09-27, live L2 session)
 - Fetch-status icons for sources ("fetched + relied on" / "fetched but not
   relied on" / "fetch failed") — deferred at operator request; the card
@@ -297,3 +356,122 @@ touch them.
 What survived from B.6 (prerequisites, not waste): the publish-
 confirmation wait, gate-in-web, the in-app artifact link, config-based
 z.ai, and `--tsnet`.
+
+## Plan-005 overnight record (2026-09-30, operator asleep)
+
+Unattended work per plan-005: UI self-review on a realistic multi-block
+artifact (both z.ai and the wiki mocked, loopback only), small-nit fixes,
+test hardening, v0.9.0 release prep, wm-fetch lint, and three read-only
+research items. Hard guardrails held: no wiki/Wikidata writes of any
+kind; no session-2 prep under the live `sessions/`; no z.ai calls; the
+running `wa-serve` service untouched until the single gated final
+restart; conservative UI changes only.
+
+### O.0 — Baseline snapshot (night's first action, 2026-09-30T05:19:30Z)
+
+- **Wiki boundary (read-only queries via wm-fetch):** disclosure log
+  `User:LuisVilla/wikiactive/log` at revid **1377614233**
+  (2026-09-30T04:52:45Z); top contributions exactly the session-1 pair —
+  1377614233 (log upsert) and 1377614230 (publish to
+  `User:LuisVilla/wikiactive/shakedown`) — nothing newer. Matches the
+  plan's stated boundary verbatim.
+- **`sessions/` manifest:** 51 files across 7 session dirs
+  (`sarah-kidder`, `temple-fielding`, `user-luisvilla-wikiactive`,
+  `-shakedown`, `-shakedown-b6`, `-smoke`). Manifest digest (sha256 of
+  the sorted `find sessions -type f | sort | xargs sha256sum` output):
+  `682ac42e4b32302c5e45df4452200b0d701fbcd3c945d9274e52240707c64203`.
+  Reproduce with that command and compare digests (recorded at teardown
+  as AC.3).
+
+### O.1 defect log — see "Overnight findings" appended to the Plan-004
+shakedown UX record above (this section holds the audit trail; the UX
+record holds the findings).
+
+### O.6b — Wikidata marriage-date prep (L5 design note; NO writes made)
+
+Read-only investigation (wbsearchentities/wbgetentities, 2026-09-30):
+
+- **Sarah Kidder = Q7422487**; her **P26 (spouse) = John Flint Kidder
+  (Q6233465)** statement exists with **no qualifiers and no
+  references** (bare). The reverse statement on Q6233465 (P26 → Q7422487)
+  is equally bare. Her P569 (1839) carries only a P143 "imported from
+  enwiki" reference — the item is essentially unsourced.
+- The article (post edit 3) reads "married civil engineer John Flint
+  Kidder in 1874", with the True West 1870 reading footnoted as a
+  discrepancy. **The qualifier value is 1874** (contemporary SF Call
+  obituary, the better source per the Phase-A episode); True West's 1870
+  must NOT be cited as support for 1874.
+
+**Ready-to-apply morning checklist** (apply WITH the operator; requires
+an EditData token + `assert=user`; nothing below was executed tonight):
+
+1. Fetch the statement id: `wbgetentities ids=Q7422487 props=claims` →
+   the P26 statement id (`Q7422487$<hash>`).
+2. Add the marriage-year qualifier (precision 9, year only — the
+   sources give no month/day):
+   `wbsetqualifier claim=<statement-id> property=P580 snak-type=value
+   value={"time":"+00000001874-01-01T00:00:00Z","precision":9,
+   "calendarmodel":"http://www.wikidata.org/entity/Q1985727"}`
+   with a reference on the statement:
+   `P854` (reference URL) =
+   `https://cdnc.ucr.edu/?a=d&d=SFC19010411.2.43` (the ledger's S2, the
+   contemporary obituary) + `P813` (retrieved) = apply date. Optionally
+   also `P248` (stated in) = a suitable item for the San Francisco Call
+   if the operator wants a bibliographic anchor, and the S1 True West
+   snapshot URL as a SECOND reference carrying the conflicting 1870 —
+   operator's call whether to cite the conflict on-wiki or keep it to
+   the efn.
+3. Mirror the same P580 qualifier on Q6233465's P26 statement (symmetry;
+   the marriage date is a property of the union, both directions
+   should carry it).
+4. The ledger's provenance chain (claims → quotes → sources) is exactly
+   the L5 hook `PLAYBOOK` anticipates: `wa`-side, a future
+   `wa wikidata` command would read it to build these payloads
+   mechanically. Designing that command is post-0.9.0 work; tonight's
+   payloads are the schema sketch.
+
+### O.6c — SonarQube probe: recorded deferral
+
+`bws secret list` (keys only, values never read): 17 secrets, **no
+SonarQube/sonarcloud token** present (closest are unrelated API keys;
+the wiki OAuth material the repo already uses is there). With no token
+and an undetermined host (sonarcloud.io vs self-hosted), no
+token-authenticated API check is possible. Deferral passes AC.5's
+environmental-deferral clause: to unblock, the operator adds a token
+(e.g. `SONAR_TOKEN`) to bws and names the host; morning-list item 7
+(analysis upload / scanner run) stays gated on that anyway per the
+plan's no-external-writes guardrail.
+
+### O.6d — "Claude Code UI review function": honestly not available
+
+No browser or screenshot tooling is exposed in this harness, so no
+agent-side visual review of the served artifact was possible beyond the
+static CSS review recorded above. If the operator wants a Claude-Code
+side review, run it against the served artifact URL directly (the
+console lists every session; the artifact route is
+`/sessions/<slug>/review`). Morning-list item.
+
+### O.5 — wm-fetch: clean shellcheck + green suite (no changes needed)
+
+Scope note: the repo was rewritten to Rust **v2.0.0** (commit a07e8e8,
+2026-09-29 22:41 local — landed during this session's evening) and now
+carries the legacy bash `wm-fetch` + `tests/smoke.sh` as *tracked* files
+alongside the Rust sources. Plan-005's lint step ran against the current
+state:
+
+- **shellcheck 0.11.0** (throwaway venv `shellcheck-py`; no system
+  installs): **zero findings** on `wm-fetch`, `tests/smoke.sh`,
+  `install.sh` — nothing to fix or waive; no version bump (nothing
+  changed).
+- **`cargo test`**: 30 unit + 25 wiremock integration tests green; the
+  3 live tests correctly ignored (need `WM_FETCH_LIVE_CONTACT`).
+- **`tests/smoke.sh`** (legacy, live): both legs pass (siteinfo JSON;
+  maxlag reaches the API). Re-run once more at teardown.
+- **Symlink**: resolves, but still to the legacy tracked bash script —
+  v2.0.0's `install.sh` (symlink → `target/release/wm-fetch`) has not
+  been run, and `~/.config/wm-fetch/config.toml` does not exist yet, so
+  swapping now would fail-close (exit 2, contact gate) on the operator's
+  every fetch at wake. Deferred to the morning list: run
+  `./install.sh && wm-fetch --init` to cut over.
+
+

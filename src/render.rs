@@ -865,8 +865,7 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
         "<div class=\"evidence\" id=\"{ev_id}\" data-wiki-anchor=\"ledger:{primary}\">\n\
          <span class=\"anchor-tag\">evidence for this edit</span>\n\
          <p class=\"finding\">{note}</p>\n\
-         <p class=\"rules\">{rules}</p>\n\
-         {quotes}\n{sources}\n{consulted}\
+         {rules}\n{quotes}\n{sources}\n{consulted}\
          <p class=\"fix\">Proposed fix: {fix}</p>\n</div>\n",
         primary = finding.evidence[0],
         note = esc(&finding.factual_note),
@@ -1007,7 +1006,15 @@ pub fn registry_with_round(
     summary: &str,
     timestamp: &str,
 ) -> Vec<RevisionEntry> {
-    let mut next = existing.to_vec();
+    // A re-render of the SAME round replaces that round's entry (the
+    // registry is round-keyed history, not an append-only log — the
+    // plan-005 UI walk caught duplicate "Round 2" labels when a round
+    // was re-rendered). New rounds append in order.
+    let mut next: Vec<RevisionEntry> = existing
+        .iter()
+        .filter(|e| e.id != format!("r{round}"))
+        .cloned()
+        .collect();
     next.push(RevisionEntry {
         id: format!("r{round}"),
         label: format!("Round {round}"),
@@ -1623,6 +1630,33 @@ mod tests {
         }
     }
 
+    /// Plan-005 D2: the registry is round-keyed — re-rendering the SAME
+    /// round replaces its entry (the UI walk caught duplicated "Round 2"
+    /// labels), while a new round still appends.
+    #[test]
+    fn registry_replaces_rerendered_rounds_and_appends_new_ones() {
+        use super::{RevisionEntry, registry_with_round};
+        let seed = registry_with_round(&[], 1, "first render", "t1");
+        assert_eq!(seed.len(), 1);
+
+        let rerendered = registry_with_round(&seed, 1, "re-render", "t2");
+        assert_eq!(rerendered.len(), 1, "no duplicate Round 1");
+        assert_eq!(rerendered[0].summary, "re-render");
+        assert_eq!(rerendered[0].timestamp, "t2");
+
+        let grown = registry_with_round(&rerendered, 2, "round two", "t3");
+        assert_eq!(grown.len(), 2);
+        assert_eq!(grown[0].id, "r1");
+        assert_eq!(grown[1].id, "r2");
+
+        // And a re-render of an EARLIER round after later ones exist still
+        // keeps one entry per round (no resurrection of duplicates).
+        let again = registry_with_round(&grown, 1, "round one, again", "t4");
+        assert_eq!(again.len(), 2);
+        assert_eq!(again.iter().filter(|e| e.id == "r1").count(), 1);
+        let _: Vec<RevisionEntry> = again; // field completeness
+    }
+
     #[test]
     fn evidence_rail_renders_for_every_gated_finding() {
         let mut ledger = crate::ledger::Ledger::default();
@@ -1656,6 +1690,21 @@ mod tests {
                 .contains(&format!("data-wiki-anchor=\"ledger:{qid}\""))
         );
         assert!(out.artifact_html.contains("completed in 1937"));
+        // Plan-005 D1: the guidance line is ONE paragraph — the old output
+        // nested `<p class="rules">` inside `<p class="rules">` (invalid
+        // HTML; browsers close the outer <p> early and the card breaks
+        // apart). Pinned so the double-wrap cannot return.
+        assert!(
+            !out.artifact_html.contains("<p class=\"rules\"><p"),
+            "nested rules paragraph: {}",
+            out.artifact_html
+        );
+        assert_eq!(
+            out.artifact_html.matches("<p class=\"rules\">").count(),
+            1,
+            "exactly one rules paragraph"
+        );
+        assert!(out.artifact_html.contains("Relevant guidance: <a href"));
         assert_eq!(
             out.updated_findings[0].rendered_span_id.as_deref(),
             Some("ev-1")

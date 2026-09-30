@@ -230,5 +230,26 @@ points (findings, proposals, comment resolution), restructured around a
 analysis; the ledger stays text-first). Design record:
 [docs/design-plans/2026-09-25-mvp2-addendum.md](docs/design-plans/2026-09-25-mvp2-addendum.md).
 
+**0.9.0 ready to tag (2026-09-30).** Phase B is complete and
+shakedown-hardened: the whole loop — sweep → findings → proposal → gate →
+render → in-app review comments → driver resolution → publish approval —
+runs in one process (`wa serve`; loopback default, `--tsnet` for
+thin clients), lavish fully cut from the default loop. The first live
+shakedown session (a userspace page creation) published end-to-end
+in-app — artifact → block-anchored comments → on-artifact approval →
+disclosure-log upsert — and the operator's same-day UX verdicts shipped
+(comment forms under each changed block in plain language, a staleness
+guard across published / comments-applied / text-changed states with
+forms suppressed and driver-resolve refused, an attention-first console,
+publish + approval blocks on the artifact). An unattended hardening pass
+(plan-005) then self-reviewed the comment UI on a realistic multi-block
+article artifact with both the model and the wiki pointed at loopback
+mocks, fixing the evidence card's invalid nested paragraphs, duplicate
+round labels on re-render, tty wording leaking into the web confirmation,
+and raw OSC-8 escapes in the web log, and pinned multi-group splices,
+console ordering, and per-block form injection. Remaining before the
+tag: the operator's second live shakedown session (a real article
+through the full comment → apply → re-render cycle) and the tag itself.
+
 [lavish-axi]: https://www.npmjs.com/package/lavish-axi
 [Special:OAuthConsumerRegistration/propose]: https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose

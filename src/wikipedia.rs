@@ -456,8 +456,8 @@ impl Wikipedia {
             })
             .unwrap_or_default();
         let prompt = format!(
-            "Publish one edit to {}?\n  summary: {summary}\n  base revid: {}{review_line}\n\nThis              tty confirmation is the FINAL gate: the anchor/linter gate re-ran before this \
-             prompt, and the wiki history changes when you type yes.",
+            "Publish one edit to {}?\n  summary: {summary}\n  base revid: {}{review_line}\n\nThis confirmation is the FINAL gate: the anchor/linter gate re-ran before this \
+             prompt, and the wiki history changes when you approve.",
             req.title, req.base_revid
         );
         if !confirm.confirm(&prompt).await {

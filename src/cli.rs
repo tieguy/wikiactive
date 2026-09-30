@@ -1162,11 +1162,17 @@ pub async fn publish_core(
             outcome.new_revid
         );
     }
-    println!(
-        "check it: {}  (or: {})",
-        lavish::terminal_link(&outcome.permalink(), "open the saved revision"),
-        outcome.permalink()
-    );
+    // Tty gets a clickable (OSC 8) link; the web path logs a plain URL —
+    // the serve log is not a terminal (plan-005 O.2: raw OSC-8 escapes
+    // were leaking into `wa serve`'s log from this shared path).
+    match via {
+        Via::Tty => println!(
+            "check it: {}  (or: {})",
+            lavish::terminal_link(&outcome.permalink(), "open the saved revision"),
+            outcome.permalink()
+        ),
+        Via::Web => println!("check it: {}", outcome.permalink()),
+    }
     // Automatic disclosure-log upsert (bundled consent: the prompt stated
     // confirming covers this). One entry per article session, growing with
     // each published diff.
@@ -1214,11 +1220,17 @@ pub async fn publish_core(
             )
             .await
         {
-            Ok(Some(log_outcome)) => println!(
-                "session log updated: {}  (or: {})",
-                lavish::terminal_link(&log_outcome.permalink(), "open the log entry"),
-                log_outcome.permalink()
-            ),
+            Ok(Some(log_outcome)) => {
+                // Same Via split as the diff link above (plan-005 O.2).
+                match via {
+                    Via::Tty => println!(
+                        "session log updated: {}  (or: {})",
+                        lavish::terminal_link(&log_outcome.permalink(), "open the log entry"),
+                        log_outcome.permalink()
+                    ),
+                    Via::Web => println!("session log updated: {}", log_outcome.permalink()),
+                }
+            }
             Ok(None) => println!("session log already current"),
             Err(e) => {
                 println!(
