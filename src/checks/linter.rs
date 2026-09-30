@@ -139,22 +139,28 @@ impl LinterConfig {
     }
 }
 
-/// True when `added_line` is a modification of some base line that already
-/// contained a semicolon (shared 30+ char prefix): the semicolon is
-/// pre-existing prose, not fresh drafting by this tool.
-fn pre_existing_semicolon(added_line: &str, base: &str) -> bool {
-    let added_has_semi = added_line.contains(';');
-    if !added_has_semi {
+/// Whether the added run DRAFTS a semicolon: true when the run has no
+/// base counterpart (brand-new text — every semicolon is drafted), or
+/// when it carries MORE semicolons than the base line it modifies
+/// (shared 30+ char prefix). The count compare (item 6A) replaced the
+/// old skip-the-whole-line guard, which hid a NEW semicolon added to a
+/// line that already had one.
+fn introduces_semicolon(added_run: &str, base: &str) -> bool {
+    if !added_run.contains(';') {
         return false;
     }
-    let prefix_len = 30.min(added_line.len());
-    let prefix = &added_line[..added_line
+    let prefix = &added_run[..added_run
         .char_indices()
         .nth(30)
-        .map_or(added_line.len(), |(i, _)| i)];
-    let _ = prefix_len;
-    base.lines()
-        .any(|b| b.contains(';') && b.len() >= 5 && b.contains(prefix.trim()))
+        .map_or(added_run.len(), |(i, _)| i)];
+    let counterpart = base
+        .lines()
+        .find(|b| b.len() >= 5 && b.contains(prefix.trim()));
+    match counterpart {
+        // No base line resembles it: brand-new drafting.
+        None => true,
+        Some(b) => added_run.matches(';').count() > b.matches(';').count(),
+    }
 }
 
 /// One linter finding.
@@ -222,40 +228,6 @@ const OUR_OR_PAIRS: &[(&str, &str)] = &[
     ("odour", "odor"),
 ];
 
-/// Words that end in `-ise`/`-isation` in *both* national varieties: their
-/// presence is not a British marker.
-const NON_VARIANT_ISE_PREFIXES: &[&str] = &[
-    "advise",
-    "arise",
-    "chastise",
-    "compromise",
-    "comprise",
-    "concise",
-    "devise",
-    "disguise",
-    "enterprise",
-    "exercise",
-    "excise",
-    "franchise",
-    "guise",
-    "improvise",
-    "merchandise",
-    "noise",
-    "otherwise",
-    "paradise",
-    "premise",
-    "precise",
-    "praise",
-    "promise",
-    "raise",
-    "revise",
-    "rise",
-    "supervise",
-    "surprise",
-    "televise",
-    "wise",
-];
-
 /// Word-run length whose sharing between a lead sentence and a body sentence
 /// is lead/body duplication (mechanized MOS:LEAD).
 pub const LEAD_BODY_NGRAM: usize = 8;
@@ -297,6 +269,25 @@ pub fn added_lines(base: &str, proposed: &str) -> Vec<(usize, String)> {
 
 // --- scan entry points -------------------------------------------------------
 
+/// Group the diff's added lines into contiguous runs (item 6A): each run
+/// is `(first_line, joined_text)` — adjacent added lines form one
+/// scanning unit so multi-line citations and templates are seen whole.
+fn added_runs(added: &[(usize, String)]) -> Vec<(usize, String)> {
+    let mut runs: Vec<(usize, String)> = Vec::new();
+    for &(line, ref text) in added {
+        match runs.last_mut() {
+            // Contiguous: the previous run's lines end exactly where this
+            // line begins.
+            Some((first, joined)) if *first + joined.lines().count() == line => {
+                joined.push('\n');
+                joined.push_str(text);
+            }
+            _ => runs.push((line, text.clone())),
+        }
+    }
+    runs
+}
+
 /// Whole-page scan (analyze/replay mode): every declared rule runs over the
 /// full text. Reports pre-existing defects regardless of severity.
 #[must_use]
@@ -327,14 +318,21 @@ pub fn gate(base: &str, proposed: &str, cfg: &LinterConfig) -> Vec<LintFinding> 
     for rule in cfg.rules.values() {
         match rule.applies {
             Scope::AddedLines | Scope::DraftedLines => {
-                for (line, text) in &added {
+                // Contiguous added lines are scanned as ONE run (item 6A):
+                // a citation spanning several lines is a single construct,
+                // and a multi-line template must be masked whole — a
+                // line-at-a-time scan never saw either. Findings attribute
+                // to the run's first line.
+                for (line, run) in added_runs(&added) {
                     if rule.applies == Scope::DraftedLines
                         && rule.id == "semicolon-prose"
-                        && pre_existing_semicolon(text, base)
+                        && !introduces_semicolon(&run, base)
                     {
                         // Editing a pre-existing line must not gate on the
                         // previous author's semicolons — the guard is for
-                        // prose this tool drafts.
+                        // prose this tool drafts (item 6A: compared by
+                        // COUNT, so a new semicolon on a line that already
+                        // had one still flags).
                         continue;
                     }
                     if rule.applies == Scope::AddedLines && rule.id == "refname-autonumber" {
@@ -342,11 +340,11 @@ pub fn gate(base: &str, proposed: &str, cfg: &LinterConfig) -> Vec<LintFinding> 
                         // (VisualEditor artifact) on an edited line is
                         // inherited, not drafted — gate only names the
                         // draft itself introduces.
-                        let cleaned = strip_pre_existing_refnames(text, base);
-                        check_rule_on(rule, &cleaned, *line, &mut findings);
+                        let cleaned = strip_pre_existing_refnames(&run, base);
+                        check_rule_on(rule, &cleaned, line, &mut findings);
                         continue;
                     }
-                    check_rule_on(rule, text, *line, &mut findings);
+                    check_rule_on(rule, &run, line, &mut findings);
                 }
             }
             Scope::WholePage => {
@@ -396,10 +394,13 @@ fn check_rule(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
             // Correct template usage mixes the two: |page= for a single
             // page, |pages= for a range. The defect is a SINGLE-page value
             // sitting in |pages= (inconsistent with the template contract).
+            // One finding PER match (item 6A): the gate dedups by
+            // (rule, detail), so a single first-match finding would hide a
+            // second violation behind one already in the base.
             static PAGES_SINGLE: LazyLock<Regex> = LazyLock::new(|| {
                 Regex::new(r"\|\s*pages\s*=\s*[0-9A-Za-z]+\s*([|}\n]|$)").expect("valid regex")
             });
-            if let Some(m) = PAGES_SINGLE.find(text) {
+            for m in PAGES_SINGLE.find_iter(text) {
                 findings.push(LintFinding {
                     rule: rule.id.clone(),
                     line: 0,
@@ -431,7 +432,8 @@ fn check_rule(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
         "semicolon-prose" => line_scan_stripped(rule, text, findings),
         "tense-drift" => line_scan(rule, text, &TENSE_DRIFT, "tense drift marker", findings),
         "national-variety-mix" => {
-            if let Some(detail) = variety_mix(text) {
+            // One finding PER mix (item 6A) — deterministic order.
+            for detail in variety_mixes(text) {
                 findings.push(LintFinding {
                     rule: rule.id.clone(),
                     line: 0,
@@ -441,7 +443,7 @@ fn check_rule(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
             }
         }
         "italic-mismatch" => {
-            if let Some(detail) = italic_mismatch(text) {
+            for detail in italic_mismatches(text) {
                 findings.push(LintFinding {
                     rule: rule.id.clone(),
                     line: 0,
@@ -461,7 +463,7 @@ fn check_rule(rule: &LintRule, text: &str, findings: &mut Vec<LintFinding>) {
             }
         }
         "lead-body-duplication" => {
-            if let Some(detail) = lead_body_duplication(text) {
+            for detail in lead_body_duplications(text) {
                 findings.push(LintFinding {
                     rule: rule.id.clone(),
                     line: 0,
@@ -547,12 +549,54 @@ fn line_scan_stripped(rule: &LintRule, text: &str, findings: &mut Vec<LintFindin
     }
 }
 
-/// Whether `word` belongs to a `-ise` family that is NOT a British marker
-/// (both-variant words like "promise", "advise", "exercise"). Matches the
-/// exclusion base or its `e`-less stem so inflected forms
-/// ("promised", "comprised") stay excluded.
-fn non_variant_ise(word: &str) -> bool {
-    NON_VARIANT_ISE_PREFIXES.iter().any(|p| {
+/// Whether `word`'s `-is(e)`/`-iz(e)` is part of the ROOT, not a variety
+/// marker (both-variant words: "promise", "advise", "exercise" on the
+/// -ise side; "prize", "size", "seize" and the suffixless-root loans
+/// "advertising", "crises", "expertise" on either). Matches the
+/// exclusion base or its `e`-less stem so inflected forms ("promised",
+/// "comprised", "prizes", "seized") stay excluded (item 6A: the old
+/// -ise-only list let suffix matching count root words as markers).
+fn non_variant(word: &str) -> bool {
+    const EXCLUDED: &[&str] = &[
+        "advise",
+        "arise",
+        "chastise",
+        "compromise",
+        "comprise",
+        "concise",
+        "devise",
+        "disguise",
+        "enterprise",
+        "exercise",
+        "excise",
+        "franchise",
+        "guise",
+        "improvise",
+        "merchandise",
+        "noise",
+        "otherwise",
+        "paradise",
+        "premise",
+        "precise",
+        "praise",
+        "promise",
+        "raise",
+        "revise",
+        "rise",
+        "supervise",
+        "surprise",
+        "televise",
+        "wise",
+        // -ize side roots (item 6A):
+        "prize",
+        "size",
+        "seize",
+        // suffixless-root loans both variants share:
+        "advertising",
+        "crises",
+        "expertise",
+    ];
+    EXCLUDED.iter().any(|p| {
         let trimmed = p.strip_suffix('e').unwrap_or(p);
         word.starts_with(p) || word.starts_with(trimmed)
     })
@@ -613,10 +657,13 @@ fn mask_templates_and_refs(text: &str) -> String {
 const UK_FAMILIES: &[&str] = &["ise", "ised", "ises", "ising", "isation", "isations"];
 const US_FAMILIES: &[&str] = &["ize", "ized", "izes", "izing", "ization", "izations"];
 
-/// Detect a national-variety mix: an `-our`/`-or` twin pair, an `-ise`/`-ize`
-/// twin stem, or co-occurrence of a British `-our`/`-ise` marker with an
-/// American `-or`/`-ize` marker.
-fn variety_mix(text: &str) -> Option<String> {
+/// Detect national-variety mixes: an `-our`/`-or` twin pair, an
+/// `-ise`/`-ize` twin stem, or co-occurrence of a British `-our`/`-ise`
+/// marker with an American `-or`/`-ize` marker. Returns one line per mix
+/// (item 6A). Root words whose `-is(e)`/`-iz(e)` is part of the stem —
+/// not a variety suffix — are excluded on BOTH sides ("prize", "size",
+/// "seize" as American; "advertising", "crises", "expertise" as British).
+fn variety_mixes(text: &str) -> Vec<String> {
     let words: HashSet<String> = text
         .to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
@@ -624,19 +671,25 @@ fn variety_mix(text: &str) -> Option<String> {
         .map(str::to_string)
         .collect();
 
-    // 1. Unambiguous twin pairs (colour+color).
-    for (uk, us) in OUR_OR_PAIRS {
-        if words.contains(*uk) && words.contains(*us) {
-            return Some(format!(
-                "national variety mix: '{uk}' and '{us}' both appear"
-            ));
-        }
+    let mut out = Vec::new();
+    // 1. Unambiguous twin pairs (colour+color) — sorted for determinism.
+    let mut pairs: Vec<_> = OUR_OR_PAIRS
+        .iter()
+        .filter(|(uk, us)| words.contains(*uk) && words.contains(*us))
+        .collect();
+    pairs.sort_unstable();
+    for (uk, us) in pairs {
+        out.push(format!(
+            "national variety mix: '{uk}' and '{us}' both appear"
+        ));
     }
 
-    // 2. -ise/-ize twin stems (organised+organized).
-    let mut stems: HashMap<String, HashSet<&str>> = HashMap::new();
+    // 2. -ise/-ize twin stems (organised+organized) — BTreeMap (item 6A:
+    // HashMap iteration made the reported stem differ between scans).
+    let mut stems: std::collections::BTreeMap<String, std::collections::BTreeSet<&str>> =
+        std::collections::BTreeMap::new();
     for word in &words {
-        if non_variant_ise(word) {
+        if non_variant(word) {
             continue;
         }
         if let Some(caps) = ISE_IZE.captures(word) {
@@ -646,7 +699,7 @@ fn variety_mix(text: &str) -> Option<String> {
     }
     for (stem, families) in &stems {
         if families.len() > 1 {
-            return Some(format!(
+            out.push(format!(
                 "national variety mix: '-is-' and '-iz-' forms of '{stem}' both appear"
             ));
         }
@@ -655,29 +708,36 @@ fn variety_mix(text: &str) -> Option<String> {
     // 3. Cross-word mix: at least one marker of each variety.
     let british_marker = words.iter().any(|w| {
         OUR_OR_PAIRS.iter().any(|(uk, _)| w == uk)
-            || (UK_FAMILIES.iter().any(|s| w.ends_with(s)) && !non_variant_ise(w))
+            || (UK_FAMILIES.iter().any(|s| w.ends_with(s)) && !non_variant(w))
     });
     let american_marker = words.iter().any(|w| {
-        OUR_OR_PAIRS.iter().any(|(_, us)| w == us) || US_FAMILIES.iter().any(|s| w.ends_with(s))
+        OUR_OR_PAIRS.iter().any(|(_, us)| w == us)
+            || (US_FAMILIES.iter().any(|s| w.ends_with(s)) && !non_variant(w))
     });
     if british_marker && american_marker {
-        return Some(
+        out.push(
             "national variety mix: British (-our/-ise) and American (-or/-ize) spellings \
              co-occur"
                 .into(),
         );
     }
-    None
+    out
 }
 
-/// Italic mismatch: a `''span''` whose text also appears outside italics.
-fn italic_mismatch(raw: &str) -> Option<String> {
+/// Italic mismatches: every `''span''` whose text also appears outside
+/// italics as a WHOLE WORD. Heading markup is stripped from the plain
+/// text (item 6A: ''Life'' vs a `== Life ==` heading was a false block),
+/// and word boundaries are respected (''Time'' vs "Times").
+fn italic_mismatches(raw: &str) -> Vec<String> {
     // Scan only drafted prose: cite-template params (|magazine=Time)
-    // italicize via the template and are not mismatches.
+    // italicize via the template and are not mismatches, and heading
+    // lines are structural titles — an italicized ''Life'' matching a
+    // `== Life ==` section name is normal form, not a mismatch (item 6A).
     let text = mask_templates_and_refs(raw);
+    let text = mask_heading_lines(&text);
     let parts: Vec<&str> = text.split("''").collect();
     if parts.len() < 3 {
-        return None;
+        return Vec::new();
     }
     let plain: String = parts
         .iter()
@@ -686,19 +746,63 @@ fn italic_mismatch(raw: &str) -> Option<String> {
         .map(|(_, s)| *s)
         .collect::<Vec<_>>()
         .join(" ");
-    let fold = |s: &str| s.replace("[[", " ").replace("]]", " ").replace('|', " ");
+    // '=' joins the fold: heading text is markup, not plain prose.
+    let fold = |s: &str| {
+        s.replace("[[", " ")
+            .replace("]]", " ")
+            .replace(['|', '='], " ")
+    };
+    let plain = fold(&plain);
+    let mut out = Vec::new();
     for (i, part) in parts.iter().enumerate() {
         if i % 2 == 1 && part.trim().len() >= 3 {
             let needle = fold(part.trim());
-            if plain.contains(&needle) {
-                return Some(format!(
+            if contains_word(&plain, &needle) {
+                out.push(format!(
                     "italic mismatch: '{}' appears both italicized and plain",
                     part.trim()
                 ));
             }
         }
     }
-    None
+    out
+}
+
+/// Blank each heading line's text (newlines kept): heading titles are
+/// structure, not prose an italic span can mismatch against.
+fn mask_heading_lines(text: &str) -> String {
+    text.lines()
+        .map(|l| {
+            let t = l.trim();
+            if t.starts_with('=') && t.ends_with('=') && t.len() >= 4 {
+                " ".repeat(l.chars().count())
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Whether `haystack` contains `needle` as a whole word (bounded by
+/// non-letter chars on both sides).
+fn contains_word(haystack: &str, needle: &str) -> bool {
+    let is_letter = |c: char| c.is_alphanumeric();
+    let mut from = 0usize;
+    while let Some(at) = haystack[from..].find(needle) {
+        let start = from + at;
+        let end = start + needle.len();
+        let before_ok = haystack[..start]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !is_letter(c));
+        let after_ok = haystack[end..].chars().next().is_none_or(|c| !is_letter(c));
+        if before_ok && after_ok {
+            return true;
+        }
+        from = start + needle.chars().count().max(1);
+    }
+    false
 }
 
 /// See-also entries whose target is already wikilinked in the body.
@@ -756,9 +860,10 @@ fn see_also_duplications(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Lead/body duplication: a shared word-run of [`LEAD_BODY_NGRAM`] tokens
-/// between the lead (text before the first level-2 heading) and the body.
-fn lead_body_duplication(text: &str) -> Option<String> {
+/// Lead/body duplication: every DISTINCT shared word-run of
+/// [`LEAD_BODY_NGRAM`] tokens between the lead (text before the first
+/// level-2 heading) and the body.
+fn lead_body_duplications(text: &str) -> Vec<String> {
     let lines: Vec<&str> = text.lines().collect();
     let lead_end = lines
         .iter()
@@ -768,7 +873,7 @@ fn lead_body_duplication(text: &str) -> Option<String> {
         })
         .unwrap_or(lines.len());
     if lead_end == 0 || lead_end == lines.len() {
-        return None; // no lead+body structure to compare
+        return Vec::new(); // no lead+body structure to compare
     }
     let lead = lines[..lead_end].join(" ");
     let body = lines[lead_end..].join(" ");
@@ -785,18 +890,23 @@ fn lead_body_duplication(text: &str) -> Option<String> {
         .filter(|t| !t.is_empty())
         .collect();
     if lead_tokens.len() < LEAD_BODY_NGRAM || body_tokens.len() < LEAD_BODY_NGRAM {
-        return None;
+        return Vec::new();
     }
+    // One finding per DISTINCT shared run (item 6A) — a second duplicated
+    // run was hidden behind the first.
     let body_shingles: HashSet<&[String]> = body_tokens.windows(LEAD_BODY_NGRAM).collect();
+    let mut out = Vec::new();
     for window in lead_tokens.windows(LEAD_BODY_NGRAM) {
         if body_shingles.contains(window) {
             let run = window.join(" ");
-            return Some(format!(
-                "lead/body duplication: shared {LEAD_BODY_NGRAM}-word run \"{run}\""
-            ));
+            let detail =
+                format!("lead/body duplication: shared {LEAD_BODY_NGRAM}-word run \"{run}\"");
+            if !out.contains(&detail) {
+                out.push(detail);
+            }
         }
     }
-    None
+    out
 }
 
 #[cfg(test)]

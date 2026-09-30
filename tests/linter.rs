@@ -203,3 +203,127 @@ fn ac4_fixed_lead_body_duplication() {
         "{findings:?}"
     );
 }
+
+// ---- rule-enforcement item 6 Part A: confirmed misfires, repaired ----
+// Each test was added FIRST and failed against the old behavior.
+
+/// False pass: a whole-page rule that reports only its first match hides a
+/// second violation behind one that already exists in the base — the gate
+/// dedups by (rule, detail), so every match must be its own finding.
+#[test]
+fn whole_page_rules_report_every_match() {
+    use wikiloop::checks::linter::scan_whole_page;
+    let config = cfg();
+    let base = "{{cite book |pages=12 |title=A}}\n";
+    // Base already has one single-page |pages=; the proposal adds a second.
+    let proposed = "{{cite book |pages=12 |title=A}}\n{{cite book |pages=44 |title=B}}\n";
+    // The checker itself reports EVERY match.
+    let whole = scan_whole_page(proposed, &config);
+    assert_eq!(
+        whole
+            .iter()
+            .filter(|f| f.rule == "page-pages-consistency")
+            .count(),
+        2,
+        "every match is a finding: {whole:?}"
+    );
+    // The gate then keeps exactly the NEW violation (the pre-existing one
+    // dedups against the base scan) — before, the checker's single
+    // first-match finding WAS the pre-existing one, hiding the new one.
+    let findings = gate(base, proposed, &config);
+    let pages: Vec<&wikiloop::checks::linter::LintFinding> = findings
+        .iter()
+        .filter(|f| f.rule == "page-pages-consistency")
+        .collect();
+    assert_eq!(pages.len(), 1, "the new violation surfaces: {findings:?}");
+    assert!(
+        pages[0].detail.contains("44"),
+        "not hidden behind the old one: {pages:?}"
+    );
+}
+
+/// False pass: the pre-existing-semicolon guard skipped the whole line, so
+/// a NEW semicolon added to a line that already had one passed.
+#[test]
+fn new_semicolon_on_a_line_that_had_one_flags() {
+    let config = cfg();
+    let base = "The tower stands; the keep follows.\n";
+    let proposed = "The tower stands; the keep follows; the moat remains.\n";
+    let findings = gate(base, proposed, &config);
+    assert!(
+        findings.iter().any(|f| f.rule == "semicolon-prose"),
+        "the added semicolon is drafted prose: {findings:?}"
+    );
+    // The guard's purpose survives: an unchanged semicolon line passes.
+    let unchanged = gate("The tower stands.\n", "The tower stands.\n", &config);
+    assert!(
+        !unchanged.iter().any(|f| f.rule == "semicolon-prose"),
+        "{unchanged:?}"
+    );
+}
+
+/// False pass: added-lines rules scanned one line at a time, so a citation
+/// spanning several lines never matched.
+#[test]
+fn multiline_citation_named_ref_pinpoint_flags() {
+    let config = cfg();
+    let base = "Old text.\n";
+    let proposed =
+        "Old text.\nClaim.<ref name=\"p12\">{{cite book |title=X\n|year=1901 |page=12}}</ref>\n";
+    let findings = gate(base, proposed, &config);
+    assert!(
+        findings.iter().any(|f| f.rule == "named-ref-with-pinpoint"),
+        "the ref+cite pair spans lines: {findings:?}"
+    );
+}
+
+/// False block: -ise/-ize suffix matching counted root words as markers
+/// ("prize"/"size" as American, "advertising"/"crises"/"expertise" as
+/// British) — two both-variant words together produced a spurious mix.
+#[test]
+fn variety_mix_ignores_root_words() {
+    let config = cfg();
+    let text = "The advertising prize was a surprise of great expertise amid several crises.\n";
+    let findings = gate("", text, &config);
+    assert!(
+        !findings.iter().any(|f| f.rule == "national-variety-mix"),
+        "root -ise/-ize words are not variety markers: {findings:?}"
+    );
+    // A REAL mix still flags.
+    let real = gate("", "The colour was organized well.\n", &config);
+    assert!(
+        real.iter().any(|f| f.rule == "national-variety-mix"),
+        "{real:?}"
+    );
+}
+
+/// False block: italic-mismatch matched case-sensitively as a substring
+/// against ALL plain text — ''Life'' vs a `== Life ==` heading, ''Time''
+/// vs "Times".
+#[test]
+fn italic_mismatch_ignores_headings_and_word_boundaries() {
+    let config = cfg();
+    let text = "== Life ==\n''Life'' of the painter spanned decades.\nThe Times reported it.\n";
+    let findings = gate("", text, &config);
+    assert!(
+        !findings.iter().any(|f| f.rule == "italic-mismatch"),
+        "heading text and word-boundary near-misses are not mismatches: {findings:?}"
+    );
+    // A REAL mismatch (whole word, plain prose) still flags.
+    let real = gate("", "''Times'' praised it. The Times retracted.\n", &config);
+    assert!(real.iter().any(|f| f.rule == "italic-mismatch"), "{real:?}");
+}
+
+/// False block: semicolons inside a multi-line template were flagged
+/// (one-line-at-a-time scanning never saw the whole template).
+#[test]
+fn semicolon_inside_multiline_template_passes() {
+    let config = cfg();
+    let base = "Old text.\n";
+    let proposed = "Old text.\nNote.{{efn|See the chronology; volumes I and II;\nthe third followed later.}}\n";
+    let findings = gate(base, proposed, &config);
+    assert!(
+        !findings.iter().any(|f| f.rule == "semicolon-prose"),
+        "template bodies are masked, not prose: {findings:?}"
+    );
+}
