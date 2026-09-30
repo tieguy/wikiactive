@@ -1643,15 +1643,13 @@ pub(crate) fn rule_review_blocks(
         .iter()
         .filter_map(|b| {
             if b.wikitext_anchor.starts_with("base:") {
-                // A pure deletion: no new side; the old side's wording is
-                // the base slice (the review is of what was removed).
-                let (s, e) = anchor_line_range(&b.wikitext_anchor)?;
-                Some(crate::driver::steps::ReviewBlock {
-                    element_id: b.element_id.clone(),
-                    base: slice_lines(&base_lines, s, e)?,
-                    proposed: String::new(),
-                    evidence: evidence.clone(),
-                })
+                // Pure deletions are NOT reviewable by this step (review
+                // finding 3): a concern's span must locate verbatim in a
+                // block's PROPOSED text, and a deletion has none — any
+                // legitimate concern about removed wording would fail
+                // validation and sink the pass. Reviewing removals needs
+                // span-against-base validation (follow-up); skip for now.
+                None
             } else {
                 let (s, e) = anchor_line_range(&b.wikitext_anchor)?;
                 let base_text = b

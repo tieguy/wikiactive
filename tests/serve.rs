@@ -582,8 +582,11 @@ async fn lint_warnings_show_on_the_review_page_without_blocking() {
 /// text changes stale it; pinned here).
 #[tokio::test]
 async fn rule_review_button_records_and_shows_concerns_without_staling() {
+    // The base carries a line the proposal deletes: pure-deletion blocks
+    // are skipped by the step (review finding 3 — their spans cannot
+    // validate), so the pass must still complete.
     let dir = setup_review_session(
-        "The tower is old.\n",
+        "The tower is old.\nA stale line follows.\n",
         "Critics have widely considered the tower the finest.\n",
     );
     let session = dir.join("sessions/test-article");
@@ -644,6 +647,57 @@ async fn rule_review_button_records_and_shows_concerns_without_staling() {
         "rule-reviewed must not stale the artifact: {page}"
     );
     assert!(page.contains("Comment"), "comment forms still live: {page}");
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Rule-enforcement item 3, review finding 4: a corpus missing a
+/// triage-selected card fails the serve handler BEFORE any model call —
+/// the paid endpoint is never hit.
+#[tokio::test]
+async fn missing_card_fails_the_handler_without_a_model_call() {
+    let dir = setup_session(true);
+    // Loop 2 selects rs-tiers/clop/primary-carveouts; remove one.
+    let removed = dir.join("rules/cards/rs-tiers.md");
+    assert!(removed.exists());
+    std::fs::remove_file(&removed).unwrap();
+
+    let zai = MockServer::start_async().await;
+    let model = zai
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(500);
+        })
+        .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/findings",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    assert_eq!(model.calls(), 0, "no model call on a broken corpus");
+    // The outcome names the missing card.
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("rs-tiers") && page.contains("missing"),
+        "the outcome names the missing card: {page}"
+    );
     let _ = child.kill();
     let _ = child.wait();
     let _ = std::fs::remove_dir_all(&dir);

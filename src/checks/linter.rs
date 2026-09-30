@@ -139,28 +139,33 @@ impl LinterConfig {
     }
 }
 
-/// Whether the added run DRAFTS a semicolon: true when the run has no
-/// base counterpart (brand-new text — every semicolon is drafted), or
-/// when it carries MORE semicolons than the base line it modifies
-/// (shared 30+ char prefix). The count compare (item 6A) replaced the
-/// old skip-the-whole-line guard, which hid a NEW semicolon added to a
-/// line that already had one.
-fn introduces_semicolon(added_run: &str, base: &str) -> bool {
-    if !added_run.contains(';') {
-        return false;
-    }
-    let prefix = &added_run[..added_run
-        .char_indices()
-        .nth(30)
-        .map_or(added_run.len(), |(i, _)| i)];
-    let counterpart = base
-        .lines()
-        .find(|b| b.len() >= 5 && b.contains(prefix.trim()));
-    match counterpart {
-        // No base line resembles it: brand-new drafting.
-        None => true,
-        Some(b) => added_run.matches(';').count() > b.matches(';').count(),
-    }
+/// Mask the added run's INHERITED-semicolon lines (spaces, newlines
+/// kept): a line whose base counterpart (any base line containing the
+/// line's shared 30-char prefix) already carries at least as many
+/// semicolons had none drafted — the previous author's prose, not this
+/// tool's (review finding 1: the earlier whole-RUN count compare
+/// false-blocked multi-line runs whose counterpart was a single line;
+/// the guard is per line).
+fn mask_inherited_semicolon_lines(run: &str, base: &str) -> String {
+    run.split('\n')
+        .map(|l| {
+            if !l.contains(';') {
+                return l.to_string();
+            }
+            let prefix = &l[..l.char_indices().nth(30).map_or(l.len(), |(i, _)| i)];
+            let inherited = base.lines().any(|b| {
+                b.len() >= 5
+                    && b.contains(prefix.trim())
+                    && b.matches(';').count() >= l.matches(';').count()
+            });
+            if inherited {
+                " ".repeat(l.chars().count())
+            } else {
+                l.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// One linter finding.
@@ -324,15 +329,14 @@ pub fn gate(base: &str, proposed: &str, cfg: &LinterConfig) -> Vec<LintFinding> 
                 // line-at-a-time scan never saw either. Findings attribute
                 // to the run's first line.
                 for (line, run) in added_runs(&added) {
-                    if rule.applies == Scope::DraftedLines
-                        && rule.id == "semicolon-prose"
-                        && !introduces_semicolon(&run, base)
-                    {
+                    if rule.applies == Scope::DraftedLines && rule.id == "semicolon-prose" {
                         // Editing a pre-existing line must not gate on the
                         // previous author's semicolons — the guard is for
-                        // prose this tool drafts (item 6A: compared by
-                        // COUNT, so a new semicolon on a line that already
-                        // had one still flags).
+                        // prose this tool drafts. Per LINE, inherited
+                        // counts are masked out of the run (review finding
+                        // 1); a line that adds semicolons stays scanned.
+                        let masked = mask_inherited_semicolon_lines(&run, base);
+                        check_rule_on(rule, &masked, line, &mut findings);
                         continue;
                     }
                     if rule.applies == Scope::AddedLines && rule.id == "refname-autonumber" {

@@ -262,6 +262,32 @@ fn new_semicolon_on_a_line_that_had_one_flags() {
     );
 }
 
+/// False pass (review finding 1, plan item 6A acceptance): the guard must
+/// exempt INHERITED semicolons — on a multi-line run too. Two modified
+/// lines that add no new semicolons pass; the same run with one added
+/// semicolon flags.
+#[test]
+fn inherited_semicolons_on_a_multiline_run_pass() {
+    let config = cfg();
+    let base = "The tower stands; the keep follows.\nThe moat is deep; the walls are high.\n";
+    let proposed =
+        "The tower stands; the keep follows today.\nThe moat is deep; the walls are high now.\n";
+    let clean = gate(base, proposed, &config);
+    assert!(
+        !clean.iter().any(|f| f.rule == "semicolon-prose"),
+        "inherited semicolons exempt: {clean:?}"
+    );
+    let dirty = gate(
+        base,
+        "The tower stands; the keep follows; and the moat is deep; the walls are high.\n",
+        &config,
+    );
+    assert!(
+        dirty.iter().any(|f| f.rule == "semicolon-prose"),
+        "the added semicolon flags: {dirty:?}"
+    );
+}
+
 /// False pass: added-lines rules scanned one line at a time, so a citation
 /// spanning several lines never matched.
 #[test]

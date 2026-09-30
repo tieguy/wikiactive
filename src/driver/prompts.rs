@@ -57,7 +57,7 @@ pub fn render(template: &str, slots: &[(&str, &str)]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{AUTHOR_FINDINGS, PROPOSE, RESOLVE, load, render};
+    use super::{AUTHOR_FINDINGS, PROPOSE, RESOLVE, REVIEW, load, render};
     use sha2::{Digest, Sha256};
 
     fn sha256_hex(text: &str) -> String {
@@ -94,6 +94,13 @@ mod tests {
                 // rule-enforcement item 3: gained the {{guidance}} rules
                 // section.
                 "0126cd0f87bb21015b8a349d6c06f93bf028f2f2f0161a7388ae32c42f9a2439",
+            ),
+            (
+                REVIEW,
+                // rule-enforcement item 5: the rule-review prompt
+                // (clause-by-clause advice schema). Review finding 2: it
+                // shipped unpinned — every prompt is checksum-pinned.
+                "80aa7e9a08850f0b35f189fb95cc5e9d2aa1961527acf9cd9aebfb4e70275b7f",
             ),
         ] {
             let text = load(name).unwrap_or_else(|e| panic!("{e}"));
