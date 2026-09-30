@@ -132,7 +132,11 @@ dropped.
    model's reply).
 10. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
     gate re-runs; then the ONE human gate: a `/dev/tty` confirmation. The
-    model never self-publishes. On success the base re-pins.
+    model never self-publishes. On success the base re-pins and the saved
+    revision is read back — the minor flag, parent revid, summary
+    disclosure and saved text are checked against what was sent;
+    mismatches print under `VERIFY` and land in the round log (a clean
+    read-back says so too).
 11. **Post-publish** — Earwig compare per new web source; TALK provenance
     note; disclosure-page session-log append; screenshots for the
     disclosure page (operator, manual Commons upload).

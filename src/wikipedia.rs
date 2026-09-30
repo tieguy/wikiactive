@@ -199,6 +199,24 @@ impl EditOutcome {
     }
 }
 
+/// What the read-back (`Wikipedia::verify_revision`) expects of a
+/// just-saved revision — everything the edit path promised, so a
+/// presence-flag or config regression on the server side is seen, not
+/// silently absorbed (rule-enforcement plan item 1).
+#[derive(Debug, Clone, Copy)]
+pub struct RevisionExpectation<'a> {
+    /// The base revid the edit was pinned to; 0 = page creation (the
+    /// parent check is skipped — a creation has no parent).
+    pub base_revid: u64,
+    /// The full expected summary, disclosure suffix included.
+    pub summary: &'a str,
+    /// House-rules operator username; `None` skips the user check.
+    pub operator: Option<&'a str>,
+    /// The proposed text the edit carried. The text compare is advisory:
+    /// pre-save transforms may legitimately alter it.
+    pub text: &'a str,
+}
+
 /// Build the final edit summary: refuse a bare summary, append the
 /// disclosure suffix idempotently (AC.7).
 ///
@@ -552,6 +570,100 @@ impl Wikipedia {
                 req.base_revid
             ),
         })
+    }
+
+    /// Read a just-published revision back and compare what the wiki
+    /// recorded with what the edit path intended (rule-enforcement plan
+    /// item 1: verify outcomes, not only inputs). One query for the
+    /// flags/parent/comment/user, one for the text. Returns one line per
+    /// mismatch — a mismatch NEVER errors (the edit is already live); a
+    /// failed read-back itself is reported as a line.
+    pub async fn verify_revision(
+        &self,
+        revid: u64,
+        expected: &RevisionExpectation<'_>,
+    ) -> Vec<String> {
+        let revid_str = revid.to_string();
+        let resp: Value = match self
+            .api
+            .get_value([
+                ("action", "query"),
+                ("prop", "revisions"),
+                ("revids", revid_str.as_str()),
+                ("rvprop", "ids|flags|comment|user"),
+                ("rvslots", "main"),
+            ])
+            .await
+        {
+            Ok(v) => v,
+            Err(e) => return vec![format!("could not verify the saved revision: {e}")],
+        };
+        let Some(rev) = query_pages(&resp)
+            .into_iter()
+            .next()
+            .and_then(|page| page.get("revisions")?.as_array()?.first().cloned())
+        else {
+            return vec!["could not verify the saved revision: no such revid".into()];
+        };
+        let mut lines = Vec::new();
+        // `minor` is a presence flag on the saved revision; no edit this
+        // tool makes may carry it (the edit posts notminor=1).
+        if rev
+            .get("flags")
+            .and_then(Value::as_array)
+            .is_some_and(|flags| flags.iter().any(|f| f.as_str() == Some("minor")))
+        {
+            lines.push(
+                "saved as a MINOR edit — edits post notminor=1, so this must not happen".into(),
+            );
+        }
+        // The parent must be the base the edit was pinned to (skipped for a
+        // page creation: there is no parent).
+        if expected.base_revid > 0 {
+            let parent = rev.get("parentid").and_then(Value::as_u64).unwrap_or(0);
+            if parent != expected.base_revid {
+                lines.push(format!(
+                    "saved revision's parent is {parent}, not the pinned base {} — the base \
+                     moved under the edit",
+                    expected.base_revid
+                ));
+            }
+        }
+        let comment = rev.get("comment").and_then(Value::as_str).unwrap_or("");
+        // NB: the suffix rides wrapped in parens ("… (SUFFIX)"), and a
+        // summary that already carried it passes through verbatim — so
+        // the invariant is that the saved comment CONTAINS it, not that
+        // it ends with the bare suffix.
+        if !comment.contains(crate::DISCLOSURE_SUFFIX) {
+            lines.push(format!(
+                "saved summary does not carry the disclosure suffix: {comment:?}"
+            ));
+        }
+        if let Some(operator) = expected.operator {
+            let user = rev.get("user").and_then(Value::as_str).unwrap_or("");
+            if user != operator {
+                lines.push(format!(
+                    "saved by {user:?}, not the operator account {operator:?}"
+                ));
+            }
+        }
+        // Text: advisory compare — MediaWiki pre-save transforms may
+        // legitimately alter the text, so a difference is reported, not
+        // claimed as a violation. (Title unused: the revid addresses the
+        // revision directly.)
+        match self.wikitext_at_revid("", revid).await {
+            Ok(saved) => {
+                if saved.trim_end() != expected.text.trim_end() {
+                    lines.push(
+                        "saved text differs from the proposed text (pre-save transforms are \
+                         possible — inspect the diff)"
+                            .into(),
+                    );
+                }
+            }
+            Err(e) => lines.push(format!("could not verify the saved revision text: {e}")),
+        }
+        lines
     }
 
     /// Append one entry to the disclosure page's session log, idempotently:

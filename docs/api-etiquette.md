@@ -70,6 +70,12 @@ wikiactive/0.1 (en.wikipedia User:LuisVilla; luis@lu.is)
   (`LLM-Disclosure: U:LuisVilla/wikiactive`); a bare summary is refused.
 - No publish happens without an interactive `/dev/tty` confirmation
   (`ConfirmSource`; `DenyConfirm` proves refusal in tests).
+- After a successful save, the revision is read back once (flags, parent,
+  comment, user, text) and compared with what the edit path sent: a
+  mismatch — a minor flag above all, since `minor` is a presence flag —
+  is shown to the operator under `VERIFY` and recorded in the round log,
+  never silently absorbed. The tool verifies outcomes, not only inputs
+  (`tests/readback.rs`).
 
 ## Source fetching (non-Wikimedia hosts)
 

@@ -2220,9 +2220,18 @@ async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> Stri
     };
     match crate::cli::publish_core(slug, summary, &wiki, &mut confirm, crate::cli::Via::Web).await {
         Ok(out) => {
+            // Read-back result rides the message (rule-enforcement item 1):
+            // the word "failed" gives the notice the error style.
+            let verify = if !out.created_revision {
+                String::new()
+            } else if out.verification.is_empty() {
+                " — read-back verified clean".into()
+            } else {
+                format!(" — read-back FAILED: {}", out.verification.join("; "))
+            };
             if out.created_revision {
                 format!(
-                    "gate: PASS — published: {} (new revid {})",
+                    "gate: PASS — published: {} (new revid {}){verify}",
                     out.diff_url, out.new_revid
                 )
             } else {

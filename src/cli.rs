@@ -1081,6 +1081,10 @@ pub struct PublishOutcome {
     pub new_revid: u64,
     /// Whether a revision was actually created.
     pub created_revision: bool,
+    /// Read-back lines (rule-enforcement item 1): empty = the saved
+    /// revision matched; each line names one mismatch, or reports that
+    /// the read-back itself failed.
+    pub verification: Vec<String>,
 }
 
 /// The shared publish path (plan-003 B.4): gate → confirm → edit → re-pin
@@ -1163,6 +1167,7 @@ pub async fn publish_core(
         .await?;
 
     // Re-pin: base becomes the published state.
+    let base_before_publish = meta.base_revid;
     let mut meta = meta;
     meta.base_revid = outcome.new_revid;
     // A null edit (the page already held this text) created no revision:
@@ -1178,17 +1183,41 @@ pub async fn publish_core(
     }
     std::fs::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
     std::fs::write(paths.base(), &proposed_wikitext)?;
+    // Read-back (rule-enforcement item 1): compare what the wiki recorded
+    // with what this path intended. The edit is already live, so a
+    // mismatch warns and records — it can never turn the publish into an
+    // error. Null edits created no revision: nothing to read back.
+    let verification = if outcome.created_revision() {
+        let expected_summary = crate::wikipedia::summary_with_disclosure(summary)
+            .unwrap_or_else(|_| summary.to_string());
+        wiki.verify_revision(
+            outcome.new_revid,
+            &crate::wikipedia::RevisionExpectation {
+                base_revid: base_before_publish,
+                summary: &expected_summary,
+                operator: corpus.house_rules.operator.username.as_deref(),
+                text: &proposed_wikitext,
+            },
+        )
+        .await
+    } else {
+        Vec::new()
+    };
     // Publishing consumes the session's findings: archive them with the
     // diff link (audit trail) and reset — the next edit's artifact must
     // show only ITS evidence, not stale cards from published edits
     // (operator catch: "evidence for this edit seems cached").
     archive_findings(&paths, &outcome.diff_url)?;
+    // The round entry records the read-back lines after the diff URL —
+    // the audit trail carries what the wiki actually saved.
+    let mut round_detail = published_diff;
+    round_detail.extend(verification.iter().cloned());
     let entry = RoundEntry {
         round: 0,
         timestamp: now_iso(),
         summary: format!("published: {summary}"),
         phase: "published".into(),
-        detail: published_diff,
+        detail: round_detail,
     };
     append_round(&paths, &entry)?;
     if outcome.created_revision() {
@@ -1201,6 +1230,19 @@ pub async fn publish_core(
             "no change: the page already contains this text (revid {})",
             outcome.new_revid
         );
+    }
+    // Read-back result (rule-enforcement item 1): every line under a
+    // VERIFY heading; a clean read-back is stated too, so its absence is
+    // visible.
+    if outcome.created_revision() {
+        if verification.is_empty() {
+            println!("VERIFY: read-back clean — the saved revision matches what was sent");
+        } else {
+            println!("VERIFY: read-back FAILED — the saved revision differs from what was sent:");
+            for line in &verification {
+                println!("  {line}");
+            }
+        }
     }
     // Tty gets a clickable (OSC 8) link; the web path logs a plain URL —
     // the serve log is not a terminal (plan-005 O.2: raw OSC-8 escapes
@@ -1283,6 +1325,7 @@ pub async fn publish_core(
         created_revision: outcome.created_revision(),
         diff_url: outcome.diff_url,
         new_revid: outcome.new_revid,
+        verification,
     })
 }
 
