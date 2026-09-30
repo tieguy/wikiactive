@@ -387,6 +387,36 @@ restart; conservative UI changes only.
 shakedown UX record above (this section holds the audit trail; the UX
 record holds the findings).
 
+### O.6a — Infobox recommender: design note (read-only; no implementation)
+
+`infobox-recommender.toolforge.org` (maintainer Fuzheado, MIT, toolinfo
+created 2026-08-27) is live but **not automatable today**: no `/docs`,
+no `openapi.json`, no discoverable JSON route; the About page's GitHub
+link 404s (no public repo anywhere — GitHub search 0 hits, Wikimedia
+GitLab nothing relevant); robots.txt is the Toolforge default
+`Disallow: /`. It is a human-facing app issuing one of three verdicts
+per article — *Recommend a specific infobox template* (with a peer
+census: coverage %, template distribution, boxed/bare examples), *No
+infobox customary*, or *Weak signal* (pointing at the WikiProject
+banner). It recommends the **template only** — never parameters or
+values. Method (documented on its About page): census over "peers" from
+Wikidata P31 siblings, the smallest enclosing categories, and talk-page
+WikiProject banners, then a histogram of infobox-family transclusions.
+
+**Design conclusion for the loop:** do not build an analyze-bundle
+enrichment on this tool as-is. Two defensible paths, in order of
+preference: (1) **ask the maintainer** (Toolforge/on-wiki) for a JSON
+endpoint — the tool already produces shareable report URLs, so an API
+is natural; (2) **reimplement the census locally** in the sweep/analyze
+phase — every input (P31 siblings via wbgetentities, category member
+counts, banner templates, template transclusion counts) is available
+through the APIs wikiloop already calls with correct etiquette; the
+About page documents the method and the 88-case evaluation design well
+enough for a clean-room reimplementation. Either way it stays a
+**template-choice signal feeding findings** (loop 1/L1 advisory), never
+an automatic edit. No implementation tonight per plan; nothing to
+defer on-wiki.
+
 ### O.6b — Wikidata marriage-date prep (L5 design note; NO writes made)
 
 Read-only investigation (wbsearchentities/wbgetentities, 2026-09-30):
@@ -472,5 +502,55 @@ tonight's work ran (690b580, 22:50 local: the v1 bash script and
   smoke test's live legs.
 - **Symlink**: resolves to the release binary; config present. No
   morning action needed.
+
+### Teardown + gate record (night's end, 2026-09-30T05:55–06:05Z)
+
+- **AC.3 verified:** scratch CWD removed; this session's ports
+  (47631/47632/47640) clear; `sessions/` manifest digest at teardown
+  **identical** to the O.0 baseline (`682ac42e…`). Four `wa serve
+  --port 0` loopback listeners (PIDs 498324/498349/500749/504039,
+  started 2026-09-29 16:14–16:15 local) PREDATE the night — orphaned
+  test instances from an earlier session, deliberately not touched
+  (don't kill what you didn't start unattended); morning list.
+- **AC.4 verified:** disclosure log still at revid **1377614233**; top
+  contributions exactly the session-1 pair (1377614233 log upsert,
+  1377614230 publish), nothing newer — zero wiki writes tonight, and
+  zero Wikidata writes (O.6b was read-only).
+- **AC.2 verified:** `cargo test` green **×3 consecutive** on the final
+  code; `cargo clippy --all-targets` clean; `cargo fmt --check` clean.
+- **Review:** one end-of-night `general-purpose` review of the night's
+  diff — verdict SHIP, zero critical/major; all six minors fixed in
+  a577257 (registry in-place replace + order pin, doc corrections,
+  no-op removal, bounded-poll before the serve-log assertion).
+- **Live service:** the operator's `wa serve --tsnet` (PID 1555443,
+  CWD repo root) was left untouched all night and restarted ONCE at
+  the very end from the recorded invocation (see below).
+
+## Morning list (plan-005, surfaced first in the morning summary)
+
+1. **Fetch-status icons** — operator-deferred 2026-09-27, still your
+   call (backlog note above).
+2. **Session 2 of the live shakedown** — a real article (Gordon
+   recommended) through the full comment → apply → re-render cycle in
+   `wa serve`; then the **v0.9.0 tag** if it holds up (README's Status
+   section is drafted for it).
+3. **Wikidata marriage dates** — apply the O.6b checklist with the
+   operator (P580 = 1874 on both P26 directions of Q7422487/Q6233465,
+   SF Call obituary reference; no writes were made overnight).
+4. **Thin-client visual pass** — the ~360px CSS hardening is
+   static-review-only; eyeball the artifact on the thin client.
+5. **SonarQube** — no token in bws (O.6c): add `SONAR_TOKEN` + name
+   the host (sonarcloud vs self-hosted) to unblock; the analysis
+   upload / scanner run was out of scope overnight either way.
+6. **"Claude Code UI review"** — run it yourself against the served
+   artifact URL (`/sessions/<slug>/review`); this harness has no
+   browser/screenshot tooling (O.6d).
+7. **UX taste items surfaced by the overnight walk** — session page's
+   `Publish` h2 wraps the driver/render forms too; "archive: (archive
+   pending)" phrasing on the evidence card.
+8. **Housekeeping** — four orphaned `wa serve --port 0` test instances
+   from 2026-09-29 (PIDs above) are safe to kill; wm-fetch v2.0.0's
+   cutover is complete (nothing owed).
+
 
 
