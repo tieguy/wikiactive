@@ -449,6 +449,66 @@ async fn review_artifact(Path(slug): Path<String>) -> axum::response::Response {
     }
 }
 
+/// The review artifact's freshness relative to the CURRENT session state
+/// (plan-004 staleness guard, from the operator's shakedown catch: an old
+/// page-creation draft was served as if it were the live review). No new
+/// state: reconciled from facts the session already records —
+/// `rounds.jsonl` (append-only, file order = event order: a `published`
+/// or `comments-resolved` entry after the last `rendered` makes the
+/// artifact history) and file mtimes (a `proposed.wikitext`/`base`
+/// touched after the render is a hand edit the artifact never saw).
+enum ArtifactState {
+    /// The render is the session's latest event — commenting is live.
+    Current { round: u32 },
+    /// Do not comment against this artifact: forms suppressed, banner
+    /// shown, driver-resolve refuses.
+    Stale { reason: String },
+}
+
+fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
+    // The render under discussion is the LAST `rendered` round entry.
+    let rounds: Vec<crate::session::RoundEntry> = std::fs::read_to_string(dir.join("rounds.jsonl"))
+        .ok()?
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    let render_idx = rounds.iter().rposition(|e| e.phase == "rendered")?;
+    let round = rounds[render_idx].round;
+    // Anything the loop did AFTER that render makes the artifact history.
+    let later: &[crate::session::RoundEntry] = &rounds[render_idx + 1..];
+    if later.iter().any(|e| e.phase == "published") {
+        return Some(ArtifactState::Stale {
+            reason: "this edit was published — the review is done".into(),
+        });
+    }
+    if later.iter().any(|e| e.phase == "comments-resolved") {
+        return Some(ArtifactState::Stale {
+            reason: "comments were applied after this render — re-render to review the \
+                     revised text"
+                .into(),
+        });
+    }
+    // A hand edit (or anything else) touched the session text after the
+    // artifact was written: mtime is the basic on-disk fact.
+    let artifact_mtime = std::fs::metadata(dir.join("review.html"))
+        .ok()?
+        .modified()
+        .ok()?;
+    let text_touched_after = ["proposed.wikitext", "base.wikitext"]
+        .iter()
+        .filter_map(|f| std::fs::metadata(dir.join(f)).ok())
+        .filter_map(|m| m.modified().ok())
+        .any(|t| t > artifact_mtime);
+    if text_touched_after {
+        return Some(ArtifactState::Stale {
+            reason: "the session's text changed after the render (hand edit?) — re-render \
+                     before commenting"
+                .into(),
+        });
+    }
+    Some(ArtifactState::Current { round })
+}
+
 /// The per-block insertion plan for [`inject_comment_ui`]: for each
 /// changed block and evidence card, the comment HTML to insert directly
 /// after that element's closing `</div>` (blocks are flat — the next
@@ -532,6 +592,9 @@ fn block_insertions(
 /// artifact's own palette: it styles .block/.evidence, these style the
 /// comment layer only).
 const ARTIFACT_COMMENT_STYLE: &str = "<style>
+  .wa-stale { font-family: system-ui, sans-serif; font-size: .9rem; \
+border: 2px solid #b77; background: #fdf3f3; border-radius: 8px; \
+padding: .6rem .9rem; margin: .75rem 0; }
   .wa-bar { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); \
 border: 1px solid var(--line); border-radius: 8px; background: #fff; \
 padding: .5rem .75rem; margin: .75rem 0; display: flex; align-items: center; gap: 1rem; }
@@ -568,46 +631,71 @@ background: #fff; border-radius: 6px; padding: .25rem .6rem; cursor: pointer; }
 /// structurally unchanged — plan-004's invariant); this is presentation
 /// only.
 fn inject_comment_ui(slug: &str, artifact_html: &str) -> String {
-    let queue = crate::comments::CommentQueue::load(&session_dir(slug).join("comments.jsonl"))
-        .unwrap_or_default();
-    let (mut insertions, placed_anchors) = block_insertions(slug, artifact_html, &queue);
+    let dir = session_dir(slug);
+    let queue =
+        crate::comments::CommentQueue::load(&dir.join("comments.jsonl")).unwrap_or_default();
+    let state = artifact_state(&dir);
 
-    // Apply right-to-left so earlier offsets stay valid.
-    insertions.sort_by_key(|(pos, _)| std::cmp::Reverse(*pos));
+    // A STALE artifact is history: no comment forms (never comment
+    // against an old anchor table), just the banner saying what happened
+    // and what to do. Everything below the banner stays read-only.
+    let stale_banner = |reason: &str| {
+        format!(
+            "<div class=\"wa-stale\"><strong>This review is out of date.</strong> {} \
+             · <a href=\"/sessions/{slug}\">session page</a> — re-render there to review \
+             the current edit.</div>",
+            esc(reason)
+        )
+    };
+
     let mut out = artifact_html.to_string();
-    for (pos, html) in insertions {
-        out.insert_str(pos, &html);
-    }
-
-    // Header bar (status + driver action) right after <main> opens.
-    let open_count = queue.open().len();
-    let bar = format!(
-        "<div class=\"wa-bar\">review comments: {open_count} open \
-         · <a href=\"/sessions/{slug}\">session page</a>\
-         <form method=post action=\"/sessions/{slug}/driver/resolve\" class=\"wa-bar-form\">\
-         <button>apply comments — the drafting model revises the text</button></form></div>"
-    );
-    if let Some(i) = out.find("<main>") {
-        out.insert_str(i + "<main>".len(), &bar);
-    }
-
-    // Any comments that did NOT land under a block (unknown targets,
-    // manual anchors): a catch-all footer before </main>.
-    let stray: Vec<&crate::comments::Comment> = queue
-        .comments
-        .iter()
-        .filter(|c| !placed_anchors.contains(&c.target))
-        .collect();
-    if !stray.is_empty() {
-        let mut footer = String::from(
-            "<div class=\"wa-stray\"><h2>Other comments (not attached to a block)</h2>",
-        );
-        for c in &stray {
-            footer.push_str(&comments_html(slug, &[c]));
+    if let Some(ArtifactState::Stale { reason }) = state {
+        if let Some(i) = out.find("<main>") {
+            out.insert_str(i + "<main>".len(), &stale_banner(&reason));
         }
-        footer.push_str("</div>");
-        if let Some(i) = out.rfind("</main>") {
-            out.insert_str(i, &footer);
+    } else {
+        let (mut insertions, placed_anchors) = block_insertions(slug, artifact_html, &queue);
+
+        // Apply right-to-left so earlier offsets stay valid.
+        insertions.sort_by_key(|(pos, _)| std::cmp::Reverse(*pos));
+        for (pos, html) in insertions {
+            out.insert_str(pos, &html);
+        }
+
+        // Header bar (status + driver action) right after <main> opens.
+        let open_count = queue.open().len();
+        let round_note = match state {
+            Some(ArtifactState::Current { round }) => format!(" · round {round}"),
+            _ => String::new(),
+        };
+        let bar = format!(
+            "<div class=\"wa-bar\">review comments: {open_count} open{round_note} \
+                 · <a href=\"/sessions/{slug}\">session page</a>\
+                 <form method=post action=\"/sessions/{slug}/driver/resolve\" class=\"wa-bar-form\">\
+                 <button>apply comments — the drafting model revises the text</button></form></div>"
+        );
+        if let Some(i) = out.find("<main>") {
+            out.insert_str(i + "<main>".len(), &bar);
+        }
+
+        // Any comments that did NOT land under a block (unknown
+        // targets, manual anchors): a catch-all footer before </main>.
+        let stray: Vec<&crate::comments::Comment> = queue
+            .comments
+            .iter()
+            .filter(|c| !placed_anchors.contains(&c.target))
+            .collect();
+        if !stray.is_empty() {
+            let mut footer = String::from(
+                "<div class=\"wa-stray\"><h2>Other comments (not attached to a block)</h2>",
+            );
+            for c in &stray {
+                footer.push_str(&comments_html(slug, &[c]));
+            }
+            footer.push_str("</div>");
+            if let Some(i) = out.rfind("</main>") {
+                out.insert_str(i, &footer);
+            }
         }
     }
 
@@ -674,15 +762,33 @@ fn comments_html(slug: &str, comments: &[&crate::comments::Comment]) -> String {
 fn review_comments_section(slug: &str) -> String {
     let dir = session_dir(slug);
     let mut html = String::from("\n<h2>Review comments</h2>\n");
-    match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
-        Ok(queue) => {
-            let open = queue.open().len();
+    // Artifact status first: is there a CURRENT review to comment on?
+    match artifact_state(&dir) {
+        Some(ArtifactState::Current { round }) => {
             let _ = writeln!(
                 html,
-                "<p>{open} open. <a href=\"/sessions/{slug}/review\">Open the review artifact</a> \
-                 to read the edit and leave comments — each paragraph carries its own \
-                 comment box, right under the text.</p>"
+                "<p>Review artifact: current (round {round}). <a href=\"/sessions/{slug}/review\">\
+                 Open it</a> to read the edit and leave comments — each paragraph carries \
+                 its own comment box, right under the text.</p>"
             );
+        }
+        Some(ArtifactState::Stale { reason }) => {
+            let _ = writeln!(
+                html,
+                "<p>Review artifact: <strong>out of date</strong> — {}. Use \
+                 <em>render review artifact</em> below to review the current edit.</p>",
+                esc(&reason)
+            );
+        }
+        None => {
+            let _ = writeln!(
+                html,
+                "<p>No current review artifact — use <em>render review artifact</em> below.</p>"
+            );
+        }
+    }
+    match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+        Ok(_queue) => {
             html.push_str(&queue_html(slug, &dir));
         }
         Err(e) => {
@@ -1093,6 +1199,7 @@ fn slice_lines(lines: &[&str], s: usize, e: usize) -> Option<String> {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
     let dir = session_dir(slug);
     let Ok(artifact) = std::fs::read_to_string(dir.join("review.html")) else {
@@ -1110,6 +1217,22 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
     };
     if queue.open().is_empty() {
         return "driver resolve: no open comments".into();
+    }
+    // Staleness guard: never splice revisions based on an artifact that
+    // predates a publish, a comment round, or a hand edit — the anchor
+    // table would not describe the current text (operator shakedown
+    // catch: an old page-creation draft served as current).
+    match artifact_state(&dir) {
+        Some(ArtifactState::Stale { reason }) => {
+            return format!(
+                "driver resolve: the review artifact is out of date ({reason}) — re-render \
+                 before applying comments"
+            );
+        }
+        Some(ArtifactState::Current { .. }) => {}
+        None => {
+            return "driver resolve: no current review artifact — render first".into();
+        }
     }
 
     let (groups, evidence, unknown, id_to_anchor) = bucket_groups(&artifact, &queue);

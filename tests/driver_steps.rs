@@ -116,7 +116,15 @@ async fn malformed_then_valid_recovers() {
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
                 .path("/chat/completions");
+            // Response delay = the deterministic race window: the request
+            // is counted on arrival, so the test sees the hit and deletes
+            // this mock while the (garbage) response is still in flight;
+            // the corrective retry then matches only the good mock. The
+            // corrective call itself is immediate — no delay to lean on
+            // (the prior 750ms retry-delay fix covered transport retries,
+            // not this path; the test flaked ~1-in-5 in isolation).
             then.status(200)
+                .delay(Duration::from_millis(300))
                 .json_body(completion("sure, here are my thoughts:"));
         })
         .await;

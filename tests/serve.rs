@@ -532,8 +532,11 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .await
         .unwrap();
     assert!(page.contains("Review comments"), "{page}");
-    assert!(page.contains("0 open."), "{page}");
-    assert!(page.contains("Open the review artifact"), "{page}");
+    assert!(
+        page.contains("Review artifact: current (round 1)"),
+        "{page}"
+    );
+    assert!(page.contains("Open it</a> to read the edit"), "{page}");
     assert!(page.contains("queue empty"), "{page}");
     assert!(
         !page.contains("lavish"),
@@ -661,6 +664,79 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         !stdout.contains("lavish"),
         "no lavish on the web path: {stdout}"
     );
+
+    // Staleness leg (the operator's shakedown catch): a publish after the
+    // render makes the artifact history — the served artifact shows the
+    // banner and NO comment forms, and the session page says out of date.
+    std::fs::write(
+        dir.join("sessions/test-article/rounds.jsonl.bak"),
+        std::fs::read_to_string(dir.join("sessions/test-article/rounds.jsonl")).unwrap(),
+    )
+    .unwrap();
+    {
+        use std::io::Write as _;
+        let rounds_path = dir.join("sessions/test-article/rounds.jsonl");
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&rounds_path)
+            .unwrap();
+        writeln!(
+            f,
+            "{{\"round\":0,\"timestamp\":\"2099-01-01T00:00:00Z\",\"summary\":\"published\",\
+             \"phase\":\"published\",\"detail\":[]}}"
+        )
+        .unwrap();
+    }
+    let stale = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        stale.contains("This review is out of date."),
+        "stale banner: {stale}"
+    );
+    assert!(
+        stale.contains("this edit was published — the review is done"),
+        "{stale}"
+    );
+    assert!(
+        !stale.contains("leave a comment"),
+        "no comment forms on a stale artifact: {stale}"
+    );
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("Review artifact: <strong>out of date</strong>"),
+        "{page}"
+    );
+    // And driver-resolve refuses the stale artifact.
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/resolve",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let last_run = std::fs::read_to_string(dir.join("sessions/test-article/last-run.txt")).unwrap();
+    assert!(
+        last_run.contains("review artifact is out of date"),
+        "{last_run}"
+    );
+    // Restore: the earlier queue assertions already ran; the artifact
+    // returns to current once the publish entry is removed.
+    std::fs::rename(
+        dir.join("sessions/test-article/rounds.jsonl.bak"),
+        dir.join("sessions/test-article/rounds.jsonl"),
+    )
+    .unwrap();
 
     let _ = child.kill();
     let _ = std::fs::remove_dir_all(&dir);
