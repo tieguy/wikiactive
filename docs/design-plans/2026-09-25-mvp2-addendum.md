@@ -580,5 +580,38 @@ bws — value never printed):
   visibility is the operator's standing choice (public projects are the
   free SonarCloud tier; `tieguy_wikiharness` is private by comparison).
 
+## Parked work — resume map (2026-09-30, written for a clean session)
+
+plan-006 (approved: L5 Wikidata writeback + records) is PAUSED at commit
+`a30c700`, which also records the verified live-API facts the resume
+needs (read its commit message): `wbsetqualifier`'s statement-id
+parameter is `claim` (no `statement` on that module; `wbsetreference`'s
+IS `statement`); neither module takes `precision` — a bare-year value
+string ("1874") parses to precision 9, a full timestamp to precision
+11; `wbsetreference.snaks` is a JSON object of serialized snaks. The
+approved plan text itself:
+`~/.local/share/polytoken/sessions-v1/0bxxxn-voter/plan-006.md`.
+
+Remaining plan-006 work: W1 (src/wikidata.rs client + `wa wikidata
+qualify` CLI + ConfirmSource-gated write core + tests/wikidata.rs pins
+(a)–(h); route httpmock reads deterministically with distinct
+`requestid` values — HashMap mock matching is unordered), W4.2 (the
+seven-decision record here), then the live Kidder application
+(operator-gated: dry-run plan shown first, and the reference MUST
+resolve via C3→Q3→S2, the SF Call/CDNC source — never C1/True West),
+final gate. Already landed from plan-006: W0 (bug-fix batch `6e6e8ff`),
+W2+W3 (glyphs + archive pins `0d8a8dd`), W4.1 (SonarCloud, above).
+
+Operator decisions standing (2026-09-30): v0.9.0 tag timing is
+"one release, version numbering doesn't matter" — nothing is gated on
+tag ordering; live session 2 carries item 1's read-back live check
+(one real publish, VERIFY clean, no minor flag).
+
+Accepted follow-ups from the plan-007 reviews (in commit messages
+`352971c`/`9aa32a5`, repeated here): rule-review of pure deletions
+(needs span-against-base validation — currently skipped); per-match
+line attribution inside joined lint runs (cosmetic); one shared
+rule-review store function for the tty/web paths.
+
 
 
