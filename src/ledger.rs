@@ -300,6 +300,9 @@ impl Ledger {
             .find(|s| s.id == source_id)
             .ok_or_else(|| LedgerError::UnknownSource(source_id.to_string()))?;
         entry.fetched_text = Some(text.into());
+        // This text replaces whatever was there: an earlier operator
+        // capture's provenance no longer describes it.
+        entry.fetched_via = None;
         Ok(())
     }
 
@@ -344,7 +347,7 @@ impl Ledger {
         let trimmed = raw.trim_start();
         // Blink saves MHTML under .html filenames with a "From:" preamble
         // before MIME-Version — sniff by content signature too.
-        let head = &raw[..raw.len().min(1024)];
+        let head: String = raw.chars().take(1024).collect();
         let looks_mhtml = trimmed.starts_with("MIME-Version:")
             || trimmed.starts_with("From: ")
             || head.contains("Content-Type: multipart");
@@ -394,7 +397,8 @@ impl Ledger {
             };
             let end = (body_start + len).min(raw.len());
             if is_html {
-                let body = &raw[body_start..end];
+                // `get`: an inaccurate Content-Length can land mid-character.
+                let body = raw.get(body_start..end).unwrap_or_default();
                 if body.len() > best.len() {
                     best = body.to_string();
                 }

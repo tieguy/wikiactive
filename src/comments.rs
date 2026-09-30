@@ -127,16 +127,19 @@ impl CommentQueue {
     }
 
     /// Append one comment (allocating its id) and persist the single JSONL
-    /// line — the file is append-only; nothing is rewritten.
+    /// line — nothing is rewritten. The id is allocated from the file as
+    /// it is NOW, not from this snapshot, so a comment another writer
+    /// added since the load never shares an id with this one.
     ///
     /// # Errors
-    /// IO failure (the in-memory queue is still updated; callers that
-    /// care report the error).
+    /// A malformed queue file or IO failure; the comment is then neither
+    /// on disk nor in memory.
     pub fn append(
         &mut self,
         path: &std::path::Path,
         mut comment: Comment,
     ) -> Result<String, String> {
+        *self = Self::load(path)?;
         comment.id = self.next_id();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -154,25 +157,31 @@ impl CommentQueue {
     }
 
     /// Resolve one comment (status flip + note). `resolve_note` is what was
-    /// done; it is persisted in the queue, not held in memory.
+    /// done; it is persisted in the queue, not held in memory. The rewrite
+    /// starts from the file as it is NOW: a comment appended since this
+    /// queue was loaded (the operator keeps commenting while the driver
+    /// waits on the model) must survive it.
     ///
     /// # Errors
-    /// Unknown id, or the save failure (the resolution is rewritten to
-    /// disk — the queue is the record).
+    /// Unknown id, a malformed queue file, or the save failure (the
+    /// resolution is rewritten to disk — the queue is the record).
     pub fn resolve(
         &mut self,
         path: &std::path::Path,
         id: &str,
         resolve_note: &str,
     ) -> Result<(), String> {
-        let comment = self
+        let mut current = Self::load(path)?;
+        let comment = current
             .comments
             .iter_mut()
             .find(|c| c.id == id)
             .ok_or_else(|| format!("no comment {id}"))?;
         comment.status = CommentStatus::Resolved;
         comment.resolution = Some(resolve_note.to_string());
-        self.save(path)
+        current.save(path)?;
+        *self = current;
+        Ok(())
     }
 
     /// Rewrite the whole queue (resolve is the only mutator; appends go
@@ -186,7 +195,11 @@ impl CommentQueue {
             out.push_str(&serde_json::to_string(c).map_err(|e| e.to_string())?);
             out.push('\n');
         }
-        std::fs::write(path, out).map_err(|e| format!("comments queue {}: {e}", path.display()))
+        // Temp file + rename: a crash mid-write must not truncate the queue.
+        let tmp = path.with_extension("jsonl.tmp");
+        std::fs::write(&tmp, out)
+            .and_then(|()| std::fs::rename(&tmp, path))
+            .map_err(|e| format!("comments queue {}: {e}", path.display()))
     }
 
     /// The open comments (driver-resolve input).
@@ -199,10 +212,10 @@ impl CommentQueue {
     }
 }
 
-/// ISO-8601 now (the session-log format).
+/// ISO-8601 now, to the second, `Z`-suffixed (the session-log format).
 #[must_use]
 pub fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339()
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 #[cfg(test)]

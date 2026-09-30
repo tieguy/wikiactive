@@ -262,7 +262,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     file.save(&session.join("findings.json")).unwrap();
 
     // ---- Judgment point 2: the scoped proposal. ----
-    let proposal = draft_proposal(&zai, &findings[0], "The tower is old.", &[])
+    let proposal = draft_proposal(&zai, &findings[0], &[], "The tower is old.", &[])
         .await
         .expect("proposal");
     let proposed = base.replace(

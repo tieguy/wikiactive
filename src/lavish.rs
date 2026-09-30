@@ -103,10 +103,7 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
         }
         if *ind > indent {
             // Unexpected deeper line without an opener: attach as scalar.
-            out.push((
-                "__line".to_string(),
-                Toon::Str(strip_quotes(line).to_string()),
-            ));
+            out.push(("__line".to_string(), Toon::Str(strip_quotes(line))));
             *pos += 1;
             continue;
         }
@@ -143,7 +140,7 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
                 } else {
                     let rows = deeper
                         .iter()
-                        .map(|(_, l)| Toon::Str(strip_quotes(l).to_string()))
+                        .map(|(_, l)| Toon::Str(strip_quotes(l)))
                         .collect();
                     out.push((key, Toon::List(rows)));
                 }
@@ -171,17 +168,14 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
         // Bare scalar: when deeper lines follow, it opens an implicit map
         // (observed: the leading file-path line with `status:` beneath it).
         if lines.get(*pos + 1).is_some_and(|(i, _)| *i > indent) {
-            let key = strip_quotes(line).to_string();
+            let key = strip_quotes(line);
             *pos += 1;
             let child_indent = lines[*pos].0.max(indent + 1);
             let children = parse_block(lines, pos, child_indent);
             out.push((key, Toon::Map(children)));
             continue;
         }
-        out.push((
-            "__line".to_string(),
-            Toon::Str(strip_quotes(line).to_string()),
-        ));
+        out.push(("__line".to_string(), Toon::Str(strip_quotes(line))));
         *pos += 1;
     }
     out
@@ -221,10 +215,7 @@ fn parse_list_items(lines: &[(usize, String)], pos: &mut usize, header_indent: u
         while *pos < lines.len() && lines[*pos].0 > item_indent {
             let (ci, cline) = &lines[*pos];
             if cline.starts_with("- ") {
-                fields.push((
-                    "__line".to_string(),
-                    Toon::Str(strip_quotes(cline).to_string()),
-                ));
+                fields.push(("__line".to_string(), Toon::Str(strip_quotes(cline))));
                 *pos += 1;
                 continue;
             }
@@ -252,10 +243,7 @@ fn parse_list_items(lines: &[(usize, String)], pos: &mut usize, header_indent: u
                     *pos += 1;
                 }
             } else {
-                fields.push((
-                    "__line".to_string(),
-                    Toon::Str(strip_quotes(cline).to_string()),
-                ));
+                fields.push(("__line".to_string(), Toon::Str(strip_quotes(cline))));
                 *pos += 1;
             }
         }
@@ -293,35 +281,63 @@ fn strip_count(key: &str) -> String {
     }
 }
 
-/// Strip surrounding double quotes.
-fn strip_quotes(s: &str) -> &str {
+/// A scalar's text: surrounding double quotes stripped and, for a quoted
+/// value, backslash escapes decoded.
+fn strip_quotes(s: &str) -> String {
     let t = s.trim();
     if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
-        &t[1..t.len() - 1]
+        unescape(&t[1..t.len() - 1])
     } else {
-        t
+        t.to_string()
     }
 }
 
+/// Decode backslash escapes in a quoted TOON string (`\"`, `\\`, `\n`,
+/// `\t`; any other escaped character stands for itself).
+fn unescape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some(other) => out.push(other),
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
 /// Parse a value: `"a","b",…` → List of Str; single quoted → Str; else Str.
+/// An escaped quote (`\"`) is text, not a delimiter — a comma after it is
+/// still inside the string.
 fn parse_value(value: &str) -> Toon {
     let v = value.trim();
     if v.starts_with('"') {
         let mut parts = Vec::new();
         let mut current = String::new();
         let mut in_quotes = false;
-        for ch in v.chars() {
+        let mut chars = v.chars();
+        while let Some(ch) = chars.next() {
             match ch {
+                '\\' if in_quotes => {
+                    current.push(ch);
+                    current.extend(chars.next());
+                }
                 '"' => in_quotes = !in_quotes,
                 ',' if !in_quotes => {
-                    parts.push(Toon::Str(current.trim().to_string()));
+                    parts.push(Toon::Str(unescape(current.trim())));
                     current.clear();
                 }
                 _ => current.push(ch),
             }
         }
         if !current.trim().is_empty() {
-            parts.push(Toon::Str(current.trim().to_string()));
+            parts.push(Toon::Str(unescape(current.trim())));
         }
         if parts.len() > 1 {
             return Toon::List(parts);
@@ -423,9 +439,6 @@ pub fn comments_from_poll(tree: &Toon) -> Vec<CommentPrompt> {
         .collect()
 }
 
-/// The lavish state file mapping served sessions to their URLs.
-pub const LAVISH_STATE: &str = ".lavish-axi/state.json";
-
 /// URL of the live session serving `artifact`, read from lavish's state
 /// file. `None` when no session (or no state) exists.
 #[must_use]
@@ -461,8 +474,10 @@ pub fn session_url_from_state(
         })
         .find(|(file, _)| {
             let file_path = std::path::Path::new(file);
-            canonical.as_ref().is_some_and(|c| file_path == c.as_path())
-                || file_path.ends_with(artifact)
+            match &canonical {
+                Some(c) => file_path == c.as_path(),
+                None => file_path.ends_with(artifact),
+            }
         })
         .map(|(_, url)| url)
 }
@@ -490,7 +505,8 @@ pub fn lavish_command(args: &[&str]) -> Command {
 /// browser from launching (headless/CI).
 ///
 /// # Errors
-/// Spawn or non-zero exit.
+/// Spawn failure only — the exit status is in the returned [`Output`]
+/// for the caller to check.
 pub fn open_session(
     artifact: &std::path::Path,
     no_open: bool,
@@ -509,20 +525,12 @@ pub fn open_session(
     cmd.output()
 }
 
-/// Run `lavish-axi end <file>`.
-///
-/// # Errors
-/// Spawn or non-zero exit.
-pub fn end_session(artifact: &std::path::Path) -> std::io::Result<Output> {
-    let file = artifact.to_string_lossy().to_string();
-    lavish_command(&["end", &file]).output()
-}
-
 /// Run `lavish-axi poll <file> --agent-reply <msg>` (after applying
 /// feedback).
 ///
 /// # Errors
-/// Spawn or non-zero exit.
+/// Spawn failure only — the exit status is in the returned [`Output`]
+/// for the caller to check.
 pub fn agent_reply(artifact: &std::path::Path, message: &str) -> std::io::Result<Output> {
     let file = artifact.to_string_lossy().to_string();
     lavish_command(&["poll", &file, "--agent-reply", message]).output()
@@ -638,7 +646,10 @@ mod tests {
 
         // (1) element comment rooted at the pane section.
         assert_eq!(comments[0].selector, "section#pane-new");
-        assert!(comments[0].prompt.contains("whole element"));
+        assert_eq!(
+            comments[0].prompt,
+            "this is a comment on the whole element, including \"new (proposed)\""
+        );
 
         // (2) text-range comment on wa-1 with real path/offset values.
         assert_eq!(comments[1].selector, "div#wa-1");

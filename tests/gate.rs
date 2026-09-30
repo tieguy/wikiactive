@@ -143,3 +143,44 @@ fn ac11_clean_gate_passes() {
     });
     assert!(!verdict.blocked, "{verdict:?}");
 }
+
+/// A claim is anchored by its quotes: one that cites none, or cites a
+/// quote the ledger cannot produce, blocks in its own name (the findings
+/// pass never looks at claims).
+#[test]
+fn claims_without_resolvable_quotes_block() {
+    let run = |ledger: &Ledger| {
+        run_gate(&GateInput {
+            ledger,
+            findings: &[],
+            base_wikitext: "Old text.\n",
+            proposed_wikitext: "Old text. The keep was rebuilt in stone.\n",
+            linter_config: &linter(),
+            paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
+        })
+    };
+
+    let mut ledger = ledger_with_source();
+    ledger
+        .add_claim("The keep was rebuilt in stone.", vec![])
+        .unwrap();
+    let verdict = run(&ledger);
+    assert!(verdict.blocked);
+    assert!(matches!(
+        verdict.reasons.first(),
+        Some(GateReason::ClaimWithoutQuotes { .. })
+    ));
+
+    let mut ledger = ledger_with_source();
+    let qid = ledger.add_quote("S1", "real fetched source text").unwrap();
+    ledger
+        .add_claim("The keep was rebuilt in stone.", vec![qid])
+        .unwrap();
+    ledger.claims[0].quote_ids = vec!["Q99".into()];
+    let verdict = run(&ledger);
+    assert!(verdict.blocked);
+    assert!(matches!(
+        verdict.reasons.first(),
+        Some(GateReason::ClaimQuoteUnresolved { .. })
+    ));
+}

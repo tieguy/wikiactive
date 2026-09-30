@@ -59,6 +59,22 @@ pub enum Scope {
     DraftedLines,
 }
 
+/// Every rule id a checker exists for (the arms of `check_rule` and
+/// `check_rule_on`).
+const KNOWN_RULE_IDS: &[&str] = &[
+    "refname-autonumber",
+    "sfn-usage",
+    "page-pages-consistency",
+    "named-ref-with-pinpoint",
+    "heading-spacing",
+    "semicolon-prose",
+    "tense-drift",
+    "national-variety-mix",
+    "italic-mismatch",
+    "see-also-duplication",
+    "lead-body-duplication",
+];
+
 /// One declared linter rule (parsed from `rules/linter.toml`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct LintRule {
@@ -88,6 +104,20 @@ impl LinterConfig {
         let cfg: Self = toml::from_str(text)?;
         if cfg.rules.is_empty() {
             anyhow::bail!("linter config declares no rules");
+        }
+        // A misspelled id would otherwise switch its rule off quietly: the
+        // gate filters whole-page findings already present in the base,
+        // and "no checker" is present in every base.
+        if let Some(unknown) = cfg
+            .rules
+            .values()
+            .find(|r| !KNOWN_RULE_IDS.contains(&r.id.as_str()))
+        {
+            anyhow::bail!(
+                "linter config declares rule {:?}, which has no checker (known: {})",
+                unknown.id,
+                KNOWN_RULE_IDS.join(", ")
+            );
         }
         Ok(cfg)
     }

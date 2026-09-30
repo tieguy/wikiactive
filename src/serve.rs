@@ -216,7 +216,7 @@ impl ConfirmSource for WebConfirm {
             let (tx, rx) = oneshot::channel();
             let id = format!("{}-{}", slug, chrono::Utc::now().timestamp_millis());
             state.confirmations.lock().expect("confirmations").insert(
-                id,
+                id.clone(),
                 PendingConfirm {
                     slug,
                     summary,
@@ -224,11 +224,16 @@ impl ConfirmSource for WebConfirm {
                     responder: tx,
                 },
             );
-            // Timeout declines: no click, no write.
-            matches!(
-                tokio::time::timeout(state.timeout(), rx).await,
-                Ok(Ok(true))
-            )
+            // Timeout declines: no click, no write. An unanswered entry is
+            // dropped so no page keeps offering an approval that can no
+            // longer do anything.
+            let answer = tokio::time::timeout(state.timeout(), rx).await;
+            state
+                .confirmations
+                .lock()
+                .expect("confirmations")
+                .remove(&id);
+            matches!(answer, Ok(Ok(true)))
         })
     }
 }
@@ -487,7 +492,7 @@ async fn session_page(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
 ) -> Html<String> {
-    let Some(meta) = read_meta(&slug) else {
+    let Some(meta) = known_session(&slug).then(|| read_meta(&slug)).flatten() else {
         return Html(crate::ui::page(
             "Session not found",
             &[("Sessions", "/")],
@@ -780,8 +785,11 @@ async fn review_artifact(
     axum::extract::Query(q): Params,
 ) -> axum::response::Response {
     let path = session_dir(&slug).join("review.html");
-    match std::fs::read_to_string(&path) {
-        Ok(html) => Html(inject_comment_ui(
+    let artifact = known_session(&slug)
+        .then(|| std::fs::read_to_string(&path).ok())
+        .flatten();
+    match artifact {
+        Some(html) => Html(inject_comment_ui(
             &slug,
             &html,
             &state.pending_for(&slug),
@@ -789,7 +797,7 @@ async fn review_artifact(
             &state.outcome(&slug),
         ))
         .into_response(),
-        Err(_) => (
+        None => (
             axum::http::StatusCode::NOT_FOUND,
             Html(crate::ui::page(
                 "No review yet",
@@ -1288,6 +1296,10 @@ async fn comments_add(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let dir = session_dir(&slug);
+    if form.text.trim().is_empty() {
+        state.note_outcome(&slug, "comment failed: it was empty");
+        return back_to(&slug, &q, Some("top")).into_response();
+    }
     let added = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
         Ok(mut queue) => {
             let comment = crate::comments::Comment::new(
@@ -1363,17 +1375,26 @@ async fn sweep_dispose(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let dir = session_dir(&slug);
+    let disposition = form.disposition.trim();
+    if disposition.is_empty() {
+        // An empty disposition would resolve the sweep gate with no reason.
+        state.note_outcome(
+            &slug,
+            &format!(
+                "disposition for {} failed: say why the text cannot be had",
+                form.source
+            ),
+        );
+        return Redirect::to(&format!("/sessions/{slug}")).into_response();
+    }
     let saved = Ledger::load(&dir.join("ledger.json")).and_then(|mut ledger| {
-        ledger.set_disposition(&form.source, &form.disposition)?;
+        ledger.set_disposition(&form.source, disposition)?;
         ledger.save(&dir.join("ledger.json"))
     });
     state.note_outcome(
         &slug,
         &match saved {
-            Ok(()) => format!(
-                "disposition signed for {}: {}",
-                form.source, form.disposition
-            ),
+            Ok(()) => format!("disposition signed for {}: {disposition}", form.source),
             Err(e) => format!("disposition for {} failed: {e}", form.source),
         },
     );
@@ -1444,10 +1465,13 @@ struct PublishForm {
 async fn driver_findings(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
-) -> Redirect {
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
     let outcome = run_driver_findings(&state, &slug).await;
     state.note_outcome(&slug, &outcome);
-    Redirect::to(&format!("/sessions/{slug}"))
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
@@ -1523,10 +1547,13 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
 async fn driver_propose(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
-) -> Redirect {
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
     let outcome = run_driver_propose(&state, &slug).await;
     state.note_outcome(&slug, &outcome);
-    Redirect::to(&format!("/sessions/{slug}"))
+    Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
 async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
@@ -1549,22 +1576,40 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
         Ok(z) => z,
         Err(e) => return format!("driver propose: {e}"),
     };
-    match crate::driver::steps::draft_proposal(&zai, finding, &base, &named).await {
+    // The block the finding anchors — the WHOLE line range (an anchor may
+    // span several lines) — checked before the paid model call.
+    let base_lines: Vec<&str> = base.lines().collect();
+    let Some((start, end, base_block)) = anchor_line_range(&finding.wikitext_anchor)
+        .and_then(|(s, e)| slice_lines(&base_lines, s, e).map(|block| (s, e, block)))
+    else {
+        return "driver propose: anchor line out of range".into();
+    };
+    // The evidence as the model must see it: verbatim quote + its source.
+    let ledger = Ledger::load(&dir.join("ledger.json")).unwrap_or_default();
+    let evidence: Vec<String> = finding
+        .evidence
+        .iter()
+        .filter_map(|qid| ledger.quote(qid))
+        .map(|q| {
+            let source = ledger
+                .sources
+                .iter()
+                .find(|s| s.id == q.source_id)
+                .map(|s| format!("{} <{}>", crate::render::source_link_text(s), s.url))
+                .unwrap_or_default();
+            format!("- \"{}\" — {source}", q.text)
+        })
+        .collect();
+    if evidence.len() != finding.evidence.len() {
+        return "driver propose: the finding cites a quote that is not in the ledger".into();
+    }
+    match crate::driver::steps::draft_proposal(&zai, finding, &evidence, &base_block, &named).await
+    {
         Ok(proposal) => {
-            let anchor_line = finding
-                .wikitext_anchor
-                .split([':', '-'])
-                .next()
-                .unwrap_or("L1")
-                .trim_start_matches('L');
-            let line_no: usize = anchor_line.parse().unwrap_or(1);
-            let lines: Vec<&str> = base.lines().collect();
-            if line_no == 0 || line_no > lines.len() {
-                return "driver propose: anchor line out of range".into();
-            }
-            let mut out = lines.clone();
-            out[line_no - 1] = &proposal.proposed_wikitext_block;
-            let proposed = out.join("\n");
+            let proposed = apply_splices(
+                &base,
+                &[(start, end, proposal.proposed_wikitext_block.clone(), false)],
+            );
             match std::fs::write(dir.join("proposed.wikitext"), proposed) {
                 Ok(()) => format!(
                     "driver propose: block drafted ({}); render it, then review + publish",
@@ -2075,7 +2120,10 @@ async fn render(
     Path(slug): Path<String>,
     axum::extract::Query(q): Params,
     Form(form): Form<RenderForm>,
-) -> Redirect {
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
     let pair = |v: &Option<String>| {
         v.as_deref()
             .map(str::trim)
@@ -2099,11 +2147,11 @@ async fn render(
     match rendered {
         Ok(()) => {
             state.note_outcome(&slug, &format!("rendered round {}", form.round));
-            Redirect::to(&format!("/sessions/{slug}/review"))
+            Redirect::to(&format!("/sessions/{slug}/review")).into_response()
         }
         Err(e) => {
             state.note_outcome(&slug, &format!("render failed: {e}"));
-            back_to(&slug, &q, Some("top"))
+            back_to(&slug, &q, Some("top")).into_response()
         }
     }
 }
@@ -2116,7 +2164,15 @@ async fn publish(
     Path(slug): Path<String>,
     axum::extract::Query(q): Params,
     Form(form): Form<PublishForm>,
-) -> Redirect {
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    // One publish flow per session at a time: a second start while an
+    // approval is waiting would park a second, competing confirmation.
+    if state.has_pending_for(&slug) {
+        return back_to(&slug, &q, Some("publish")).into_response();
+    }
     let runs_before = state.run_count(&slug);
     let state_for_task = Arc::clone(&state);
     let slug_for_task = slug.clone();
@@ -2136,7 +2192,7 @@ async fn publish(
         }
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    back_to(&slug, &q, Some("publish"))
+    back_to(&slug, &q, Some("publish")).into_response()
 }
 
 async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> String {

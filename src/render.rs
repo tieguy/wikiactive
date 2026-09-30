@@ -291,9 +291,15 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     }
 
     // 6. Assemble artifact.
-    let anchor_json = serde_json::to_string_pretty(&anchor_table).unwrap_or_default();
-    let revisions_json =
-        serde_json::to_string(&input.revisions).unwrap_or_else(|_| "[]".to_string());
+    // Both blobs sit inside <script> elements: `</` is written as the
+    // equivalent JSON escape `<\/` so text in them (a round summary, say)
+    // can never close the element.
+    let anchor_json = serde_json::to_string_pretty(&anchor_table)
+        .unwrap_or_default()
+        .replace("</", "<\\/");
+    let revisions_json = serde_json::to_string(&input.revisions)
+        .unwrap_or_else(|_| "[]".to_string())
+        .replace("</", "<\\/");
     let artifact = assemble_artifact(&AssembleArgs {
         article: &input.article,
         round: input.round,
@@ -669,7 +675,7 @@ fn block_tag(
             })
         }
     };
-    let visible = match anchor.and_then(human_line) {
+    let visible = match anchor.and_then(human_line_label) {
         Some(line) => format!("{label}, {line}"),
         None => label,
     };
@@ -678,10 +684,6 @@ fn block_tag(
         _ => String::new(),
     };
     (visible, title)
-}
-
-fn human_line(anchor: &str) -> Option<String> {
-    human_line_label(anchor)
 }
 
 use crate::ui::esc;
@@ -733,25 +735,42 @@ pub(crate) fn locate_block_anchor(wikitext: &str, block_text: &str) -> Option<St
     }
     let words: Vec<&str> = block_norm.split(' ').collect();
     let lines: Vec<String> = wikitext.split('\n').map(norm).collect();
+    let anchor_of = |line_no: usize| {
+        let col_end = wikitext
+            .split('\n')
+            .nth(line_no)
+            .map_or(0, |l| l.chars().count());
+        format!("L{}:C0-L{}:C{}", line_no + 1, line_no + 1, col_end)
+    };
     for take in (4..=6).rev() {
         if words.len() < take {
             continue;
         }
         let prefix = words[..take].join(" ");
-        if prefix.is_empty() {
-            continue;
-        }
-        for (line_no, line_norm) in lines.iter().enumerate() {
-            if line_norm.contains(&prefix) {
-                let col_end = wikitext
-                    .split('\n')
-                    .nth(line_no)
-                    .map_or(0, |l| l.chars().count());
-                return Some(format!("L{}:C0-L{}:C{}", line_no + 1, line_no + 1, col_end));
-            }
+        if let Some(line_no) = lines.iter().position(|l| l.contains(&prefix)) {
+            return Some(anchor_of(line_no));
         }
     }
-    None
+    // No 4-word run matched — always the case for short blocks (headings,
+    // brief list items). Take the line whose text, wiki markup stripped,
+    // IS the block; failing that, a line containing it, but only when
+    // exactly one does. Guessing a line here would aim a comment's
+    // revision at unrelated text.
+    let bare: Vec<String> = lines
+        .iter()
+        .map(|l| norm(&l.replace(|c: char| "=*#:;'[]{}|".contains(c), " ")))
+        .collect();
+    if let Some(line_no) = bare.iter().position(|l| *l == block_norm) {
+        return Some(anchor_of(line_no));
+    }
+    let mut containing = bare
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.contains(&block_norm));
+    match (containing.next(), containing.next()) {
+        (Some((line_no, _)), None) => Some(anchor_of(line_no)),
+        _ => None,
+    }
 }
 
 /// Anchor for the n-th surviving proposed line (fallback for unmatched
@@ -1495,6 +1514,24 @@ mod tests {
 
     /// Live L2 round-1 catch: the fallback anchor must never land on a
     /// blank line (zero-width range).
+    /// Short blocks have no 4-word prefix: they locate by their whole
+    /// text, and an ambiguous short text locates nowhere.
+    #[test]
+    fn short_blocks_locate_by_whole_text() {
+        let wt = "Some notes on the tower, long enough to be prose.\n\n== Notes ==\n\
+                  * ''Super Economy Europe''\n* red\n* red\n";
+        let at = |text: &str| super::locate_block_anchor(wt, text);
+        assert_eq!(at("Notes").as_deref(), Some("L3:C0-L3:C11"));
+        assert!(at("Super Economy Europe").is_some_and(|a| a.starts_with("L4:")));
+        assert_eq!(at("red").as_deref(), Some("L5:C0-L5:C5"), "exact line wins");
+        assert_eq!(
+            at("Economy"),
+            Some("L4:C0-L4:C26".into()),
+            "unique containing line"
+        );
+        assert_eq!(at("o"), None, "ambiguous text locates nowhere");
+    }
+
     #[test]
     fn fallback_anchor_never_lands_on_blank_line() {
         let wt = "a\n\n\nb\n";

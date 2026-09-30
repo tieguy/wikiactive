@@ -122,53 +122,43 @@ async fn call_json<T: serde::de::DeserializeOwned>(
     validate: impl Fn(&T) -> Result<(), Vec<String>>,
 ) -> Result<T, StepError> {
     let first = client.chat(messages, STEP_TEMPERATURE).await?;
-    if let Ok(parsed) = parse_and_validate::<T>(&first.content, &validate) {
-        return Ok(parsed);
-    }
+    let problems = match parse_and_validate::<T>(&first.content, &validate) {
+        Ok(parsed) => return Ok(parsed),
+        Err(problems) => problems.join("; "),
+    };
     // One corrective retry: the rejected output rides along as an
     // assistant turn (a stateless model must be able to SEE what it got
-    // wrong), then the corrective instruction.
-    let problems_of = |content: &str| parse_problems::<T>(content, &validate);
-    let retry_messages = {
-        let mut m = messages.to_vec();
-        m.push(ChatMessage::assistant(first.content.clone()));
-        m.push(ChatMessage::user(format!(
-            "Your previous output was rejected: {}. Output the JSON this step's schema \
-             expects — JSON only, no code fences, no commentary.",
-            problems_of(&first.content)
-        )));
-        m
+    // wrong), then the corrective instruction. An empty reply is named
+    // as such — endpoints reject an empty assistant turn outright.
+    let rejected = if first.content.trim().is_empty() {
+        "(no output)".to_string()
+    } else {
+        first.content
     };
+    let mut retry_messages = messages.to_vec();
+    retry_messages.push(ChatMessage::assistant(rejected));
+    retry_messages.push(ChatMessage::user(format!(
+        "Your previous output was rejected: {problems}. Output the JSON this step's schema \
+         expects — JSON only, no code fences, no commentary."
+    )));
     let second = client.chat(&retry_messages, STEP_TEMPERATURE).await?;
-    match parse_and_validate::<T>(&second.content, &validate) {
-        Ok(parsed) => Ok(parsed),
-        Err(problems) => Err(StepError::Malformed {
-            step,
-            problems: problems.join("; "),
-        }),
-    }
+    parse_and_validate::<T>(&second.content, &validate).map_err(|problems| StepError::Malformed {
+        step,
+        problems: problems.join("; "),
+    })
 }
 
+/// Parse model output as `T` and validate it. The content is tried as raw
+/// JSON first; code-fence stripping is only the fallback, so valid JSON
+/// whose strings happen to contain a fence is never mangled.
 fn parse_and_validate<T: serde::de::DeserializeOwned>(
     content: &str,
     validate: &impl Fn(&T) -> Result<(), Vec<String>>,
 ) -> Result<T, Vec<String>> {
-    let parsed = serde_json::from_str::<T>(strip_code_fence(content))
+    let parsed = serde_json::from_str::<T>(content.trim())
+        .or_else(|_| serde_json::from_str::<T>(strip_code_fence(content)))
         .map_err(|e| vec![format!("not valid JSON for this step's schema: {e}")])?;
-    match validate(&parsed) {
-        Ok(()) => Ok(parsed),
-        Err(problems) => Err(problems),
-    }
-}
-
-fn parse_problems<T: serde::de::DeserializeOwned>(
-    content: &str,
-    validate: &impl Fn(&T) -> Result<(), Vec<String>>,
-) -> String {
-    parse_and_validate::<T>(content, validate)
-        .err()
-        .unwrap_or_default()
-        .join("; ")
+    validate(&parsed).map(|()| parsed)
 }
 
 /// Judgment point 1: author findings from the context bundle. Output is
@@ -216,7 +206,10 @@ pub async fn author_findings(
         &[ChatMessage::system(system), ChatMessage::user(user)],
         |parsed| {
             let mut problems = Vec::new();
-            for f in parsed {
+            for (i, f) in parsed.iter().enumerate() {
+                if parsed[..i].iter().any(|earlier| earlier.id == f.id) {
+                    problems.push(format!("finding id {} is used more than once", f.id));
+                }
                 if let Err(p) = f.validate() {
                     problems.push(format!("finding {}: {}", f.id, p.join("; ")));
                 }
@@ -248,6 +241,11 @@ pub async fn author_findings(
 }
 
 /// Judgment point 2: draft the scoped edit for one approved finding.
+/// `evidence` is the finding's quotes as the model must see them — the
+/// verbatim text with its source, one entry per quote (never bare ids:
+/// the draft has to be written from the quoted words, not from memory).
+/// `base_block` is the wikitext the finding's anchor spans, which the
+/// returned block replaces.
 ///
 /// # Errors
 /// [`StepError::Transport`] or [`StepError::Malformed`] (after one
@@ -255,17 +253,18 @@ pub async fn author_findings(
 pub async fn draft_proposal(
     client: &ZaiClient,
     finding: &Finding,
+    evidence: &[String],
     base_block: &str,
     named_refs: &[String],
 ) -> Result<Proposal, StepError> {
     let system = prompts::load(prompts::PROPOSE)?;
     let user = format!(
-        "Finding {} (loop {}): {}\nProposed fix: {}\nEvidence quotes: {}\n\nBase wikitext block:\n{}\n\nNamed refs on the page: {}",
+        "Finding {} (loop {}): {}\nProposed fix: {}\nEvidence quotes (verbatim):\n{}\n\nBase wikitext block:\n{}\n\nNamed refs on the page: {}",
         finding.id,
         finding.loop_id,
         finding.factual_note,
         finding.proposed_fix,
-        finding.evidence.join(", "),
+        evidence.join("\n"),
         base_block,
         named_refs.join(", "),
     );

@@ -103,9 +103,10 @@ fn is_blocked_ipv4(ip: std::net::Ipv4Addr) -> bool {
         }
 }
 
-/// Loopback/link-local/unique-local IPv6 space.
+/// Loopback/link-local/unique-local IPv6 space, and any IPv4-mapped
+/// address (`::ffff:127.0.0.1`) whose IPv4 form is blocked.
 fn is_blocked_ipv6(ip: std::net::Ipv6Addr) -> bool {
-    ip.is_loopback() || ip.is_unspecified() || {
+    ip.is_loopback() || ip.is_unspecified() || ip.to_ipv4_mapped().is_some_and(is_blocked_ipv4) || {
         // Unique local fc00::/7 and link-local fe80::/10.
         let seg = ip.segments();
         (seg[0] & 0xfe00) == 0xfc00 || (seg[0] & 0xffc0) == 0xfe80

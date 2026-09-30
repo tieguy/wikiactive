@@ -80,6 +80,7 @@ async fn mock_edit_ok(server: &MockServer) -> httpmock::Mock<'_> {
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
                 .body_includes("action=edit")
+                .body_includes("notminor=1")
                 .body_includes("assert=user")
                 .body_includes("LLM-Disclosure%3A+%5B%5BUser%3ALuisVilla%2Fwikiactive%5D%5D")
                 .body_includes("baserevid=500");

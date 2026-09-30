@@ -34,7 +34,9 @@ session init ─► [step 0] analyze ─► triage (already done at init) ─►
 
 Pins the current revid (the session's base) and stores the base wikitext.
 Every edit in the session is prepared against this base; a moved base aborts
-publish (AC.10), never silently overwrites.
+publish (AC.10), never silently overwrites. Init refuses a slug that
+already has a session (it would erase that session's ledger, findings
+and draft): remove `sessions/<slug>/` to start over.
 
 `--review-since-user [<name>]` (default: house-rules `[operator]` username)
 records your last edit to the article; `wa analyze` then embeds the drift

@@ -184,6 +184,7 @@ fn harvest_cite_template(body: &str, push: &mut impl FnMut(CitationCandidate)) {
         || (first_word == "citation"
             && lowered
                 .strip_prefix("citation")
+                .map(str::trim_start)
                 .is_some_and(|rest| rest.is_empty() || rest.starts_with('|')));
     if !is_cite {
         return;
@@ -266,8 +267,9 @@ fn harvest_cite_template(body: &str, push: &mut impl FnMut(CitationCandidate)) {
 }
 
 /// Extract every `http(s)://…` token from raw wikitext, dropping tokens
-/// that are substrings of a longer token from the same text (a dead
-/// original embedded inside its own Wayback snapshot URL).
+/// embedded inside a longer token from the same text (a dead original
+/// inside its own Wayback snapshot URL). A `)` ends a token only when it
+/// closes no `(` of the URL itself (`…/Foo_(bar)` stays whole).
 fn url_tokens(text: &str) -> Vec<String> {
     let mut tokens: Vec<String> = Vec::new();
     let chars: Vec<(usize, char)> = text.char_indices().collect();
@@ -277,10 +279,17 @@ fn url_tokens(text: &str) -> Vec<String> {
         // Scheme start: the 'h' of http(s)://, on a char boundary.
         if c == 'h' && (text[pos..].starts_with("https://") || text[pos..].starts_with("http://")) {
             let mut j = i + 1;
+            let mut open_parens = 0usize;
             while j < chars.len() {
                 let ch = chars[j].1;
-                if ch.is_whitespace() || "|]}<>\"'),".contains(ch) {
+                if ch.is_whitespace() || "|]}<>\"',".contains(ch) {
                     break;
+                }
+                match ch {
+                    '(' => open_parens += 1,
+                    ')' if open_parens == 0 => break,
+                    ')' => open_parens -= 1,
+                    _ => {}
                 }
                 j += 1;
             }
@@ -298,15 +307,16 @@ fn url_tokens(text: &str) -> Vec<String> {
         }
         i += 1;
     }
-    // Substring suppression: a token contained in a longer token (e.g.
-    // the dead original inside its archive.org wrapper) is that longer
-    // URL's payload, not a separate source.
+    // Embedded-URL suppression: a token found INSIDE a longer token (the
+    // dead original inside its archive.org wrapper) is that longer URL's
+    // payload, not a separate source. A token that merely starts another
+    // (`/report` and `/report-2`) is its own source.
     tokens
         .iter()
         .filter(|t| {
             !tokens
                 .iter()
-                .any(|o| o.len() > t.len() && o.contains(t.as_str()))
+                .any(|o| o.find(t.as_str()).is_some_and(|at| at > 0))
         })
         .cloned()
         .collect()
@@ -359,67 +369,6 @@ fn templates_in(text: &str) -> Vec<Option<String>> {
         i += 1;
     }
     out
-}
-
-/// Strip `<ref>` tags (whole bodies) and `{{ … }}` templates (outermost
-/// span, inner templates included), leaving prose and bare URLs.
-#[must_use]
-pub fn strip_refs_and_templates(wikitext: &str) -> String {
-    strip_templates(&strip_ref_bodies(wikitext))
-}
-
-fn strip_ref_bodies(text: &str) -> String {
-    let mut s = text.to_string();
-    while let Some(open) = s.find("<ref") {
-        let Some(gt) = s[open..].find('>') else { break };
-        if s.as_bytes().get(open + gt - 1) == Some(&b'/') {
-            // Self-closing <ref name=x />.
-            s.replace_range(open..=open + gt, "");
-            continue;
-        }
-        let body_start = open + gt + 1;
-        let Some(close) = s[body_start..].find("</ref>") else {
-            break;
-        };
-        s.replace_range(open..body_start + close + 6, "");
-    }
-    s
-}
-
-fn strip_templates(text: &str) -> String {
-    let mut s = text.to_string();
-    while let Some(open) = s.find("{{") {
-        let chars: Vec<char> = s.chars().collect();
-        let open_chars = s[..open].chars().count();
-        let mut depth = 0_i32;
-        let mut i = 0_usize;
-        let mut replaced = false;
-        while i + 1 < chars.len() {
-            if chars[i] == '{' && chars[i + 1] == '{' {
-                depth += 1;
-                i += 2;
-                continue;
-            }
-            if chars[i] == '}' && chars[i + 1] == '}' {
-                depth -= 1;
-                if depth == 0 {
-                    let mut out = String::with_capacity(s.len());
-                    out.extend(chars[..open_chars].iter());
-                    out.extend(chars[i + 2..].iter());
-                    s = out;
-                    replaced = true;
-                    break;
-                }
-                i += 2;
-                continue;
-            }
-            i += 1;
-        }
-        if !replaced {
-            break;
-        }
-    }
-    s
 }
 
 /// Sweep classification config (`rules/sweep.toml`): bounded marker
@@ -578,12 +527,18 @@ pub async fn sweep_fetch_one(
     let fetch_result = fetcher.fetch_text(&fetch_target).await;
     let (outcome, text) = match fetch_result {
         Ok(body) => {
-            let text = if body.trim_start().starts_with('<') {
-                html_to_text(&body)
+            if looks_binary(&body) {
+                // A PDF or image decodes to a long run of junk: that is
+                // not text, however many characters it has.
+                (FetchOutcome::NoText, None)
             } else {
-                body
-            };
-            (classify_fetch(200, &text, cfg), Some(text))
+                let text = if body.trim_start().starts_with('<') {
+                    html_to_text(&body)
+                } else {
+                    body
+                };
+                (classify_fetch(200, &text, cfg), Some(text))
+            }
         }
         Err(NetError::Status { status, .. }) => (classify_fetch(status, "", cfg), None),
         // Transport failures (DNS, timeouts, local outages) are NOT dead
@@ -658,6 +613,17 @@ pub enum SweepError {
     /// Ledger update failure.
     #[error("ledger: {0}")]
     Ledger(#[from] crate::ledger::LedgerError),
+}
+
+/// Whether a fetched body is binary rather than text: a PDF signature,
+/// NUL bytes, or a lossy decode dense with U+FFFD replacement characters.
+fn looks_binary(body: &str) -> bool {
+    let sample: Vec<char> = body.chars().take(4096).collect();
+    let junk = sample
+        .iter()
+        .filter(|c| **c == '\u{fffd}' || **c == '\0')
+        .count();
+    body.trim_start().starts_with("%PDF-") || junk * 20 > sample.len()
 }
 
 #[cfg(test)]

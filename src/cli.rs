@@ -398,6 +398,13 @@ async fn session_init(
     anyhow::ensure!((1..=5).contains(&entry_loop), "entry_loop must be 1-5");
     let slug = slugify(article);
     let paths = SessionPaths::new(&slug);
+    // Init writes a fresh ledger, findings and proposed text: on an
+    // existing session that would erase the work in it.
+    anyhow::ensure!(
+        !paths.meta().exists(),
+        "session sessions/{slug} already exists — init would erase its ledger, findings and \
+         draft; remove the directory first to start over"
+    );
     std::fs::create_dir_all(&paths.dir).context("create session dir")?;
 
     // Drift-review default: the operator identity from house rules (single
@@ -490,13 +497,14 @@ fn unified_diff(old: &str, new: &str) -> String {
         };
         out.push(sign);
         out.push_str(change.value());
+        if change.missing_newline() {
+            out.push('\n');
+        }
     }
     out
 }
 
-fn now_iso() -> String {
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-}
+use crate::comments::now_iso;
 
 fn session_show(slug: &str) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
@@ -597,17 +605,22 @@ fn findings_add(slug: &str, json_source: &str) -> Result<()> {
     } else {
         FindingsFile::default()
     };
+    let mut accepted = Vec::new();
     for finding in incoming {
         anyhow::ensure!(
             !file.findings.iter().any(|f| f.id == finding.id),
             "duplicate finding id {}",
             finding.id
         );
-        println!("accepted finding {}", finding.id);
+        accepted.push(finding.id.clone());
         file.findings.push(finding);
     }
     file.save(&paths.findings())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
+    // Announce only what is now on disk (a rejected batch saves nothing).
+    for id in accepted {
+        println!("accepted finding {id}");
+    }
     Ok(())
 }
 
@@ -686,10 +699,13 @@ pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
         .sources
         .iter()
         .filter(|s| {
-            matches!(
-                s.sweep_status.as_deref(),
-                Some(crate::sweep::status::PENDING | crate::sweep::status::SNAPSHOT_AVAILABLE)
-            )
+            // A source that already has text (an operator capture above
+            // all) is never refetched over.
+            s.fetched_text.as_deref().is_none_or(str::is_empty)
+                && matches!(
+                    s.sweep_status.as_deref(),
+                    Some(crate::sweep::status::PENDING | crate::sweep::status::SNAPSHOT_AVAILABLE)
+                )
         })
         .map(|s| s.id.clone())
         .collect();
@@ -714,8 +730,9 @@ pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
             }
             Err(e) => println!("  {id} -> ERROR ({e}) — left pending"),
         }
+        // Saved per source: an interrupted sweep keeps what it fetched.
+        ledger.save(&paths.ledger())?;
     }
-    ledger.save(&paths.ledger())?;
     println!("manifest: `wa sweep status {slug}`");
     Ok(())
 }
@@ -881,7 +898,14 @@ fn read_registry(review_html: &std::path::Path) -> Vec<crate::render::RevisionEn
     let Some(end) = html[start..].find("</script>").map(|j| start + j) else {
         return Vec::new();
     };
-    serde_json::from_str(html[start..end].trim()).unwrap_or_default()
+    serde_json::from_str(html[start..end].trim()).unwrap_or_else(|e| {
+        eprintln!(
+            "warning: revisions registry unparsable in {} ({e}) — earlier rounds drop out of \
+             the legend",
+            review_html.display()
+        );
+        Vec::new()
+    })
 }
 
 /// Archive the session's findings to `findings-archive.jsonl` (one line per
@@ -929,6 +953,13 @@ fn poll_cmd(slug: &str, agent_reply_msg: Option<&str>) -> Result<()> {
             .wait_with_output()?
     };
     let stdout = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() && stdout.trim().is_empty() {
+        anyhow::bail!(
+            "lavish poll failed ({}): {}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
     let tree = lavish::parse_toon(&stdout);
     let comments = lavish::comments_from_poll(&tree);
     if comments.is_empty() {
@@ -1040,7 +1071,6 @@ fn disclosure_entry(date: &str, article: &str, model: &str, diffs_text: &str) ->
     )
 }
 
-#[allow(clippy::too_many_lines)]
 /// What a completed publish did (shared by the CLI prints and the
 /// `wa serve` session state).
 #[derive(Debug)]
@@ -1135,7 +1165,17 @@ pub async fn publish_core(
     // Re-pin: base becomes the published state.
     let mut meta = meta;
     meta.base_revid = outcome.new_revid;
-    meta.last_published_diff_url = Some(outcome.diff_url.clone());
+    // A null edit (the page already held this text) created no revision:
+    // it has no diff to record, here or in the round log — an empty URL
+    // would otherwise reach the on-wiki disclosure entry as a dead link.
+    let published_diff: Vec<String> = outcome
+        .created_revision()
+        .then(|| outcome.diff_url.clone())
+        .into_iter()
+        .collect();
+    if let Some(diff) = published_diff.first() {
+        meta.last_published_diff_url = Some(diff.clone());
+    }
     std::fs::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
     std::fs::write(paths.base(), &proposed_wikitext)?;
     // Publishing consumes the session's findings: archive them with the
@@ -1148,7 +1188,7 @@ pub async fn publish_core(
         timestamp: now_iso(),
         summary: format!("published: {summary}"),
         phase: "published".into(),
-        detail: vec![outcome.diff_url.clone()],
+        detail: published_diff,
     };
     append_round(&paths, &entry)?;
     if outcome.created_revision() {

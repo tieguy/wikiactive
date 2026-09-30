@@ -136,8 +136,7 @@ pub fn resolve_comment(
             CommentTarget::TextRange { .. } | CommentTarget::Other => None,
         })
         .unwrap_or_else(|| comment.selector.clone());
-    let id =
-        id_from_selector(&selector).ok_or_else(|| AnchorError::NoId(comment.selector.clone()))?;
+    let id = id_from_selector(&selector).ok_or_else(|| AnchorError::NoId(selector.clone()))?;
     let anchor = anchor_table
         .iter()
         .find(|(eid, _)| *eid == id)

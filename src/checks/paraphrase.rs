@@ -72,7 +72,34 @@ impl ParaphraseConfig {
     /// # Errors
     /// Malformed TOML or invalid field values.
     pub fn from_toml_str(text: &str) -> Result<Self, String> {
-        toml::from_str(text).map_err(|e| format!("paraphrase config: {e}"))
+        let cfg: Self = toml::from_str(text).map_err(|e| format!("paraphrase config: {e}"))?;
+        // A zero shingle size panics the assessment; a zero denominator or
+        // a ratio above 1 switches a threshold off without saying so.
+        let ratios = [
+            ("too_close", cfg.too_close_num, cfg.too_close_den),
+            (
+                "too_close_lcs",
+                cfg.too_close_lcs_num,
+                cfg.too_close_lcs_den,
+            ),
+            ("no_support", cfg.no_support_num, cfg.no_support_den),
+            (
+                "no_support_lcs",
+                cfg.no_support_lcs_num,
+                cfg.no_support_lcs_den,
+            ),
+        ];
+        if cfg.shingle_n == 0 || cfg.too_close_run_words == 0 {
+            return Err(
+                "paraphrase config: shingle_n and too_close_run_words must be at least 1".into(),
+            );
+        }
+        if let Some((name, num, den)) = ratios.iter().find(|(_, num, den)| *den == 0 || num > den) {
+            return Err(format!(
+                "paraphrase config: {name} ratio {num}/{den} must have a non-zero denominator and be at most 1"
+            ));
+        }
+        Ok(cfg)
     }
 
     /// Load from a path on disk.
@@ -133,12 +160,17 @@ pub fn assess_paraphrase_with(
     draft: &str,
     source: &str,
 ) -> ParaphraseAssessment {
-    let (draft_stripped, had_attributed_quote) = strip_attributed_quotes(draft);
-    if had_attributed_quote {
-        // A bounded, quotation-marked span IS the evidence: the
-        // quote-anchor gate separately enforces that it locates verbatim
-        // in the fetched source, so the paraphrase gate defers (the
-        // attribution frame is boilerplate, not prose to paraphrase).
+    let quoted = attributed_quotes(draft);
+    if !quoted.is_empty()
+        && quoted
+            .iter()
+            .all(|q| crate::checks::quote_anchor::locate_quote(q, source).is_some())
+    {
+        // Bounded, quotation-marked spans that locate VERBATIM in the
+        // claimed source are the evidence itself, so the paraphrase gate
+        // defers (the attribution frame is boilerplate, not prose to
+        // paraphrase). A span that does not locate earns no exemption:
+        // the draft is assessed whole, like any other prose.
         return ParaphraseAssessment {
             verdict: ParaphraseVerdict::Ok,
             shared_shingles: 0,
@@ -147,7 +179,7 @@ pub fn assess_paraphrase_with(
             lcs_tokens: 0,
         };
     }
-    let draft_tokens = fold_tokens(&draft_stripped);
+    let draft_tokens = fold_tokens(draft);
     let source_tokens = fold_tokens(source);
 
     if draft_tokens.is_empty() || source_tokens.is_empty() {
@@ -170,7 +202,9 @@ pub fn assess_paraphrase_with(
     let lcs = lcs_len(&draft_tokens, &source_tokens);
 
     let verdict = if run >= cfg.too_close_run_words
-        || (shared * cfg.too_close_den >= total * cfg.too_close_num)
+        // A draft shorter than one shingle has nothing to share: without
+        // the guard, 0 >= 0 would call every short sentence too close.
+        || (total > 0 && shared * cfg.too_close_den >= total * cfg.too_close_num)
         || (lcs * cfg.too_close_lcs_den >= draft_tokens.len() * cfg.too_close_lcs_num)
     {
         ParaphraseVerdict::TooClose
@@ -191,42 +225,38 @@ pub fn assess_paraphrase_with(
     }
 }
 
-/// Strip attributed quotations ("…" spans, straight or curly, bounded to
-/// ~200 chars) from the DRAFT side before assessment: a cited, attributed
-/// short quote is proper encyclopedia form for canonical-phrase facts
-/// (superlatives), not close paraphrase — CLOP governs our own prose, not
-/// our quotations (live L2 edit-2 rationale, recorded in the addendum).
-fn strip_attributed_quotes(draft: &str) -> (String, bool) {
-    let mut out = String::with_capacity(draft.len());
-    let mut in_quote = false;
-    let mut quote_len = 0usize;
-    let mut had_quote = false;
+/// The attributed quotations in a draft: "…" spans (straight or curly,
+/// non-empty, at most ~200 chars). A cited, attributed short quote is
+/// proper encyclopedia form for canonical-phrase facts (superlatives),
+/// not close paraphrase — CLOP governs our own prose, not our quotations
+/// (live L2 edit-2 rationale, recorded in the addendum). Quote characters
+/// inside markup tags (`<ref name="x" />`) are attribute syntax, not
+/// quotations; an over-long or unterminated span is not one either.
+fn attributed_quotes(draft: &str) -> Vec<String> {
+    let mut spans = Vec::new();
+    let mut current: Option<String> = None;
+    let mut in_tag = false;
     for ch in draft.chars() {
-        let is_open = !in_quote && (ch == '"' || ch == '“');
-        let is_close = in_quote && (ch == '"' || ch == '”');
-        if is_open {
-            in_quote = true;
-            quote_len = 0;
-            had_quote = true;
-            continue;
-        }
-        if is_close {
-            in_quote = false;
-            continue;
-        }
-        if in_quote {
-            quote_len += 1;
-            if quote_len > 200 {
-                // Degenerate/unterminated: keep the text (never silently
-                // drop long spans).
-                in_quote = false;
-                out.push(ch);
+        match (&mut current, ch) {
+            (None, '<') => in_tag = true,
+            (None, '>') => in_tag = false,
+            (None, '"' | '“') if !in_tag => current = Some(String::new()),
+            (Some(span), '"' | '”') => {
+                if !span.trim().is_empty() {
+                    spans.push(std::mem::take(span));
+                }
+                current = None;
             }
-            continue;
+            (Some(span), _) => {
+                span.push(ch);
+                if span.chars().count() > 200 {
+                    current = None;
+                }
+            }
+            (None, _) => {}
         }
-        out.push(ch);
     }
-    (out, had_quote)
+    spans
 }
 
 /// Assess with the default (original-constant) thresholds — tests and

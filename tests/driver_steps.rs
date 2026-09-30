@@ -216,9 +216,15 @@ async fn draft_proposal_contract() {
         proposed_fix: "f".into(),
         loop_id: 2,
     };
-    let p = draft_proposal(&client(&server), &finding, "base block", &["sfcall".into()])
-        .await
-        .expect("parses");
+    let p = draft_proposal(
+        &client(&server),
+        &finding,
+        &[],
+        "base block",
+        &["sfcall".into()],
+    )
+    .await
+    .expect("parses");
     assert_eq!(p.edit_summary, "Cite the year.");
     assert_eq!(mock.calls(), 1);
 
@@ -232,7 +238,7 @@ async fn draft_proposal_contract() {
             ));
         })
         .await;
-    let err = draft_proposal(&client(&server2), &finding, "base block", &[])
+    let err = draft_proposal(&client(&server2), &finding, &[], "base block", &[])
         .await
         .expect_err("empty summary is invalid");
     assert!(err.to_string().contains("edit_summary"), "{err}");

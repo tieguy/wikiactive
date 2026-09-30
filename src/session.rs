@@ -52,7 +52,7 @@ impl Finding {
         if self.id.is_empty() {
             problems.push("id must be non-empty".into());
         }
-        if !self.id.starts_with('F') || self.id[1..].parse::<u32>().is_err() {
+        if !is_numbered_id(&self.id, 'F') {
             problems.push("id must match F<number>".into());
         }
         if self.wikitext_anchor.is_empty() {
@@ -65,7 +65,7 @@ impl Finding {
             problems.push("evidence[] must cite at least one ledger quote id".into());
         }
         for qid in &self.evidence {
-            if !(qid.starts_with('Q') && qid[1..].parse::<u32>().is_ok()) {
+            if !is_numbered_id(qid, 'Q') {
                 problems.push(format!(
                     "evidence entry {qid:?} is not a ledger quote id (Q<number>)"
                 ));
@@ -219,6 +219,13 @@ pub struct RoundEntry {
     pub phase: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub detail: Vec<String>,
+}
+
+/// `<prefix><digits>` exactly (`F3`, `Q12`): digits only after the prefix,
+/// so `Q+1` — which integer parsing would accept — is not an id.
+fn is_numbered_id(id: &str, prefix: char) -> bool {
+    id.strip_prefix(prefix)
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 #[cfg(test)]

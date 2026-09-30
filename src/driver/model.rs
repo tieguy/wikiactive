@@ -132,6 +132,9 @@ pub struct ZaiClient {
     retry_delays: Vec<Duration>,
 }
 
+/// Per-request timeout for a chat completion.
+const CHAT_TIMEOUT: Duration = Duration::from_mins(5);
+
 impl ZaiClient {
     /// Build from the environment + fork configuration: `ZAI_API_KEY`
     /// required (env only — keys never live in config), base URL resolved
@@ -215,6 +218,9 @@ impl ZaiClient {
                 .http
                 .post(self.endpoint())
                 .bearer_auth(&self.api_key)
+                // A non-streaming completion over a whole article plus its
+                // sources outlasts the shared client's source-fetch timeout.
+                .timeout(CHAT_TIMEOUT)
                 .json(&serde_json::json!({
                     "model": self.model,
                     "messages": messages,
@@ -257,7 +263,11 @@ impl ZaiClient {
                     attempt += 1;
                     continue;
                 }
-                return Err(ZaiError::RateLimited { attempts: attempt });
+                // Out of retries: a 429 is rate limiting; a 5xx is an
+                // upstream failure and reports as one (status + body).
+                if status.as_u16() == 429 {
+                    return Err(ZaiError::RateLimited { attempts: attempt });
+                }
             }
             return Err(ZaiError::Http {
                 status: status.as_u16(),
@@ -326,11 +336,15 @@ pub fn strip_code_fence(content: &str) -> &str {
         // Degenerate: a fence with no content line.
         return "";
     };
+    // The block ends at the first fence that starts a line (a second
+    // fenced block may follow it); failing that, at the last fence.
     let body = &after_open[newline + 1..];
-    match body.rfind("```") {
-        Some(close) => body[..close].trim(),
-        None => body.trim(),
-    }
+    let close = if body.starts_with("```") {
+        Some(0)
+    } else {
+        body.find("\n```").or_else(|| body.rfind("```"))
+    };
+    close.map_or(body, |c| &body[..c]).trim()
 }
 
 fn error_code(body: &str) -> Option<String> {

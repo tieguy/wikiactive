@@ -481,13 +481,21 @@ impl Wikipedia {
             // Explicit on the edit itself (the client-wide builder assert
             // covers reads; AC.7 wants it on the edit).
             ("assert", "user"),
-            ("minor", "0"),
+            // Never minor. `minor` is a presence-flag (any value, "0"
+            // included, marks the edit minor); `notminor` is the explicit
+            // opposite and also overrides a "mark all edits minor"
+            // account preference.
+            ("notminor", "1"),
         ];
         let base_str;
         if req.base_revid > 0 {
             base_str = req.base_revid.to_string();
             params.push(("baserevid", base_str.as_str()));
             params.push(("nocreate", "1"));
+        } else {
+            // A create must not overwrite a page that appeared since the
+            // session (or the log read) saw it missing.
+            params.push(("createonly", "1"));
         }
         let resp: Value = self.api.post_with_token("csrf", params).await?;
 
@@ -599,10 +607,14 @@ impl Wikipedia {
                 return Ok(None); // already up to date
             }
             // Replace from the marker to the end of this entry block: the
-            // entry runs to the next marker comment or the next blank line.
+            // entry runs to the next marker comment or the next blank line
+            // (whichever comes first) — text a person added below the last
+            // entry is not part of it.
             let after = &existing[start..];
-            let end = after
-                .find("\n<!-- wa-session:")
+            let end = [after.find("\n<!-- "), after.find("\n\n")]
+                .into_iter()
+                .flatten()
+                .min()
                 .map_or(existing.len(), |e| start + e);
             format!("{}{}{}", &existing[..start], block, &existing[end..])
         } else {

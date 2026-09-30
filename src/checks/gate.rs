@@ -57,6 +57,18 @@ pub enum GateReason {
         source_id: String,
         span: Option<String>,
     },
+    /// A claim cites no quotes at all: nothing anchors its prose.
+    ClaimWithoutQuotes {
+        claim_id: String,
+        span: Option<String>,
+    },
+    /// A claim's quote, or that quote's fetched source text, is missing
+    /// from the ledger.
+    ClaimQuoteUnresolved {
+        claim_id: String,
+        quote_id: String,
+        span: Option<String>,
+    },
     ClaimParaphraseTooClose {
         claim_id: String,
         detail: String,
@@ -91,6 +103,8 @@ impl GateReason {
             Self::FindingWithoutEvidence { .. }
             | Self::UnknownQuoteId { .. }
             | Self::SourceNotFetched { .. }
+            | Self::ClaimWithoutQuotes { .. }
+            | Self::ClaimQuoteUnresolved { .. }
             | Self::SweepSourceUnresolved { .. } => Disposition::NeedsAnchor,
             Self::QuoteDoesNotLocate { .. }
             | Self::ClaimParaphraseTooClose { .. }
@@ -107,6 +121,8 @@ impl GateReason {
             | Self::UnknownQuoteId { span, .. }
             | Self::QuoteDoesNotLocate { span, .. }
             | Self::SourceNotFetched { span, .. }
+            | Self::ClaimWithoutQuotes { span, .. }
+            | Self::ClaimQuoteUnresolved { span, .. }
             | Self::ClaimParaphraseTooClose { span, .. }
             | Self::ClaimParaphraseNoSupport { span, .. }
             | Self::LinterError { span, .. } => span.as_deref(),
@@ -167,6 +183,20 @@ impl std::fmt::Display for GateReason {
                 write!(
                     f,
                     "finding {finding_id}: no evidence quotes (findings never reach the diff unanchored)"
+                )
+            }
+            Self::ClaimWithoutQuotes { claim_id, .. } => {
+                write!(
+                    f,
+                    "claim {claim_id}: cites no quotes — nothing anchors its prose"
+                )
+            }
+            Self::ClaimQuoteUnresolved {
+                claim_id, quote_id, ..
+            } => {
+                write!(
+                    f,
+                    "claim {claim_id}: quote {quote_id} is not in the ledger, or its source has no fetched text"
                 )
             }
             Self::UnknownQuoteId {
@@ -332,11 +362,16 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
     GateVerdict { blocked, reasons }
 }
 
-/// Paraphrase pass of the gate: each claim's prose vs its claimed source
-/// texts (missing quotes/sources are pass 1's business and are skipped).
+/// Claim pass of the gate: each claim must resolve to quotes with fetched
+/// source text, and its prose is paraphrase-checked against those texts.
 fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
     use paraphrase::ParaphraseVerdict;
 
+    let base_norm = input
+        .base_wikitext
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     for claim in &input.ledger.claims {
         // Scope: the gate assesses DRAFTED prose. A claim whose prose
         // already exists in the base wikitext is pre-existing article text
@@ -344,31 +379,45 @@ fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
         // catch: attributing a well-sourced fact is Words-to-watch
         // hedging; the plain sentence just needs its ref).
         let claim_norm = claim.prose.split_whitespace().collect::<Vec<_>>().join(" ");
-        let base_norm = input
-            .base_wikitext
-            .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ");
         if base_norm.contains(&claim_norm) {
             continue;
         }
+        let span = crate::render::locate_block_anchor(input.proposed_wikitext, &claim.prose);
+        // Nothing here is covered by the findings pass (it walks finding
+        // evidence only): a claim with no quotes, or with a quote or
+        // source text the ledger cannot produce, blocks in its own name.
+        if claim.quote_ids.is_empty() {
+            reasons.push(GateReason::ClaimWithoutQuotes {
+                claim_id: claim.id.clone(),
+                span,
+            });
+            continue;
+        }
+        // Each cited source's text once, however many quotes cite it.
+        let mut source_ids: Vec<&str> = Vec::new();
         let mut combined_source = String::new();
         let mut missing = false;
         for quote_id in &claim.quote_ids {
-            match input
+            let resolved = input
                 .ledger
                 .quote(quote_id)
-                .and_then(|q| input.ledger.source_text(&q.source_id).map(|text| (q, text)))
-            {
-                Some((_, text)) => {
+                .and_then(|q| input.ledger.source_text(&q.source_id).map(|text| (q, text)));
+            if let Some((quote, text)) = resolved {
+                if !source_ids.contains(&quote.source_id.as_str()) {
+                    source_ids.push(&quote.source_id);
                     combined_source.push_str(text);
                     combined_source.push('\n');
                 }
-                None => missing = true,
+            } else {
+                missing = true;
+                reasons.push(GateReason::ClaimQuoteUnresolved {
+                    claim_id: claim.id.clone(),
+                    quote_id: quote_id.clone(),
+                    span: span.clone(),
+                });
             }
         }
         if missing {
-            // Quote/source resolution failures are already reported in pass 1.
             continue;
         }
         let assessment = paraphrase::assess_paraphrase_with(
@@ -376,7 +425,6 @@ fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
             &claim.prose,
             &combined_source,
         );
-        let span = crate::render::locate_block_anchor(input.proposed_wikitext, &claim.prose);
         match assessment.verdict {
             ParaphraseVerdict::TooClose => {
                 reasons.push(GateReason::ClaimParaphraseTooClose {

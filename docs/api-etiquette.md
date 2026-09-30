@@ -62,6 +62,10 @@ wikiactive/0.1 (en.wikipedia User:LuisVilla; luis@lu.is)
 - `action=edit` always posts with `baserevid` pinned to the session's base;
   the client pre-checks currency and aborts on conflict — a moved base never
   writes (`tests/publish.rs::test_stale_base_revid_aborts`).
+- Creating a page (no base revision) posts with `createonly`, so a page
+  that appeared in the meantime is never overwritten.
+- Every edit posts `notminor`: `minor` is a presence flag, and no edit this
+  tool makes is minor.
 - Every edit summary carries the disclosure suffix
   (`LLM-Disclosure: U:LuisVilla/wikiactive`); a bare summary is refused.
 - No publish happens without an interactive `/dev/tty` confirmation
