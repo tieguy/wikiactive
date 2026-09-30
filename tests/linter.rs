@@ -262,6 +262,29 @@ fn new_semicolon_on_a_line_that_had_one_flags() {
     );
 }
 
+/// False block (review pass 2, follow-up to finding 1): a SHORT
+/// (under-30-char) modified line loses its base counterpart — the whole
+/// (modified) line no longer appears in the base — so an inherited
+/// semicolon on it false-blocks. Matching by the text before the first
+/// semicolon finds the counterpart.
+#[test]
+fn inherited_semicolon_on_a_short_modified_line_passes() {
+    let config = cfg();
+    let base = "She left; he stayed.\n";
+    let proposed = "She left; he stayed on.\n";
+    let findings = gate(base, proposed, &config);
+    assert!(
+        !findings.iter().any(|f| f.rule == "semicolon-prose"),
+        "the short line's semicolon is inherited: {findings:?}"
+    );
+    // A short line with a NEW second semicolon still flags.
+    let dirty = gate(base, "She left; he stayed; ok?\n", &config);
+    assert!(
+        dirty.iter().any(|f| f.rule == "semicolon-prose"),
+        "{dirty:?}"
+    );
+}
+
 /// False pass (review finding 1, plan item 6A acceptance): the guard must
 /// exempt INHERITED semicolons — on a multi-line run too. Two modified
 /// lines that add no new semicolons pass; the same run with one added

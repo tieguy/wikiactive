@@ -152,7 +152,21 @@ fn mask_inherited_semicolon_lines(run: &str, base: &str) -> String {
             if !l.contains(';') {
                 return l.to_string();
             }
-            let prefix = &l[..l.char_indices().nth(30).map_or(l.len(), |(i, _)| i)];
+            let cut = l.char_indices().nth(30).map_or(l.len(), |(i, _)| i);
+            let mut prefix = &l[..cut];
+            if l.chars().count() < 30 {
+                // A line under the 30-char probe IS the probe, and a
+                // modified line no longer appears verbatim in the base —
+                // its inherited semicolons false-blocked (review pass 2).
+                // Fall back to the text BEFORE the first semicolon: the
+                // unmodified leading fragment of an edited line.
+                prefix = l.split(';').next().unwrap_or(l);
+            }
+            if prefix.trim().len() < 4 {
+                // Too short to identify a counterpart (would match almost
+                // any base line): treat the line as drafted, not inherited.
+                return l.to_string();
+            }
             let inherited = base.lines().any(|b| {
                 b.len() >= 5
                     && b.contains(prefix.trim())
