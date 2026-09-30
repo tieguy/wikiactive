@@ -73,8 +73,30 @@ enforces the quoted span verbatim in the fetched source. Unmarked
 quote-like text still flags (the author must choose quote vs rewrite).
 CLOP governs our own prose, not our citations-as-quotes.
 
-## Review-surface backlog (operator, 2026-09-27, live L2 session)
+## Plan-004 shakedown UX record (2026-09-30, P.5 in progress)
 
+Session 1 (userspace page creation) published fully in-app: artifact →
+comment UI → on-artifact publish → approval → disclosure-log upsert
+(revid 1377614230). **Operator verdict: "still a lot of UX work to be
+done but at least it all works now."** The verdicts that drove the
+rework so far (each fixed the same day):
+
+1. Session-page comment forms — "unusable": snippets not full text,
+   unexplained two-field form, unstyled, "change ·" jargon. → Forms now
+   live IN the served artifact, one per block, plain language.
+2. Stale artifacts served as current (an old page-creation draft looked
+   like the live review). → Round-log/mtime staleness guard; banner +
+   form suppression + driver-resolve refusal.
+3. Console "shows nothing useful". → Per-session review status
+   (live/comments/done+why), attention-first sort.
+4. Publish leg on a different page, named "approve" that didn't exist,
+   greyed-out footer. → Publish + approval blocks on the artifact.
+
+**Open UX debt (operator's call, not blocking P.5 sign-off):** general
+polish and layout work across the artifact/session/console; whatever
+surfaces in session 2's full comment → apply → re-render cycle.
+
+## Review-surface backlog (operator, 2026-09-27, live L2 session)
 - Fetch-status icons for sources ("fetched + relied on" / "fetched but not
   relied on" / "fetch failed") — deferred at operator request; the card
   currently uses placement (Source: vs Also consulted:) + a text status.
