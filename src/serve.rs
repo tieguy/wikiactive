@@ -251,26 +251,88 @@ fn list_sessions() -> Vec<String> {
     slugs
 }
 
-/// GET / — the console: every session with its state and links.
+/// GET / — the console: every session with what actually decides "does
+/// this need me?" — the review state (current round / out of date and
+/// why / none) and the open-comment count — sorted attention-first
+/// (live reviews with open comments, then live reviews, then history).
 async fn console(State(state): State<Arc<ServeState>>) -> Html<String> {
-    let mut body = String::from("<h1>wa serve — session console</h1><ul>");
-    for slug in list_sessions() {
-        let meta = read_meta(&slug);
+    /// Console sort rank: smaller = more attention.
+    fn rank(s: &str) -> u8 {
+        match s {
+            "current+comments" => 0,
+            "current" => 1,
+            _ => 2,
+        }
+    }
+    struct Row {
+        slug: String,
+        article: String,
+        status_html: String,
+        sort_key: String,
+    }
+    let mut rows: Vec<Row> = list_sessions()
+        .into_iter()
+        .map(|slug| {
+            let dir = session_dir(&slug);
+            let meta = read_meta(&slug);
+            let article = meta.as_ref().map_or("?".into(), |m| m.article.clone());
+            let open = crate::comments::CommentQueue::load(&dir.join("comments.jsonl"))
+                .map_or(0, |q| q.open().len());
+            let (status_html, sort_key) = match artifact_state(&dir) {
+                Some(ArtifactState::Current { round }) => {
+                    let comments = if open == 0 {
+                        String::new()
+                    } else {
+                        format!(" · <strong>{open} open comment(s)</strong>")
+                    };
+                    (
+                        format!("<strong>review live — round {round}</strong>{comments}"),
+                        if open == 0 {
+                            "current".into()
+                        } else {
+                            "current+comments".into()
+                        },
+                    )
+                }
+                Some(ArtifactState::Stale { kind, .. }) => {
+                    (format!("review done ({kind})"), "stale".into())
+                }
+                None => ("no review rendered".to_string(), "none".into()),
+            };
+            Row {
+                slug,
+                article,
+                status_html,
+                sort_key,
+            }
+        })
+        .collect();
+    rows.sort_by(|a, b| {
+        rank(&a.sort_key)
+            .cmp(&rank(&b.sort_key))
+            .then_with(|| a.slug.cmp(&b.slug))
+    });
+
+    let mut body = String::from(
+        "<!doctype html>\n<html><head><meta charset=utf-8><title>wa serve — sessions</title>\n",
+    );
+    body.push_str(SESSION_PAGE_STYLE);
+    body.push_str("\n</head>\n<body>\n<h1>wa serve — session console</h1><ul>");
+    for row in rows {
         let outcome = state
             .outcomes
             .lock()
             .expect("outcomes")
-            .get(&slug)
+            .get(&row.slug)
             .cloned()
             .unwrap_or_default();
+        let slug = &row.slug;
         let _ = writeln!(
             body,
-            "<li><a href=\"/sessions/{slug}\">{slug}</a> — {} (base revid {}){}</li>",
-            esc(meta
-                .as_ref()
-                .map_or("?".into(), |m| m.article.clone())
-                .as_str()),
-            meta.as_ref().map_or(0, |m| m.base_revid),
+            "<li><a href=\"/sessions/{slug}\">{slug}</a> — {} \
+             · <span class=\"console-status\">{}</span>{}</li>",
+            esc(&row.article),
+            row.status_html,
             if outcome.is_empty() {
                 String::new()
             } else {
@@ -278,7 +340,7 @@ async fn console(State(state): State<Arc<ServeState>>) -> Html<String> {
             }
         );
     }
-    body.push_str("</ul>");
+    body.push_str("</ul>\n</body></html>");
     Html(body)
 }
 
@@ -461,8 +523,9 @@ enum ArtifactState {
     /// The render is the session's latest event — commenting is live.
     Current { round: u32 },
     /// Do not comment against this artifact: forms suppressed, banner
-    /// shown, driver-resolve refuses.
-    Stale { reason: String },
+    /// shown, driver-resolve refuses. `kind` is the short console label;
+    /// `reason` is the full sentence for the banner.
+    Stale { kind: &'static str, reason: String },
 }
 
 fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
@@ -478,11 +541,13 @@ fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
     let later: &[crate::session::RoundEntry] = &rounds[render_idx + 1..];
     if later.iter().any(|e| e.phase == "published") {
         return Some(ArtifactState::Stale {
+            kind: "published",
             reason: "this edit was published — the review is done".into(),
         });
     }
     if later.iter().any(|e| e.phase == "comments-resolved") {
         return Some(ArtifactState::Stale {
+            kind: "comments applied",
             reason: "comments were applied after this render — re-render to review the \
                      revised text"
                 .into(),
@@ -501,6 +566,7 @@ fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
         .any(|t| t > artifact_mtime);
     if text_touched_after {
         return Some(ArtifactState::Stale {
+            kind: "text changed",
             reason: "the session's text changed after the render (hand edit?) — re-render \
                      before commenting"
                 .into(),
@@ -649,7 +715,7 @@ fn inject_comment_ui(slug: &str, artifact_html: &str) -> String {
     };
 
     let mut out = artifact_html.to_string();
-    if let Some(ArtifactState::Stale { reason }) = state {
+    if let Some(ArtifactState::Stale { reason, .. }) = state {
         if let Some(i) = out.find("<main>") {
             out.insert_str(i + "<main>".len(), &stale_banner(&reason));
         }
@@ -772,7 +838,7 @@ fn review_comments_section(slug: &str) -> String {
                  its own comment box, right under the text.</p>"
             );
         }
-        Some(ArtifactState::Stale { reason }) => {
+        Some(ArtifactState::Stale { reason, .. }) => {
             let _ = writeln!(
                 html,
                 "<p>Review artifact: <strong>out of date</strong> — {}. Use \
@@ -1223,7 +1289,7 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
     // table would not describe the current text (operator shakedown
     // catch: an old page-creation draft served as current).
     match artifact_state(&dir) {
-        Some(ArtifactState::Stale { reason }) => {
+        Some(ArtifactState::Stale { reason, .. }) => {
             return format!(
                 "driver resolve: the review artifact is out of date ({reason}) — re-render \
                  before applying comments"
