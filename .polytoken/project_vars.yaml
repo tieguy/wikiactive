@@ -1,0 +1,125 @@
+# Project variables for wikiactive. Read as raw data by templates; no secrets here.
+# The plan spec below is a port of the ed3d-plugins RPI loop ("writing-design-plans" /
+# "writing-implementation-plans") adapted to Polytoken's plan facet and this repo's
+# existing docs/design-plans convention. plan-reviewer enforces this spec instead of
+# the default plan shape. Derived from ed3dai/ed3d-plugins (CC-BY-SA 4.0; portions
+# via obra/superpowers, MIT).
+plan_facet:
+  plan_spec_override: |
+    # Handoff plan specification (wikiactive design plan)
+
+    The handoff plan IS a design plan in this repo's established format. During
+    execution, the first task commits it verbatim to
+    `docs/design-plans/YYYY-MM-DD-<slug>.md` (slug = short topic, e.g.
+    `2026-10-01-comment-queue.md`). Design plans are directional and archival;
+    implementation detail is written just-in-time during execution, never here.
+
+    ## Required document structure (in order)
+
+    1. **Title** — `# <Feature> Design`
+    2. **Summary** — 1-2 paragraphs, written LAST, understandable without codebase context
+    3. **Definition of Done** — written FIRST, before any architecture. Capture the
+       operator's definition of done verbatim at full fidelity; confirm it back before
+       proceeding. This is the anchor every later section traces to. If the operator's
+       DoD is architecture/quality-focused rather than feature-focused, write it that
+       way — do not substitute a checklist of lint gates.
+    4. **Acceptance Criteria** — scoped IDs `{slug}.AC{N}.{M}`. For EACH DoD item,
+       enumerate success cases, important failure cases, and edge cases. Each criterion
+       must be observable and testable ("invalid quote anchor is rejected with the
+       source offset", never "code is clean"). Present the full AC set to the operator
+       for validation before the plan is complete; revise until approved. (Existing
+       bare `AC.N` IDs from the MVP-1 plan remain valid; new plans use scoped IDs.)
+    5. **Glossary** — domain terms a fresh reviewer needs; written LAST
+    6. **Architecture** — components, responsibilities, data flow, boundaries.
+       Contracts (trait signatures, CLI surface, ledger record shapes, fixture
+       formats) get full specification with code blocks; implementation bodies do not.
+    7. **Existing Patterns** — what codebase investigation found that this design
+       follows; any divergence, justified. State explicitly if none found.
+    8. **Implementation Phases** — see below
+    9. **Additional Considerations** — error handling, edge cases, extensibility;
+       only if genuinely relevant. No hypotheticals.
+
+    ## Implementation Phases rules
+
+    - Hard limit: **8 phases**. If more are needed, the plan must say how work splits
+      across multiple plans and scope itself to the first batch.
+    - Wrap every phase in `<!-- START_PHASE_N -->` / `<!-- END_PHASE_N -->` markers;
+      execution parses phases individually across compaction boundaries.
+    - Each phase has: **Goal**, **Components** (exact paths from investigation, never
+      handwaved), **Dependencies**, **ACs covered** (scoped IDs), **Done when**.
+    - Component-level, not task-level. No step-by-step instructions, no function
+      bodies, no test code here.
+    - Infrastructure phases verify operationally ("`cargo build` succeeds") and list
+      no ACs. Functionality phases MUST list the ACs they cover and are not done
+      until tests exist verifying each listed AC case. Tests are phase deliverables,
+      never a later "testing phase".
+    - Every phase ends with the tree building and its tests passing. A phase that
+      "will be fixed in the next phase" is a defect in this plan.
+
+    ## Execution contract (stated in the plan so execute follows it)
+
+    - Implementation detail lives in `docs/implementation-plans/YYYY-MM-DD-<slug>/phase_NN.md`,
+      written just-in-time: re-verify current codebase state for EACH phase before
+      writing its tasks (never "update if exists"; investigate, then write definitive
+      instructions). Design provides direction; the codebase as it exists NOW provides
+      the how.
+    - Tasks are bite-sized (one action each): write failing test / run it / implement
+      minimally / run tests / commit. Every functionality task names the AC cases it
+      verifies (`Verifies: <slug>.AC2.1`). Test behavior, not implementation.
+    - Before declaring any phase done: run `cargo fmt`, `cargo clippy --all-targets`,
+      `cargo test` fresh and read the output — evidence before claims, always.
+    - After the final phase: run the `code-reviewer` subagent over the work and fix
+      or rebut every finding until zero Critical/Important remain; then run
+      `test-analyst` to validate AC coverage. Only then may the work be called done.
+    - SonarQube is the external quality scorer (org `tieguy`, project
+      `tieguy_wikiactive`, Rust rules via CI on push): `sonar analyze secrets`
+      runs locally before any commit; the reviewer gate reads `sonar list issues
+      --new-code` after CI analysis and treats SQ severities as authoritative
+      (BLOCKER/HIGH = must fix).
+
+    ## Process requirements for the planning session itself
+
+    - **Playbook/code pairing:** a plan that changes loop behavior (anything
+      under `src/checks/`, the ledger, serve, or the CLI commands that PLAYBOOK
+      documents) must include updating `PLAYBOOK.md` and the enforcement
+      inventory `docs/playbook-enforcement.md` as phase deliverables, and a
+      `playbook-audit` pass in the final gate. A PLAYBOOK-only edit must label
+      itself doc-only in the plan. A new prescriptive playbook line requires
+      either a named enforcement mechanism or an explicit ADVISORY status in the
+      inventory — prose that prescribes what nothing enforces is drift debt.
+
+    - Investigate before writing: exact paths, real module names, current state.
+      Unverified assumptions must be labeled as such or investigated away.
+    - The DoD and the AC set both require explicit operator validation before
+      handoff. Do not hand off a plan whose ACs were never shown to the operator.
+    - **ADR citations:** Architecture/Existing-Patterns sections must cite
+      relevant records from `docs/decisions/` instead of re-arguing them; a
+      design that contradicts a live ADR must include superseding it as an
+      explicit phase deliverable. Records cross-reference by textual ID
+      (`ADR-0007`), never file path, and code comments may cite them the same
+      way. Settled decisions the plan relies on that have no record yet get one
+      in the same effort — link to the ADR or it didn't happen — and every
+      record must carry alternatives-considered with rejection reasons so no
+      later session re-litigates a settled choice.
+    - Wikiactive invariants that every plan must respect and reference where
+      touched: content changes flow through the ledger (register → fetch → quote →
+      claim) and the gate; the quote-anchor locator keeps its SP42 provenance
+      headers; API etiquette stays internalized in `src/wikipedia.rs` /
+      `src/ledger/net.rs` with `USER_AGENT` only in `src/lib.rs`; `fixtures/` is
+      re-recorded, never hand-edited; `sessions/` stays out of git.
+
+    ## Writing style
+
+    Concise, specific, honest. Exact component names and paths. Acknowledge
+    unknowns explicitly. No throat-clearing, no "robust and scalable" filler.
+
+    ## Rationalizations that mean STOP
+
+    - "DoD is obvious from the request" → capture it verbatim anyway; it is the anchor.
+    - "ACs are just the DoD restated" → ACs translate DoD into testable cases; the
+      operator must confirm the translation.
+    - "Design is simple, skip phases" → phases always; ≤8 always.
+    - "Tests can come at the end" → functionality phases ship their own tests.
+    - "Include the code so execution is easier" → contracts only; implementation is
+      generated fresh from codebase state during execution.
+    - "Phase N+1 will fix phase N's failures" → no phase ends red.

@@ -1,0 +1,10 @@
+[
+  {
+    "name": "wmfetch-only-for-wikimedia",
+    "event": "pre_tool_use",
+    "matcher": "web_fetch",
+    "handler": {
+      "bash": "h=\"$(jq -r '.input.url // empty' | sed -E 's#^[a-z]+://([^/:]+).*#\\1#')\"; case \"$h\" in *.wikipedia.org|wikipedia.org|*.wikimedia.org|wikimedia.org|*.wikidata.org|wikidata.org|*.mediawiki.org|mediawiki.org|*.wiktionary.org|wiktionary.org|*.wikibooks.org|wikibooks.org|*.wikinews.org|wikinews.org|*.wikiquote.org|wikiquote.org|*.wikisource.org|wikisource.org|*.wikiversity.org|wikiversity.org|*.wikivoyage.org|wikivoyage.org|*.wikimediafoundation.org|wikimediafoundation.org) echo \"web_fetch cannot set the User-Agent WMF etiquette requires (see ~/Projects/CLAUDE.md and docs/api-etiquette.md). Use 'wm-fetch <url>' from a shell instead — it enforces UA contact, maxlag, pacing, and robots scoping by construction.\"; exit 2;; esac; exit 0"
+    }
+  }
+]

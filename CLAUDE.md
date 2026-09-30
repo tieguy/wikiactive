@@ -6,8 +6,13 @@
 one logical edit at a time, every content change quote-anchored to a
 fetched source, human review via the in-app console (`wa serve`:
 block-anchored comments on the session page), publish only on
-interactive confirmation. Read `PLAYBOOK.md` before doing any session work;
-read `docs/design-plans/2026-09-24-mvp1-structured-loop.md` for the design.
+interactive confirmation. Article drafting runs inside `wa serve`: the model is
+called at exactly the three judgment points with the versioned, checksum-pinned
+prompts in `prompts/` — rules that govern drafted output live there and in the
+gate, never in the coding harness's context. The coding harness (this session
+type) maintains the tool, rules corpus, and prompts. `PLAYBOOK.md` is the loop's
+behavior spec — paired with code changes and audited, not runtime reading. Read
+`docs/design-plans/2026-09-24-mvp1-structured-loop.md` for the design.
 
 ## Working rules
 
