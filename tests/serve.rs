@@ -523,8 +523,8 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         "artifact written"
     );
 
-    // The session page: review-comments section with per-block forms; no
-    // lavish link or re-open (AC.1).
+    // The session page: status + queue + pointer to the artifact (the
+    // commenting surface); no lavish link or re-open (AC.1).
     let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
         .await
         .unwrap()
@@ -532,16 +532,40 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .await
         .unwrap();
     assert!(page.contains("Review comments"), "{page}");
-    assert!(page.contains("change · The tower is"), "{page}");
-    assert!(page.contains("removed wording"), "{page}");
+    assert!(page.contains("0 open."), "{page}");
+    assert!(page.contains("Open the review artifact"), "{page}");
+    assert!(page.contains("queue empty"), "{page}");
     assert!(
         !page.contains("lavish"),
         "session page must not link lavish: {page}"
     );
 
-    // The forms' hidden targets carry the anchor-table anchors VERBATIM
-    // (AC.2): a new-side and a `base:`-prefixed old-side entry exist and
-    // appear as form target values.
+    // The SERVED ARTIFACT carries the comment forms inline under each
+    // block, plain-language (no jargon labels, no quoted field), with the
+    // hidden targets carrying the anchor-table anchors VERBATIM (AC.2).
+    let artifact_page = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        artifact_page.contains("leave a comment on the new (highlighted) wording"),
+        "plain-language new-side form: {artifact_page}"
+    );
+    assert!(
+        artifact_page.contains("comment on the removed (struck-through) wording"),
+        "plain-language old-side affordance: {artifact_page}"
+    );
+    assert!(
+        !artifact_page.contains("words you mean"),
+        "the confusing quoted field is gone from the UI"
+    );
+    assert!(
+        !artifact_page.contains("change ·"),
+        "no jargon labels: {artifact_page}"
+    );
+
     let table = anchor_table(&dir);
     let new_side = table
         .iter()
@@ -551,14 +575,12 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .iter()
         .find(|(_, a)| a.starts_with("base:"))
         .expect("old-side (base:) anchor");
-    assert!(
-        page.contains(&format!("name=target value=\"{}\"", new_side.1)),
-        "new-side form target must be the anchor verbatim: {page}"
-    );
-    assert!(
-        page.contains(&format!("name=target value=\"{}\"", old_side.1)),
-        "old-side form target must be the anchor verbatim: {page}"
-    );
+    for anchor in [&new_side.1, &old_side.1] {
+        assert!(
+            artifact_page.contains(&format!("name=target value=\"{anchor}\"")),
+            "form target must be the anchor verbatim: {artifact_page}"
+        );
+    }
 
     // Submit → the queue records the anchors verbatim (AC.2/AC.3).
     let post_comment = |target: String, text: String, quoted: Option<String>| {

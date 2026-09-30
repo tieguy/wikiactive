@@ -298,7 +298,9 @@ async fn session_page(
     let ledger = Ledger::load(&dir.join("ledger.json")).ok();
 
     let mut page = format!(
-        "<h1>{}</h1><p>slug {} · base revid {} · entry loop L{}</p>",
+        "<!doctype html>\n<html><head><meta charset=utf-8><title>{}</title>\n{}\n</head>\n<body>\n<h1>{}</h1><p>slug {} · base revid {} · entry loop L{}</p>",
+        esc(&meta.article),
+        SESSION_PAGE_STYLE,
         esc(&meta.article),
         esc(&slug),
         meta.base_revid,
@@ -409,8 +411,31 @@ async fn session_page(
          <input name=summary size=60 placeholder=\"scoped edit summary\">\
          <button>start publish (gate → confirmation)</button></form>"
     );
+    page.push_str("\n</body></html>");
     Html(page)
 }
+
+/// Session-page styling (the shakedown verdict: the bare unstyled page
+/// was "ugly to look at"; this matches the artifact's palette).
+const SESSION_PAGE_STYLE: &str = "<style>\n\
+:root { --ink:#1a1a1a; --muted:#667; --paper:#faf9f7; --line:#ddd8d0; --accent:#7c5cbf; }\n\
+* { box-sizing: border-box; }\n\
+body { font: 15px/1.6 Georgia, serif; color: var(--ink); background: var(--paper); margin: 0; padding: 2rem; }\n\
+main, body > * { max-width: 900px; margin-left: auto; margin-right: auto; }\n\
+h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; margin-top: 2rem; }\n\
+h3 { font-size: .95rem; color: var(--muted); }\n\
+form { font-family: system-ui, sans-serif; font-size: .85rem; display: block; margin: .5rem 0; }\n\
+form.inline { display: inline-block; }\n\
+input, textarea, button { font: inherit; padding: .3rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; }\n\
+button { cursor: pointer; border: 1px solid var(--accent); color: var(--accent); }\n\
+button:hover { background: #f6f2fc; }\n\
+table { border-collapse: collapse; font-family: system-ui, sans-serif; font-size: .8rem; }\n\
+th, td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; }\n\
+.comment { border-left: 3px solid var(--accent); background: #f6f2fc; border-radius: 0 6px 6px 0; padding: .4rem .6rem; margin: .4rem 0; font-family: system-ui, sans-serif; font-size: .85rem; }\n\
+.comment code { font-family: ui-monospace, monospace; font-size: .75rem; color: var(--muted); }\n\
+.comment-resolved { border-left-color: var(--line); background: #fff; color: var(--muted); }\n\
+pre { font-family: ui-monospace, monospace; font-size: .8rem; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: .75rem; white-space: pre-wrap; }\n\
+</style>";
 
 /// GET /sessions/{slug}/review — the review artifact, served in-app.
 /// The artifact is self-contained HTML; reading it never needs the lavish
@@ -419,87 +444,249 @@ async fn session_page(
 async fn review_artifact(Path(slug): Path<String>) -> axum::response::Response {
     let path = session_dir(&slug).join("review.html");
     match std::fs::read_to_string(&path) {
-        Ok(html) => Html(html).into_response(),
+        Ok(html) => Html(inject_comment_ui(&slug, &html)).into_response(),
         Err(_) => axum::http::StatusCode::NOT_FOUND.into_response(),
     }
 }
 
-/// The "Review comments" section (plan-004 P.2): one comment form per
-/// changed block (built from the artifact's embedded anchor table — the
-/// hidden `target` is the block's `wikitext_anchor` VERBATIM, so comment
-/// anchoring is exact by construction), old-side forms for removed
-/// wording, evidence-card forms labeled by the source's citation text,
-/// and the queue itself — open first (highlighted), then resolved with
-/// their notes. Built as its own helper: `session_page` is at the
-/// `too_many_lines` ceiling.
-fn review_comments_section(slug: &str) -> String {
-    let dir = session_dir(slug);
-    let mut html = String::from("\n<h2>Review comments</h2>\n");
-    match std::fs::read_to_string(dir.join("review.html")) {
-        Ok(text) => html.push_str(&comment_forms(slug, &text)),
-        Err(_) => html.push_str("<p>no review artifact yet — render one first</p>\n"),
+/// The per-block insertion plan for [`inject_comment_ui`]: for each
+/// changed block and evidence card, the comment HTML to insert directly
+/// after that element's closing `</div>` (blocks are flat — the next
+/// `</div>` after the opening tag is the element's own close), plus the
+/// anchors that received a form (everything else lands in the stray
+/// footer).
+fn block_insertions(
+    slug: &str,
+    artifact_html: &str,
+    queue: &crate::comments::CommentQueue,
+) -> (Vec<(usize, String)>, Vec<String>) {
+    use std::fmt::Write as _;
+
+    let blocks = crate::render::review_targets(artifact_html);
+    let evidence = crate::render::evidence_targets(artifact_html);
+    let by_anchor = |anchor: &str| -> Vec<&crate::comments::Comment> {
+        queue
+            .comments
+            .iter()
+            .filter(|c| c.target == anchor)
+            .collect()
+    };
+    let div_end = |id: &str| -> Option<usize> {
+        let needle = format!("id=\"{id}\"");
+        let i = artifact_html.find(&needle)?;
+        let close = artifact_html[i..].find("</div>")? + i + "</div>".len();
+        Some(close)
+    };
+
+    let mut insertions: Vec<(usize, String)> = Vec::new();
+    let mut placed: Vec<String> = Vec::new();
+    for block in &blocks {
+        let Some(end) = div_end(&block.element_id) else {
+            continue;
+        };
+        let mut html = String::new();
+        html.push_str(&comment_form(
+            slug,
+            &block.wikitext_anchor,
+            if block.old_sides.is_empty() {
+                "leave a comment on this paragraph"
+            } else {
+                "leave a comment on the new (highlighted) wording"
+            },
+        ));
+        for old in &block.old_sides {
+            let _ = write!(
+                html,
+                "<details class=\"wa-old-toggle\"><summary>comment on the removed \
+                 (struck-through) wording</summary>{}</details>",
+                comment_form(
+                    slug,
+                    &old.wikitext_anchor,
+                    "what should change about the removed wording?"
+                )
+            );
+            html.push_str(&comments_html(slug, &by_anchor(&old.wikitext_anchor)));
+            placed.push(old.wikitext_anchor.clone());
+        }
+        html.push_str(&comments_html(slug, &by_anchor(&block.wikitext_anchor)));
+        placed.push(block.wikitext_anchor.clone());
+        insertions.push((end, html));
     }
-    html.push_str(&queue_html(slug, &dir));
+    for ev in &evidence {
+        let Some(end) = div_end(&ev.element_id) else {
+            continue;
+        };
+        let mut html = comment_form(
+            slug,
+            &ev.wikitext_anchor,
+            "comment on this source (its quotes, its reliability)",
+        );
+        html.push_str(&comments_html(slug, &by_anchor(&ev.wikitext_anchor)));
+        placed.push(ev.wikitext_anchor.clone());
+        insertions.push((end, html));
+    }
+    (insertions, placed)
+}
+
+/// Injected-comment styling for the served artifact (matches the
+/// artifact's own palette: it styles .block/.evidence, these style the
+/// comment layer only).
+const ARTIFACT_COMMENT_STYLE: &str = "<style>
+  .wa-bar { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); \
+border: 1px solid var(--line); border-radius: 8px; background: #fff; \
+padding: .5rem .75rem; margin: .75rem 0; display: flex; align-items: center; gap: 1rem; }
+  .wa-bar-form { display: inline; margin-left: auto; }
+  .wa-cmt, .wa-stray { font-family: system-ui, sans-serif; font-size: .85rem; \
+margin: .25rem 0 .75rem 0; }
+  .wa-cmt form, .wa-old-toggle form { display: flex; gap: .4rem; align-items: flex-start; \
+flex-wrap: wrap; margin: .2rem 0; }
+  .wa-cmt textarea { flex: 1 1 22rem; font: inherit; padding: .35rem .5rem; \
+border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .wa-cmt button { font: inherit; border: 1px solid var(--accent); color: var(--accent); \
+background: #fff; border-radius: 6px; padding: .35rem .7rem; cursor: pointer; }
+  .wa-cmt button:hover { background: #f6f2fc; }
+  .wa-old-toggle { margin-top: .2rem; color: var(--muted); }
+  .wa-old-toggle summary { cursor: pointer; }
+  .wa-comment { border-left: 3px solid var(--accent); background: #f6f2fc; \
+border-radius: 0 6px 6px 0; padding: .4rem .6rem; margin: .35rem 0; }
+  .wa-comment.wa-resolved-note { border-left-color: var(--line); background: #faf9f7; \
+color: var(--muted); }
+  .wa-comment .wa-note { display: block; margin-top: .25rem; white-space: pre-wrap; }
+  .wa-resolve { display: inline-flex; gap: .3rem; margin-top: .3rem; }
+  .wa-resolve input { font: inherit; padding: .25rem .4rem; \
+border: 1px solid var(--line); border-radius: 6px; min-width: 14rem; }
+  .wa-resolve button { font: inherit; border: 1px solid var(--line); color: var(--muted); \
+background: #fff; border-radius: 6px; padding: .25rem .6rem; cursor: pointer; }
+</style>";
+
+/// Serve-time injection of the comment UI into the review artifact: each
+/// changed block and evidence card gets its comment form(s) DIRECTLY
+/// beneath it (the block itself is the context — no snippets, no
+/// jargon-labels), plus that block's comments and resolution notes
+/// inline, a header bar with the driver action, and styling to match the
+/// artifact's own. The on-disk artifact stays pristine (self-contained,
+/// structurally unchanged — plan-004's invariant); this is presentation
+/// only.
+fn inject_comment_ui(slug: &str, artifact_html: &str) -> String {
+    let queue = crate::comments::CommentQueue::load(&session_dir(slug).join("comments.jsonl"))
+        .unwrap_or_default();
+    let (mut insertions, placed_anchors) = block_insertions(slug, artifact_html, &queue);
+
+    // Apply right-to-left so earlier offsets stay valid.
+    insertions.sort_by_key(|(pos, _)| std::cmp::Reverse(*pos));
+    let mut out = artifact_html.to_string();
+    for (pos, html) in insertions {
+        out.insert_str(pos, &html);
+    }
+
+    // Header bar (status + driver action) right after <main> opens.
+    let open_count = queue.open().len();
+    let bar = format!(
+        "<div class=\"wa-bar\">review comments: {open_count} open \
+         · <a href=\"/sessions/{slug}\">session page</a>\
+         <form method=post action=\"/sessions/{slug}/driver/resolve\" class=\"wa-bar-form\">\
+         <button>apply comments — the drafting model revises the text</button></form></div>"
+    );
+    if let Some(i) = out.find("<main>") {
+        out.insert_str(i + "<main>".len(), &bar);
+    }
+
+    // Any comments that did NOT land under a block (unknown targets,
+    // manual anchors): a catch-all footer before </main>.
+    let stray: Vec<&crate::comments::Comment> = queue
+        .comments
+        .iter()
+        .filter(|c| !placed_anchors.contains(&c.target))
+        .collect();
+    if !stray.is_empty() {
+        let mut footer = String::from(
+            "<div class=\"wa-stray\"><h2>Other comments (not attached to a block)</h2>",
+        );
+        for c in &stray {
+            footer.push_str(&comments_html(slug, &[c]));
+        }
+        footer.push_str("</div>");
+        if let Some(i) = out.rfind("</main>") {
+            out.insert_str(i, &footer);
+        }
+    }
+
+    // Styling to match the artifact's own palette (it styles .block and
+    // .evidence; these style the injected comment layer only).
+    if let Some(i) = out.find("</head>") {
+        out.insert_str(i, ARTIFACT_COMMENT_STYLE);
+    }
+    out
+}
+
+/// One plain-language comment form; the hidden target is the anchor,
+/// verbatim (AC.2).
+fn comment_form(slug: &str, target: &str, placeholder: &str) -> String {
+    format!(
+        "<div class=\"wa-cmt\">\
+         <form method=post action=\"/sessions/{slug}/comments\">\
+         <input type=hidden name=target value=\"{target}\">\
+         <textarea name=text rows=2 placeholder=\"{}\"></textarea>\
+         <button>comment</button></form></div>",
+        esc(placeholder)
+    )
+}
+
+/// Comments for one anchor, inline: open first (each with its manual
+/// resolve form), then resolved ones with their notes.
+fn comments_html(slug: &str, comments: &[&crate::comments::Comment]) -> String {
+    use crate::comments::CommentStatus;
+    let mut html = String::new();
+    for c in comments.iter().filter(|c| c.status == CommentStatus::Open) {
+        let _ = write!(
+            html,
+            "<div class=\"wa-comment\"><strong>{}</strong> {}\
+             <form method=post action=\"/sessions/{slug}/comments/resolve\" class=\"wa-resolve\">\
+             <input type=hidden name=id value=\"{}\">\
+             <input name=note placeholder=\"resolution note (optional)\">\
+             <button>mark resolved</button></form></div>",
+            esc(&c.id),
+            esc(&c.text),
+            esc(&c.id)
+        );
+    }
+    for c in comments
+        .iter()
+        .filter(|c| c.status == CommentStatus::Resolved)
+    {
+        let _ = write!(
+            html,
+            "<div class=\"wa-comment wa-resolved-note\"><strong>{}</strong> {} \
+             — resolved<span class=\"wa-note\">{}</span></div>",
+            esc(&c.id),
+            esc(&c.text),
+            esc(c.resolution.as_deref().unwrap_or(""))
+        );
+    }
     html
 }
 
-/// One comment form group: per-changed-block forms (plus old-side forms
-/// for removed wording) and evidence-card forms labeled by the source's
-/// citation text — never the Q-id (evidence comments are about sources).
-fn comment_forms(slug: &str, artifact: &str) -> String {
-    let blocks = crate::render::review_targets(artifact);
-    let evidence = crate::render::evidence_targets(artifact);
-    if blocks.is_empty() && evidence.is_empty() {
-        return "<p>no changed blocks in this artifact — nothing to comment on</p>\n".into();
-    }
-    let mut html = String::new();
-    for block in &blocks {
-        let _ = writeln!(
-            html,
-            "<div class=\"cform\">\
-             <form method=post action=\"/sessions/{slug}/comments\">\
-             <input type=hidden name=target value=\"{}\">\
-             <span class=\"cform-label\">change · {}</span>\
-             <textarea name=text rows=2 cols=70 placeholder=\"comment on this block\"></textarea>\
-             <input name=quoted size=30 placeholder=\"words you mean (optional)\">\
-             <button>comment</button></form></div>",
-            esc(&block.wikitext_anchor),
-            esc(&block.label)
-        );
-        for old in &block.old_sides {
-            let label = old.label.clone().unwrap_or_else(|| {
-                crate::render::human_line_label(&old.wikitext_anchor)
-                    .unwrap_or_else(|| old.element_id.clone())
-            });
+/// The "Review comments" section (plan-004 P.2, reworked after the
+/// operator's shakedown verdict): the COMMENTING surface is the review
+/// artifact itself (each block carries its own form + comments inline —
+/// see [`inject_comment_ui`]); the session page carries only the status,
+/// the queue (full text), and manual resolution.
+fn review_comments_section(slug: &str) -> String {
+    let dir = session_dir(slug);
+    let mut html = String::from("\n<h2>Review comments</h2>\n");
+    match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
+        Ok(queue) => {
+            let open = queue.open().len();
             let _ = writeln!(
                 html,
-                "<div class=\"cform cform-old\">\
-                 <form method=post action=\"/sessions/{slug}/comments\">\
-                 <input type=hidden name=target value=\"{}\">\
-                 <span class=\"cform-label\">removed wording · {}</span>\
-                 <textarea name=text rows=2 cols=70 placeholder=\"comment on the removed wording\"></textarea>\
-                 <input name=quoted size=30 placeholder=\"words you mean (optional)\">\
-                 <button>comment</button></form></div>",
-                esc(&old.wikitext_anchor),
-                esc(&label)
+                "<p>{open} open. <a href=\"/sessions/{slug}/review\">Open the review artifact</a> \
+                 to read the edit and leave comments — each paragraph carries its own \
+                 comment box, right under the text.</p>"
             );
+            html.push_str(&queue_html(slug, &dir));
         }
-    }
-    if !evidence.is_empty() {
-        html.push_str("<h3>On the sources (evidence)</h3>\n");
-        for ev in &evidence {
-            let _ = writeln!(
-                html,
-                "<div class=\"cform\">\
-                 <form method=post action=\"/sessions/{slug}/comments\">\
-                 <input type=hidden name=target value=\"{}\">\
-                 <span class=\"cform-label\">source · {}</span>\
-                 <textarea name=text rows=2 cols=70 placeholder=\"about this source or its quotes\"></textarea>\
-                 <input name=quoted size=30 placeholder=\"words you mean (optional)\">\
-                 <button>comment</button></form></div>",
-                esc(&ev.wikitext_anchor),
-                esc(&ev.label)
-            );
+        Err(e) => {
+            let _ = writeln!(html, "<p class=error>comment queue: {e}</p>");
         }
     }
     html
@@ -521,7 +708,7 @@ fn queue_html(slug: &str, dir: &std::path::Path) -> String {
         let _ = writeln!(
             html,
             "<h3>Open ({})</h3><form method=post action=\"/sessions/{slug}/driver/resolve\">\
-             <button>driver: apply review comments (model)</button></form>",
+             <button>apply open comments — the drafting model revises the text</button></form>",
             open.len()
         );
         for c in open {
