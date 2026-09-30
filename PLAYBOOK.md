@@ -16,8 +16,8 @@ session init ─► [step 0] analyze ─► triage (already done at init) ─►
                     │      wa render ──► GATE ──► review.html (in-app)
                     │                    │                            │
                     │                 blocked                   leave comments
-                    │                    │                     (session page,
-                    │              fix + re-render               one per block)
+                    │                    │                     (review page,
+                    │              fix + re-render               under each block)
                     │                                                 │
                     │      driver: apply review comments ──► revise ──┘
                     │          (queue → model → splice → resolution note)
@@ -110,17 +110,18 @@ dropped.
    with the offending wikitext span.
 6. **Render** — `wa render <slug> --round <n> --summary "<one line>"`. The
    gate runs as mandatory pre-flight; blocked = no artifact, all reasons
-   listed. On success: review.html (read it in-app on the session page).
+   listed. On success: review.html (read it in-app at
+   `/sessions/<slug>/review`).
 7. **Review** — the operator reads the single-column diff with the
-   evidence rail and leaves comments on the **session page**, one per
-   changed block (plus one per evidence card). Anchoring is exact: the
-   form's hidden target IS the block's `wikitext_anchor` from the
-   artifact's embedded anchor table — a plain `L..:C..-L..:C..` range
-   (new side), `base:`-prefixed (removed wording), or `ledger:Q<n>`
-   (evidence). An optional "words you mean" field carries highlighted
-   wording (the text-selection substitute).
-8. **Resolve** — **driver: apply review comments** (session page) maps
-   the OPEN queue entries through the model, grouped by enclosing changed
+   evidence rail and leaves comments on the **review page**, with the
+   **Comment** control under each changed block (plus one under each
+   evidence card). Anchoring is exact: the form's hidden target IS the
+   block's `wikitext_anchor` from the artifact's embedded anchor table —
+   a plain `L..:C..-L..:C..` range (new side), `base:`-prefixed (removed
+   wording), or `ledger:Q<n>` (evidence). A comment addresses its whole
+   block (the tty CLI's `--quoted` span is the only finer-grain form).
+8. **Resolve** — **Apply comments** (review page) maps the OPEN queue
+   entries through the model, grouped by enclosing changed
    block (both sides of a pair go in ONE call), splices the revised
    blocks into `proposed.wikitext` once per group, and writes each
    group's applied/rejected/reply note back to the queue. Or resolve by
@@ -249,10 +250,11 @@ Opus 5.5 drafting quirk).
 - Wikitext anchors are line-based (`L..:C..`); col are char columns.
 - The linter is regex-level; no `<nowiki>` handling, refs spanning lines
   attribute to the opening line.
-- Comment fidelity is block-level, not text-selection: mitigated by the
-  "words you mean" field and the resolution's applied/rejected + reply
-  notes (acceptable for a single-reviewer tool — operator's call,
-  plan-004).
+- Comment fidelity is block-level, not text-selection: a comment names
+  its whole block, and the resolution's applied/rejected + reply notes
+  carry what was done (acceptable for a single-reviewer tool —
+  operator's call, plan-004; the tty CLI's `--quoted` span is the only
+  finer-grain form).
 - Block anchors are single-line ranges: the driver's revised block
   splices by the anchor's line, so a multi-line block (multi-paragraph
   pair, table) is resolved and spliced at its anchor line, not over its
