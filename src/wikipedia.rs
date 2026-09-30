@@ -49,14 +49,31 @@ fn ready_confirm(value: bool) -> std::pin::Pin<Box<dyn std::future::Future<Outpu
 }
 
 /// Reads confirmation from `/dev/tty` so piped stdin/stdout cannot fake it.
-pub struct TtyConfirm;
+/// `action` names the write in the trailing instruction — one phrase per
+/// write kind ("publish", "write to Wikidata item Q…"): the yes is always
+/// worded for exactly the write that follows, never a generic one.
+#[derive(Default)]
+pub struct TtyConfirm {
+    /// The phrase after "[type yes to …]" (default: "publish").
+    pub action: String,
+}
+
+impl TtyConfirm {
+    /// A confirm source with a dedicated action phrase.
+    #[must_use]
+    pub fn for_action(action: impl Into<String>) -> Self {
+        Self {
+            action: action.into(),
+        }
+    }
+}
 
 impl ConfirmSource for TtyConfirm {
     fn confirm<'a>(
         &'a mut self,
         prompt: &'a str,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
-        let prompt = prompt.to_string();
+        let prompt = format!("{prompt} [type yes to {}] ", self.action);
         Box::pin(async move {
             tokio::task::spawn_blocking(move || read_tty_confirm(&prompt))
                 .await
@@ -73,12 +90,12 @@ fn read_tty_confirm(prompt: &str) -> bool {
         .write(true)
         .open("/dev/tty")
     else {
-        eprintln!("no controlling terminal; publish requires one");
+        eprintln!("no controlling terminal; this write requires one");
         return false;
     };
     let mut reader = std::io::BufReader::new(tty);
     let mut handle = reader.get_ref().try_clone().expect("tty clone");
-    let _ = writeln!(handle, "{prompt} [type yes to publish] ");
+    let _ = writeln!(handle, "{prompt}");
     let _ = handle.flush();
     let mut line = String::new();
     if reader.read_line(&mut line).is_err() {
@@ -198,6 +215,42 @@ pub fn summary_with_disclosure(summary: &str) -> Result<String, WikipediaError> 
     Ok(format!("{trimmed} ({DISCLOSURE_SUFFIX})"))
 }
 
+/// Resolve the owner-only `OAuth2` token: [`OAUTH2_TOKEN_ENV`] first, then
+/// the Bitwarden Secrets fallback. Shared by every wiki client (enwiki,
+/// Wikidata) so the secret id lives in exactly one place. Returns None
+/// when both are absent — callers proceed unauthenticated (read-only).
+pub(crate) fn resolve_oauth2_token() -> Option<String> {
+    std::env::var(OAUTH2_TOKEN_ENV)
+        .ok()
+        .filter(|t| !t.trim().is_empty())
+        .or_else(resolve_oauth2_token_from_bws)
+}
+
+/// Bitwarden Secrets secret id holding the owner-only `OAuth2` token — an
+/// identifier, not a secret (pinned like the UA constant; the operator's
+/// secrets live in bws, operator direction 2026-09-27: "we should be
+/// getting that from bws"). Env var always wins.
+const BWS_SECRET_ID: &str = "1f6f7860-1ae7-4a31-a6d1-b4d0003768dc";
+
+/// Fallback token source: `bws secret get` (Bitwarden Secrets CLI) when
+/// the env var is unset. Returns None when bws is absent or fails — the
+/// caller then proceeds unauthenticated (read-only) exactly as before.
+fn resolve_oauth2_token_from_bws() -> Option<String> {
+    let out = std::process::Command::new("bws")
+        .args(["secret", "get", BWS_SECRET_ID, "--output", "json"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let value: String = serde_json::from_slice::<serde_json::Value>(&out.stdout)
+        .ok()?
+        .get("value")?
+        .as_str()?
+        .to_string();
+    (!value.trim().is_empty()).then_some(value)
+}
+
 /// The en.wikipedia API client.
 pub struct Wikipedia {
     api: ApiClient,
@@ -215,10 +268,7 @@ impl Wikipedia {
     /// # Errors
     /// Client construction failure.
     pub async fn connect() -> Result<Self, WikipediaError> {
-        let oauth2_token = std::env::var(OAUTH2_TOKEN_ENV)
-            .ok()
-            .filter(|t| !t.trim().is_empty())
-            .or_else(Self::resolve_oauth2_token_from_bws);
+        let oauth2_token = resolve_oauth2_token();
         let botpassword = std::env::var(BOTPASSWORD_ENV).ok();
         let mut builder = ApiClient::builder(ENWIKI_API)
             .set_user_agent(crate::USER_AGENT)
@@ -260,32 +310,6 @@ impl Wikipedia {
         Ok(Self {
             api: builder.build().await?,
         })
-    }
-
-    /// Bitwarden Secrets secret id holding the owner-only `OAuth2` token —
-    /// an
-    /// identifier, not a secret (pinned like the UA constant; the operator's
-    /// secrets live in bws, operator direction 2026-09-27: "we should be
-    /// getting that from bws"). Env var always wins.
-    const BWS_SECRET_ID: &str = "1f6f7860-1ae7-4a31-a6d1-b4d0003768dc";
-
-    /// Fallback token source: `bws secret get` (Bitwarden Secrets CLI) when
-    /// the env var is unset. Returns None when bws is absent or fails — the
-    /// caller then proceeds unauthenticated (read-only) exactly as before.
-    fn resolve_oauth2_token_from_bws() -> Option<String> {
-        let out = std::process::Command::new("bws")
-            .args(["secret", "get", Self::BWS_SECRET_ID, "--output", "json"])
-            .output()
-            .ok()?;
-        if !out.status.success() {
-            return None;
-        }
-        let value: String = serde_json::from_slice::<serde_json::Value>(&out.stdout)
-            .ok()?
-            .get("value")?
-            .as_str()?
-            .to_string();
-        (!value.trim().is_empty()).then_some(value)
     }
 
     /// The underlying mwapi client (for REST/parsoid and tests).

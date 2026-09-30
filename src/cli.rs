@@ -1288,7 +1288,7 @@ pub async fn publish_core(
 
 async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {
     let wiki = Wikipedia::connect().await?;
-    let mut confirm = TtyConfirm;
+    let mut confirm = TtyConfirm::default();
     publish_core(slug, summary, &wiki, &mut confirm, Via::Tty).await?;
     println!("post-publish: run Earwig compare per new web source");
     Ok(())
@@ -1422,7 +1422,7 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
     let wiki = Wikipedia::connect().await?;
-    let mut confirm = TtyConfirm;
+    let mut confirm = TtyConfirm::default();
     match wiki
         .append_disclosure_log(
             &corpus.house_rules.disclosure.log_page,
