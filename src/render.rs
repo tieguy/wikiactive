@@ -824,7 +824,13 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
             };
             let _ = writeln!(
                 quotes_html,
-                "<p class=\"src\">Source: <a href=\"{url}\">{text}</a><br>accessed {accessed}, {archive}</p>",
+                // The fetch-state glyph is decoration: the text status
+                // below stays, and aria-hidden keeps it out of the a11y
+                // tree (decision 2026-09-30: icons AND text).
+                "<p class=\"src\"><span class=\"wa-fetch wa-fetch-relied\" title=\"fetched + \
+                 relied on — the quote above re-verifies against the fetched text\" \
+                 aria-hidden=\"true\">✓</span> Source: <a href=\"{url}\">{text}</a><br>accessed \
+                 {accessed}, {archive}</p>",
                 url = esc(&source.url),
                 text = esc(&source_link_text(source)),
                 archive = archive_html,
@@ -887,10 +893,21 @@ fn consulted_html(findings: &[Finding], ledger: &Ledger) -> String {
             (Some(t), _) if !t.is_empty() => "fetched",
             _ => "could not be fetched",
         };
+        // Fetch-state glyph per source (decoration; the text status in
+        // parentheses stays) — decision 2026-09-30: icons AND text.
+        let (glyph, class, title) = match (&source.fetched_text, source.fetched_via.as_deref()) {
+            (Some(t), Some(via)) if !t.is_empty() && via.starts_with("operator") => {
+                ("●", "wa-fetch-ok", "fetched (operator-provided)")
+            }
+            (Some(t), _) if !t.is_empty() => ("●", "wa-fetch-ok", "fetched (not relied on)"),
+            _ => ("✕", "wa-fetch-failed", "could not be fetched"),
+        };
         count += 1;
         let _ = writeln!(
             items,
-            "<li><a href=\"{url}\">{text}</a> ({status})</li>",
+            "<li><span class=\"wa-fetch {class}\" title=\"{title}\" \
+             aria-hidden=\"true\">{glyph}</span> <a href=\"{url}\">{text}</a> ({status})</li>",
+            status = status,
             url = esc(&source.url),
             text = esc(&source_link_text(source)),
         );
@@ -1281,11 +1298,11 @@ pub fn evidence_targets(artifact_html: &str) -> Vec<EvidenceTarget> {
             continue;
         };
         let anchor = attr_value(chunk, "data-wiki-anchor").unwrap_or_default();
-        // Label: the citation text of the card's first Source line (skip
-        // past the whole needle — searching '>' from the needle's START
-        // would land on the `<p class="src">` close and pull the literal
-        // "Source: " into the label).
-        let src_needle = "class=\"src\">Source: <a href=\"";
+        // Label: the citation text of the card's first Source line. The
+        // needle anchors on the "Source: " text, AFTER the fetch-state
+        // glyph span — searching '>' from before it would land on the
+        // glyph's or the <p>'s close and pull decoration into the label.
+        let src_needle = "Source: <a href=\"";
         let label = chunk
             .find(src_needle)
             .and_then(|i| {

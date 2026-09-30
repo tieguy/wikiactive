@@ -459,3 +459,151 @@ fn old_side_forms_survive_link_containing_blocks() {
     // The old-side label comes from the <del> run's words.
     assert_eq!(old.label.as_deref(), Some("old."));
 }
+
+/// plan-006 W2: every source state carries its glyph (class + title
+/// tooltip) AND its text status — icons and text, not icons instead of
+/// text (morning decision 1, 2026-09-30). Pinned per state.
+#[test]
+fn fetch_state_glyphs_and_text_statuses() {
+    let mut ledger = Ledger::default();
+    // Quoted (relied-on) source.
+    let s1 = ledger.register_source("https://example.com/relied", "2026-09-24", None);
+    ledger
+        .attach_fetched_text(&s1, "The bridge opened to traffic in 1888.")
+        .unwrap();
+    let q1 = ledger.add_quote(&s1, "opened to traffic in 1888").unwrap();
+    // Consulted, fetched but not relied on.
+    let s2 = ledger.register_source("https://example.com/plain", "2026-09-24", None);
+    ledger
+        .attach_fetched_text(&s2, "Unquoted but fetched text.")
+        .unwrap();
+    // Consulted, operator capture.
+    let s3 = ledger.register_source("https://example.com/capture", "2026-09-24", None);
+    ledger
+        .attach_operator_text(&s3, "Operator-pasted text.", "operator")
+        .unwrap();
+    // Consulted, could not be fetched.
+    let _s4 = ledger.register_source("https://example.com/gone", "2026-09-24", None);
+    let finding = Finding {
+        id: "F1".into(),
+        wikitext_anchor: "L1:C0-L1:C60".into(),
+        rendered_span_id: None,
+        rules: vec![],
+        evidence: vec![q1],
+        factual_note: "note".into(),
+        proposed_fix: "fix".into(),
+        loop_id: 1,
+    };
+
+    let out = render(&RenderInput {
+        article: "T".into(),
+        round: 1,
+        base_wikitext: "old\n",
+        proposed_wikitext: "The bridge opened to traffic in 1888.\n",
+        base_html: "<html><body><p>old</p></body></html>",
+        proposed_html: "<html><body><p>The bridge opened to traffic in 1888.</p></body></html>",
+        findings: std::slice::from_ref(&finding),
+        ledger: &ledger,
+        linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
+        revisions: revisions(),
+    })
+    .expect("render");
+
+    // Relied-on: the quoted source's Source: line leads with the ✓ glyph.
+    assert!(out.artifact_html.contains(
+        "<span class=\"wa-fetch wa-fetch-relied\" title=\"fetched + relied on — the quote above re-verifies against the fetched text\" aria-hidden=\"true\">✓</span>"
+    ));
+    assert!(out.artifact_html.contains("Source:"));
+    // Consulted, plain fetch.
+    assert!(out.artifact_html.contains(
+        "<span class=\"wa-fetch wa-fetch-ok\" title=\"fetched (not relied on)\" aria-hidden=\"true\">●</span>"
+    ));
+    // Consulted, operator capture.
+    assert!(out.artifact_html.contains(
+        "<span class=\"wa-fetch wa-fetch-ok\" title=\"fetched (operator-provided)\" aria-hidden=\"true\">●</span>"
+    ));
+    // Consulted, failed fetch.
+    assert!(out.artifact_html.contains(
+        "<span class=\"wa-fetch wa-fetch-failed\" title=\"could not be fetched\" aria-hidden=\"true\">✕</span>"
+    ));
+    // The text statuses all stay (icons AND text).
+    assert!(out.artifact_html.contains("Also consulted:"));
+    assert!(out.artifact_html.contains("(fetched)"));
+    assert!(out.artifact_html.contains("text provided by you"));
+    assert!(out.artifact_html.contains("could not be fetched"));
+}
+
+/// plan-006 W3: all three archive-line branches, pinned against the
+/// rework's wording — archived-copy link / snapshot note / "not archived
+/// yet" — with the accessed date on each (morning decision 7: satisfied
+/// by the fff3a16 rework; these pins keep it that way).
+#[test]
+fn archive_line_three_branches() {
+    let mut ledger = Ledger::default();
+    // Branch 1: a separate archived copy exists.
+    let s1 = ledger.register_source("https://example.com/archived", "2026-09-24", None);
+    ledger
+        .attach_fetched_text(&s1, "Archived source text one.")
+        .unwrap();
+    ledger
+        .attach_archive_url(
+            &s1,
+            "https://web.archive.org/web/20260924/https://example.com/archived",
+        )
+        .unwrap();
+    let q1 = ledger.add_quote(&s1, "Archived source text one").unwrap();
+    // Branch 2: the source URL is itself an archived snapshot.
+    let s2 = ledger.register_source(
+        "https://web.archive.org/web/20130901/https://example.com/dead",
+        "2026-09-24",
+        None,
+    );
+    ledger
+        .attach_fetched_text(&s2, "Snapshot source text two.")
+        .unwrap();
+    let q2 = ledger.add_quote(&s2, "Snapshot source text two").unwrap();
+    // Branch 3: no archive at all.
+    let s3 = ledger.register_source("https://example.com/live", "2026-09-24", None);
+    ledger
+        .attach_fetched_text(&s3, "Live source text three.")
+        .unwrap();
+    let q3 = ledger.add_quote(&s3, "Live source text three").unwrap();
+    let finding = Finding {
+        id: "F1".into(),
+        wikitext_anchor: "L1:C0-L1:C60".into(),
+        rendered_span_id: None,
+        rules: vec![],
+        evidence: vec![q1, q2, q3],
+        factual_note: "note".into(),
+        proposed_fix: "fix".into(),
+        loop_id: 1,
+    };
+
+    let out = render(&RenderInput {
+        article: "T".into(),
+        round: 1,
+        base_wikitext: "old\n",
+        proposed_wikitext: "new\n",
+        base_html: "<html><body><p>old</p></body></html>",
+        proposed_html: "<html><body><p>new</p></body></html>",
+        findings: std::slice::from_ref(&finding),
+        ledger: &ledger,
+        linter_config: &linter(),
+        paraphrase_config: &paraphrase(),
+        revisions: revisions(),
+    })
+    .expect("render");
+
+    assert!(out.artifact_html.contains(
+        "<a href=\"https://web.archive.org/web/20260924/https://example.com/archived\">archived copy</a>"
+    ));
+    assert!(
+        out.artifact_html
+            .contains("the link is itself an archived snapshot")
+    );
+    assert!(out.artifact_html.contains("not archived yet"));
+    assert!(out.artifact_html.contains("accessed 2026-09-24"));
+    // The pre-rework phrasing is gone for good.
+    assert!(!out.artifact_html.contains("archive pending"));
+}

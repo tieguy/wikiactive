@@ -121,6 +121,13 @@ td.needs { font-weight: 700; }
 .consulted ul { margin: .5rem 0 0; padding-left: 1.1rem; }
 .consulted li { margin-bottom: .3rem; overflow-wrap: anywhere; }
 
+/* Evidence fetch-state glyphs: decoration only — each source keeps its
+   text status; the title tooltip carries the state for hover/a11y. */
+.wa-fetch { margin-right: .3rem; }
+.wa-fetch-relied { color: #6b9be0; }
+.wa-fetch-ok { color: var(--subtle); }
+.wa-fetch-failed { color: var(--err); }
+
 /* Review: the comment layer `wa serve` adds */
 .wa-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; background: var(--sheet); border: 1px solid var(--line); padding: .6rem .9rem; margin: 0 0 1.25rem; }
 .wa-bar form { margin-left: auto; }
