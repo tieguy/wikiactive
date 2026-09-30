@@ -15,6 +15,7 @@ use wikiloop::driver::steps::StepError;
 use wikiloop::driver::steps::author_findings;
 use wikiloop::driver::steps::draft_proposal;
 use wikiloop::driver::steps::resolve_comments;
+use wikiloop::driver::steps::review_draft;
 use wikiloop::session::Finding;
 
 /// Wrap model `content` in the chat-completions response shape.
@@ -263,6 +264,88 @@ async fn draft_proposal_contract() {
     .expect_err("empty summary is invalid");
     assert!(err.to_string().contains("edit_summary"), "{err}");
     assert_eq!(bad.calls(), 2, "retried once then blocked");
+}
+
+/// Rule-enforcement item 5: the rule-review schema is validated with the
+/// quote-anchor discipline — an invented clause, a span that does not
+/// locate verbatim in any block, and an empty note each reject the
+/// output (one corrective retry, then blocked).
+#[tokio::test]
+async fn review_draft_rejects_unknown_clause_unlocating_span_empty_note() {
+    let server = MockServer::start_async().await;
+    let mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions");
+            then.status(200).json_body(completion(
+                r#"[{"clause":"Z9","verdict":"concern","span":"nowhere in the text","note":""}]"#,
+            ));
+        })
+        .await;
+    let clauses = {
+        let corpus = wikiloop::rules::RulesCorpus::load(std::path::Path::new("rules")).unwrap();
+        wikiloop::rules::guidance_clauses(&corpus, 2)
+    };
+    let blocks = vec![wikiloop::driver::steps::ReviewBlock {
+        element_id: "wa-1".into(),
+        base: "The tower is old.".into(),
+        proposed: "The tower is ancient.".into(),
+        evidence: vec![],
+    }];
+    let err = review_draft(&client(&server), &guidance(), &clauses, &blocks)
+        .await
+        .expect_err("invalid output stays rejected");
+    match err {
+        StepError::Malformed { step, problems } => {
+            assert_eq!(step, "review_draft");
+            assert!(
+                problems.contains("not one the guidance names"),
+                "{problems}"
+            );
+            assert!(problems.contains("not verbatim"), "{problems}");
+            assert!(problems.contains("non-empty note"), "{problems}");
+        }
+        other => panic!("expected Malformed, got {other:?}"),
+    }
+    assert_eq!(mock.calls(), 2, "exactly one corrective retry");
+}
+
+/// Rule-enforcement item 5 happy path: a concern whose clause the
+/// guidance names and whose span locates verbatim parses through — the
+/// guidance demonstrably rides the prompt.
+#[tokio::test]
+async fn review_draft_accepts_a_locating_concern() {
+    let server = MockServer::start_async().await;
+    let mock = server
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions")
+                .body_includes("Cluster A"); // tier-1 guidance rides the prompt
+            then.status(200).json_body(completion(
+                r#"[{"clause":"A3","verdict":"concern","span":"widely considered","note":"WEASEL wording needs attribution."}]"#,
+            ));
+        })
+        .await;
+    let clauses = {
+        let corpus = wikiloop::rules::RulesCorpus::load(std::path::Path::new("rules")).unwrap();
+        wikiloop::rules::guidance_clauses(&corpus, 2)
+    };
+    let blocks = vec![wikiloop::driver::steps::ReviewBlock {
+        element_id: "wa-1".into(),
+        base: "The tower is old.".into(),
+        proposed: "Critics have widely considered the tower the finest.".into(),
+        evidence: vec![],
+    }];
+    let concerns = review_draft(&client(&server), &guidance(), &clauses, &blocks)
+        .await
+        .expect("valid concerns");
+    assert_eq!(concerns.len(), 1);
+    assert_eq!(concerns[0].clause, "A3");
+    assert_eq!(
+        concerns[0].verdict,
+        wikiloop::driver::steps::ConcernVerdict::Concern
+    );
+    assert_eq!(mock.calls(), 1);
 }
 
 /// `resolve_comments`: valid shape parses; unknown fields are schema

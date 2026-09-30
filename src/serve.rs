@@ -821,7 +821,7 @@ async fn review_artifact(
 /// or `comments-resolved` entry after the last `rendered` makes the
 /// artifact history) and file mtimes (a `proposed.wikitext`/`base`
 /// touched after the render is a hand edit the artifact never saw).
-enum ArtifactState {
+pub(crate) enum ArtifactState {
     /// The render is the session's latest event — commenting is live.
     Current { round: u32 },
     /// Do not comment against this artifact: forms suppressed, banner
@@ -831,7 +831,7 @@ enum ArtifactState {
 
 /// Why a rendered review no longer describes the session.
 #[derive(Clone, Copy)]
-enum StaleKind {
+pub(crate) enum StaleKind {
     Published,
     CommentsApplied,
     TextChanged,
@@ -879,7 +879,7 @@ fn next_round(state: Option<&ArtifactState>) -> u32 {
     }
 }
 
-fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
+pub(crate) fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
     // The render under discussion is the LAST `rendered` round entry.
     let rounds: Vec<crate::session::RoundEntry> = std::fs::read_to_string(dir.join("rounds.jsonl"))
         .ok()?
@@ -927,6 +927,7 @@ fn block_insertions(
     artifact_html: &str,
     queue: &crate::comments::CommentQueue,
     warnings: &[(crate::checks::linter::LintFinding, String)],
+    concern_html: &std::collections::HashMap<String, String>,
 ) -> (Vec<(usize, String)>, Vec<String>, Vec<String>) {
     let blocks = crate::render::review_targets(artifact_html);
     let evidence = crate::render::evidence_targets(artifact_html);
@@ -1004,6 +1005,11 @@ fn block_insertions(
                 html.push_str(&lint_warning_html(finding, description));
                 unplaced.swap_remove(i);
             }
+        }
+        // Rule-review concerns for this block (rule-enforcement item 5):
+        // advice under the block it names, styled apart from comments.
+        if let Some(concerns) = concern_html.get(&block.element_id) {
+            html.push_str(concerns);
         }
         html.push_str("</div>");
         insertions.push((end, html));
@@ -1125,11 +1131,19 @@ fn inject_comment_ui(
         // happened and what to do. Everything below stays read-only.
         head.push_str(&stale_banner(slug, round, kind));
     } else {
+        let current_round = state.as_ref().and_then(|s| match s {
+            ArtifactState::Current { round } => Some(*round),
+            ArtifactState::Stale { .. } => None,
+        });
+        // Rule-review result (rule-enforcement item 5): current-round
+        // concerns render under their blocks; a stale result is labelled,
+        // never shown as current.
+        let (concerns_by_block, rule_check_line) = rule_review_display(&dir, current_round);
         // Warn-level lint findings for THIS proposal (rule-enforcement
         // item 4), each paired with its rule description.
         let warnings = review_lint_warnings(&dir);
         let (mut insertions, placed_anchors, bar_warnings) =
-            block_insertions(slug, artifact_html, &queue, &warnings);
+            block_insertions(slug, artifact_html, &queue, &warnings, &concerns_by_block);
 
         // Apply right-to-left so earlier offsets stay valid.
         insertions.sort_by_key(|(pos, _)| std::cmp::Reverse(*pos));
@@ -1140,30 +1154,22 @@ fn inject_comment_ui(
         // Warnings that no block's anchor range covers still surface, in
         // the warn palette under the status bar.
         head.push_str(&lint_warning_bar(&bar_warnings));
+        head.push_str(&comments_bar(slug, queue.open().len()));
 
-        let open_count = queue.open().len();
-        if open_count == 0 {
-            head.push_str(
-                "<div class=\"wa-bar\"><span>No open comments. Use <strong>Comment</strong> \
-                 under any paragraph or source to ask for a change, or publish at the bottom \
-                 of the page.</span></div>\n",
-            );
-        } else {
-            let _ = writeln!(
-                head,
-                "<div class=\"wa-bar\"><span><strong>{}.</strong> Applying them has the \
-                 drafting model revise each commented paragraph; you then render the next \
-                 round. Comments on sources stay open for you to resolve by hand.</span>\
-                 <form method=post action=\"/sessions/{slug}/driver/resolve?from=review\">\
-                 <button class=\"primary\">Apply comments</button></form></div>",
-                plural(open_count, "open comment")
-            );
-        }
+        // The rule check (rule-enforcement item 5): on demand — a paid
+        // model call the operator triggers; advice beside the diff.
+        let _ = writeln!(
+            head,
+            "<div class=\"wa-bar\"><span><strong>Rules:</strong> {rule_check_line}</span>\
+             <form method=post action=\"/sessions/{slug}/driver/rule-review?from=review\">\
+             <button>Check against the rules</button></form></div>"
+        );
 
         // The publish leg lives HERE: a pending approval, if one exists,
         // renders as the prominent block (approve/decline); otherwise the
         // publish form sits at the end of the diff — the reviewer decides
         // with the evidence in view, not a page-hop away.
+        let open_count = queue.open().len();
         let publish_html = if pendings.is_empty() {
             format!(
                 "<section class=\"wa-publish\" id=\"wa-publish\"><h2>Publish</h2>{}{}{}</section>\n",
@@ -1584,6 +1590,277 @@ fn review_lint_warnings(
                 })
         })
         .unwrap_or_default()
+}
+
+/// The stored rule-review result (rule-enforcement item 5): the
+/// concerns recorded for one round. `ok` verdicts are dropped at store
+/// time — the display is concerns-only advice, never a gate.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct RuleReviewFile {
+    /// The artifact round the concerns were raised against.
+    round: u32,
+    timestamp: String,
+    concerns: Vec<StoredConcern>,
+}
+
+/// One stored concern, carrying its block's element id so the display
+/// can place it under the block it names.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct StoredConcern {
+    clause: String,
+    span: String,
+    note: String,
+    element_id: String,
+}
+
+/// The changed blocks as rule-review inputs (rule-enforcement item 5):
+/// per block, its element id, its base/proposed line slices by anchor
+/// (the same assembly `bucket_groups` uses), and the ledger's verbatim
+/// evidence with sources. The ledger binds quotes to the edit, not to
+/// individual blocks, so every block carries the same evidence list.
+pub(crate) fn rule_review_blocks(
+    artifact: &str,
+    base: &str,
+    proposed: &str,
+    ledger: &Ledger,
+) -> Vec<crate::driver::steps::ReviewBlock> {
+    let base_lines: Vec<&str> = base.lines().collect();
+    let proposed_lines: Vec<&str> = proposed.lines().collect();
+    let evidence: Vec<String> = ledger
+        .quotes
+        .iter()
+        .map(|q| {
+            let source = ledger
+                .sources
+                .iter()
+                .find(|s| s.id == q.source_id)
+                .map(|s| format!("{} <{}>", crate::render::source_link_text(s), s.url))
+                .unwrap_or_default();
+            format!("- \"{}\" — {source}", q.text)
+        })
+        .collect();
+    crate::render::review_targets(artifact)
+        .iter()
+        .filter_map(|b| {
+            if b.wikitext_anchor.starts_with("base:") {
+                // A pure deletion: no new side; the old side's wording is
+                // the base slice (the review is of what was removed).
+                let (s, e) = anchor_line_range(&b.wikitext_anchor)?;
+                Some(crate::driver::steps::ReviewBlock {
+                    element_id: b.element_id.clone(),
+                    base: slice_lines(&base_lines, s, e)?,
+                    proposed: String::new(),
+                    evidence: evidence.clone(),
+                })
+            } else {
+                let (s, e) = anchor_line_range(&b.wikitext_anchor)?;
+                let base_text = b
+                    .old_sides
+                    .first()
+                    .and_then(|o| anchor_line_range(&o.wikitext_anchor))
+                    .and_then(|(os, oe)| slice_lines(&base_lines, os, oe))
+                    .unwrap_or_default();
+                Some(crate::driver::steps::ReviewBlock {
+                    element_id: b.element_id.clone(),
+                    base: base_text,
+                    proposed: slice_lines(&proposed_lines, s, e)?,
+                    evidence: evidence.clone(),
+                })
+            }
+        })
+        .collect()
+}
+
+/// Judgment point 4, web path: run the rule-review step against the
+/// CURRENT artifact (a stale anchor table must not be reviewed), store
+/// the concerns with the round, and log the round entry. Advice only.
+async fn run_rule_review(state: &Arc<ServeState>, slug: &str) -> String {
+    use crate::driver::steps::ConcernVerdict;
+    let dir = session_dir(slug);
+    let Ok(artifact) = std::fs::read_to_string(dir.join("review.html")) else {
+        return "rule review: no review artifact — render first".into();
+    };
+    let round = match artifact_state(&dir) {
+        Some(ArtifactState::Current { round }) => round,
+        Some(ArtifactState::Stale { .. }) => {
+            return "rule review: the review artifact is out of date — re-render first".into();
+        }
+        None => return "rule review: no current review artifact — render first".into(),
+    };
+    let (Ok(base), Ok(proposed), Ok(ledger)) = (
+        std::fs::read_to_string(dir.join("base.wikitext")),
+        std::fs::read_to_string(dir.join("proposed.wikitext")),
+        Ledger::load(&dir.join("ledger.json")),
+    ) else {
+        return "rule review: session files unreadable".into();
+    };
+    let blocks = rule_review_blocks(&artifact, &base, &proposed, &ledger);
+    if blocks.is_empty() {
+        return "rule review: no changed blocks to review".into();
+    }
+    let Ok(corpus) = crate::rules::RulesCorpus::load(std::path::Path::new("rules")) else {
+        return "rule review: rules corpus failed to load".into();
+    };
+    let Ok(meta) = serde_json::from_str::<SessionMeta>(
+        &std::fs::read_to_string(dir.join("session.json")).unwrap_or_default(),
+    ) else {
+        return "rule review: no session meta".into();
+    };
+    let (Ok(guidance), loop_id) = (
+        crate::rules::guidance_for_loop(&corpus, meta.entry_loop),
+        meta.entry_loop,
+    ) else {
+        return "rule review: guidance failed to build".into();
+    };
+    let clauses = crate::rules::guidance_clauses(&corpus, loop_id);
+    let zai = match state.zai_client() {
+        Ok(z) => z,
+        Err(e) => return format!("rule review: {e}"),
+    };
+    match crate::driver::steps::review_draft(&zai, &guidance, &clauses, &blocks).await {
+        Ok(concerns) => {
+            // Store concerns only, placed under the block whose proposed
+            // text contains the span (validation already proved one does).
+            let stored: Vec<StoredConcern> = concerns
+                .into_iter()
+                .filter(|c| c.verdict == ConcernVerdict::Concern)
+                .map(|c| {
+                    let element_id = blocks
+                        .iter()
+                        .find(|b| b.proposed.contains(c.span.trim()))
+                        .map_or_else(String::new, |b| b.element_id.clone());
+                    StoredConcern {
+                        clause: c.clause,
+                        span: c.span,
+                        note: c.note,
+                        element_id,
+                    }
+                })
+                .collect();
+            let count = stored.len();
+            let file = RuleReviewFile {
+                round,
+                timestamp: crate::comments::now_iso(),
+                concerns: stored,
+            };
+            let _ = std::fs::write(
+                dir.join("rule-review.json"),
+                serde_json::to_string_pretty(&file).unwrap_or_default(),
+            );
+            // Round-log entry (inert to artifact_state: only published /
+            // comments-resolved / text-mtime trip staleness — pinned by
+            // test). The entry names the phase for the audit trail.
+            let entry = crate::session::RoundEntry {
+                round: 0,
+                timestamp: crate::comments::now_iso(),
+                summary: format!("rule review: {count} concern(s)"),
+                phase: "rule-reviewed".into(),
+                detail: Vec::new(),
+            };
+            if let Ok(json) = serde_json::to_string(&entry)
+                && let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(dir.join("rounds.jsonl"))
+            {
+                let _ = writeln!(file, "{json}");
+            }
+            format!(
+                "rule review: {count} concern(s) recorded — shown under their blocks on the review page"
+            )
+        }
+        Err(e) => format!("rule review failed: {e}"),
+    }
+}
+
+/// POST /sessions/{slug}/driver/rule-review — the "Check against the
+/// rules" button (on demand; a paid model call, never auto-run).
+async fn driver_rule_review(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    let outcome = run_rule_review(&state, &slug).await;
+    state.note_outcome(&slug, &outcome);
+    Redirect::to(&format!("/sessions/{slug}/review")).into_response()
+}
+
+/// The status bar for the comment queue on a live review: what applying
+/// does, or the empty-queue pointer to the Comment controls.
+fn comments_bar(slug: &str, open_count: usize) -> String {
+    use std::fmt::Write as _;
+    let mut head = String::new();
+    if open_count == 0 {
+        head.push_str(
+            "<div class=\"wa-bar\"><span>No open comments. Use <strong>Comment</strong> \
+             under any paragraph or source to ask for a change, or publish at the bottom \
+             of the page.</span></div>\n",
+        );
+    } else {
+        let _ = writeln!(
+            head,
+            "<div class=\"wa-bar\"><span><strong>{}.</strong> Applying them has the \
+             drafting model revise each commented paragraph; you then render the next \
+             round. Comments on sources stay open for you to resolve by hand.</span>\
+             <form method=post action=\"/sessions/{slug}/driver/resolve?from=review\">\
+             <button class=\"primary\">Apply comments</button></form></div>",
+            plural(open_count, "open comment")
+        );
+    }
+    head
+}
+
+/// One stored concern as an inline advice card (rule-enforcement item 5):
+/// neutral chrome — neither an operator comment nor a lint warning.
+fn concern_html(c: &StoredConcern) -> String {
+    format!(
+        "<div class=\"wa-comment rule-concern\"><p><strong>Clause {}</strong> — {}</p>\
+         <p class=\"who\">about: &quot;{}&quot;</p></div>\n",
+        crate::ui::esc(&c.clause),
+        crate::ui::esc(&c.note),
+        crate::ui::esc(c.span.trim()),
+    )
+}
+
+/// The rule-review display state for the current artifact
+/// (rule-enforcement item 5): per-block concern HTML keyed by element id,
+/// and the status line for the rules bar. A result from an earlier round
+/// is never shown as current.
+fn rule_review_display(
+    dir: &std::path::Path,
+    current_round: Option<u32>,
+) -> (std::collections::HashMap<String, String>, String) {
+    let file: Option<RuleReviewFile> = std::fs::read_to_string(dir.join("rule-review.json"))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
+    let mut html = std::collections::HashMap::new();
+    let Some(file) = file else {
+        return (html, "Not checked for this round.".into());
+    };
+    if Some(file.round) != current_round {
+        return (
+            html,
+            format!(
+                "Not checked for this round (last checked round {}).",
+                file.round
+            ),
+        );
+    }
+    let mut count = 0;
+    for c in &file.concerns {
+        html.entry(c.element_id.clone())
+            .or_default()
+            .push_str(&concern_html(c));
+        count += 1;
+    }
+    let line = if count == 0 {
+        "No concerns raised.".to_string()
+    } else {
+        format!("{count} concern(s) shown under their blocks.")
+    };
+    (html, line)
 }
 
 async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
@@ -2498,6 +2775,10 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/driver/findings", post(driver_findings))
         .route("/sessions/{slug}/driver/propose", post(driver_propose))
         .route("/sessions/{slug}/driver/resolve", post(driver_resolve))
+        .route(
+            "/sessions/{slug}/driver/rule-review",
+            post(driver_rule_review),
+        )
         .route("/sessions/{slug}/comments", post(comments_add))
         .route("/sessions/{slug}/comments/resolve", post(comments_resolve))
         .route("/sessions/{slug}/render", post(render))
@@ -2631,7 +2912,13 @@ mod tests {
             ],
         };
 
-        let (insertions, placed, leftover) = block_insertions("test-slug", artifact, &queue, &[]);
+        let (insertions, placed, leftover) = block_insertions(
+            "test-slug",
+            artifact,
+            &queue,
+            &[],
+            &std::collections::HashMap::new(),
+        );
         assert!(leftover.is_empty(), "no warnings were passed in");
         assert_eq!(insertions.len(), 3, "two blocks + one evidence card");
 

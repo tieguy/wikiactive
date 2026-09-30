@@ -575,6 +575,122 @@ async fn lint_warnings_show_on_the_review_page_without_blocking() {
     let _ = child.wait();
 }
 
+/// Rule-enforcement item 5: the "Check against the rules" button runs
+/// the model once, stores the concerns with the round, and they render
+/// under the block they name — while the `rule-reviewed` round entry
+/// leaves the artifact CURRENT (only published / comments-resolved /
+/// text changes stale it; pinned here).
+#[tokio::test]
+async fn rule_review_button_records_and_shows_concerns_without_staling() {
+    let dir = setup_review_session(
+        "The tower is old.\n",
+        "Critics have widely considered the tower the finest.\n",
+    );
+    let session = dir.join("sessions/test-article");
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/chat/completions")
+            .body_includes("Cluster A"); // the guidance rides this prompt too
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content":
+                    "[{\"clause\":\"A3\",\"verdict\":\"concern\",\"span\":\"widely considered\",\"note\":\"WEASEL wording needs attribution.\"}]"}}]
+        }));
+    })
+    .await;
+
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    render_offline(&client, port, &dir).await;
+
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/rule-review",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303, "back to the review");
+
+    // Stored with the CURRENT round, concern only.
+    let file: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(session.join("rule-review.json")).unwrap())
+            .unwrap();
+    assert_eq!(file["round"], 1, "{file}");
+    assert_eq!(file["concerns"][0]["clause"], "A3", "{file}");
+
+    // Shown under the block; the artifact did NOT go stale (comment
+    // forms still render, no stale banner) — the entry is inert.
+    let page = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains("rule-concern"), "advice shown: {page}");
+    assert!(page.contains("Clause A3"), "{page}");
+    assert!(page.contains("widely considered"), "span shown: {page}");
+    assert!(
+        page.contains("1 concern(s) shown under their blocks."),
+        "{page}"
+    );
+    assert!(
+        !page.contains("This review is out of date"),
+        "rule-reviewed must not stale the artifact: {page}"
+    );
+    assert!(page.contains("Comment"), "comment forms still live: {page}");
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Rule-enforcement item 5: a result from an EARLIER round is never
+/// shown as current — labelled as out of date, concerns not rendered,
+/// button still offered.
+#[tokio::test]
+async fn rule_review_result_from_an_earlier_round_is_labelled() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let session = dir.join("sessions/test-article");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    render_offline(&client, port, &dir).await;
+    std::fs::write(
+        session.join("rule-review.json"),
+        r#"{"round":0,"timestamp":"2026-09-30T00:00:00Z","concerns":[{"clause":"A3","span":"widely considered","note":"stale advice","element_id":"wa-1"}]}"#,
+    )
+    .unwrap();
+
+    let page = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("Not checked for this round (last checked round 0)."),
+        "{page}"
+    );
+    assert!(
+        !page.contains("Clause A3") && !page.contains("stale advice"),
+        "stale concerns are not rendered as current: {page}"
+    );
+    assert!(
+        page.contains("Check against the rules"),
+        "the button is still offered: {page}"
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// AC.1 + AC.2 + AC.3: the whole review leg in-app — offline render
 /// through the serve route, comment forms per changed block, submit →
 /// list → resolve through `comments.jsonl`, and NO lavish anywhere (the

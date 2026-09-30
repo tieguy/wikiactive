@@ -144,6 +144,9 @@ td.needs { font-weight: 700; }
 /* Warn-level lint findings (rule-enforcement item 4): advisory, in the
    warn palette — visually distinct from operator comments. */
 .wa-comment.lint-warning { background: var(--warn-soft); border-left-color: var(--warn); }
+/* Rule-review concerns (rule-enforcement item 5): model advice — neutral
+   chrome, clearly neither an operator comment nor a lint warning. */
+.wa-comment.rule-concern { background: var(--chrome); border-left-color: var(--subtle); }
 .wa-publish, .approval { background: var(--sheet); border: 1px solid var(--line); padding: 1rem 1.25rem .5rem; margin: 1.5rem 0; }
 .approval { border: 2px solid var(--action); }
 .wa-publish h2, .approval h2 { margin-top: 0; }

@@ -260,6 +260,27 @@ pub fn guidance_for_loop(corpus: &RulesCorpus, loop_id: u8) -> Result<String, St
     Ok(text)
 }
 
+/// The clause ids the rule-review step may cite (rule-enforcement item
+/// 5): tier-1 paragraph ids (the `**A1.` … markers) plus the selected
+/// cards' slugs — built from the corpus, never by hand, so a renamed or
+/// removed clause cannot slip through validation.
+#[must_use]
+pub fn guidance_clauses(corpus: &RulesCorpus, loop_id: u8) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for line in corpus.tier1_core.lines() {
+        if let Some(rest) = line.strip_prefix("**")
+            && let Some((id, _)) = rest.split_once('.')
+            && id.starts_with(['A', 'B', 'C'])
+            && id.len() > 1
+            && id[1..].bytes().all(|b| b.is_ascii_digit())
+        {
+            ids.push(id.to_string());
+        }
+    }
+    ids.extend(cards_for_loop(loop_id));
+    ids
+}
+
 /// Assemble the bundle text.
 ///
 /// # Errors
@@ -442,5 +463,19 @@ mod tests {
         c.cards.remove("clop");
         let err = super::guidance_for_loop(&c, 2).unwrap_err();
         assert!(err.contains("clop"), "{err}");
+    }
+
+    /// Rule-enforcement item 5: the clause allowlist is corpus-built —
+    /// tier-1 paragraph ids plus the loop's card slugs.
+    #[test]
+    fn guidance_clauses_lists_tier1_ids_and_card_slugs() {
+        let c = corpus();
+        let ids = super::guidance_clauses(&c, 2);
+        assert!(ids.contains(&"A1".to_string()), "{ids:?}");
+        assert!(ids.contains(&"A3".to_string()), "{ids:?}");
+        assert!(ids.contains(&"C1".to_string()), "{ids:?}");
+        assert!(ids.contains(&"rs-tiers".to_string()), "{ids:?}");
+        assert!(ids.contains(&"clop".to_string()), "{ids:?}");
+        assert!(!ids.contains(&"undue".to_string()), "loop 2 cards only");
     }
 }

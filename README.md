@@ -122,7 +122,9 @@ console, the source sweep manifest (run fetch, sign dispositions, paste
 operator captures), the model-driver buttons (Write findings / Draft the
 edit), render, **the in-app review artifact with block-anchored
 comments** (one form per changed block, one per evidence card; the queue
-lives at `sessions/<slug>/comments.jsonl`), **Apply
+lives at `sessions/<slug>/comments.jsonl`) with inline lint warnings and
+an on-demand **Check against the rules** pass (clause-by-clause model
+advice under the blocks — never a gate), **Apply
 comments** (the model revises the commented blocks and the applied/
 rejected/reply notes land in the queue), and publish confirmation as an
 explicit approve/decline action with the exact prompt shown. Nothing

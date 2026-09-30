@@ -48,6 +48,7 @@ wa sweep inventory|fetch|status <slug>   # fetch-or-dispose before analysis
 wa sweep dispose <slug> --source S3 --disposition "..."
 wa render <slug> --round 1 --summary "..."
 wa check <slug>            # standalone gate preflight (no artifact)
+wa review <slug>           # rule-review pass: clause-by-clause model advice
 wa comments list|add|resolve <slug> ...   # the review comment queue
 wa publish <slug> --summary "..."
 wa serve [--tsnet] [--port N]  # local web console (loopback default)

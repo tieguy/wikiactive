@@ -340,3 +340,121 @@ pub async fn resolve_comments(
     )
     .await
 }
+
+/// The verdict a rule-review entry carries (`prompts/review.md` output
+/// schema). `Ok` entries are accepted then discarded by the pipeline —
+/// the display is concerns-only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConcernVerdict {
+    Ok,
+    Concern,
+}
+
+/// One rule-review entry (`prompts/review.md` output schema):
+/// clause-by-clause advice on the drafted text (rule-enforcement item
+/// 5). Never a gate.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuleConcern {
+    /// A clause id the guidance names (tier-1 `A1`-style, or a card
+    /// slug) — validated against a corpus-built allowlist.
+    pub clause: String,
+    pub verdict: ConcernVerdict,
+    /// Verbatim text from a block's proposed text — must locate
+    /// (the quote-anchor discipline: model output is untrusted).
+    pub span: String,
+    /// What the clause demands and how the span may fail it.
+    pub note: String,
+}
+
+/// One changed block for the rule-review step (rule-enforcement item 5):
+/// the base text, the proposed text, and the verbatim evidence with
+/// sources — the same inputs `bucket_groups` assembles for resolve.
+#[derive(Debug, Clone)]
+pub struct ReviewBlock {
+    /// The block's element id in the review artifact (carried back onto
+    /// each concern so the display can place it under its block).
+    pub element_id: String,
+    pub base: String,
+    pub proposed: String,
+    /// Formatted evidence: `- "quote" — source <url>` per line.
+    pub evidence: Vec<String>,
+}
+
+/// Judgment point 4 (rule-enforcement item 5): a separate model pass
+/// reads the drafted text and reports, clause by clause, where it may
+/// break the tier-1 rules and the loop's cards. Advice shown beside the
+/// diff — NEVER a gate.
+///
+/// Validation (same discipline as quotes — model output is untrusted):
+/// `clause` must be in `clauses` (corpus-built), `span` must locate
+/// verbatim in one of the blocks' proposed text, and a `concern` needs a
+/// non-empty note. One corrective retry, then the step fails.
+///
+/// # Errors
+/// [`StepError::Transport`] or [`StepError::Malformed`] (after the
+/// corrective retry).
+pub async fn review_draft(
+    client: &ZaiClient,
+    guidance: &str,
+    clauses: &[String],
+    blocks: &[ReviewBlock],
+) -> Result<Vec<RuleConcern>, StepError> {
+    use std::fmt::Write as _;
+    let system = prompts::render(&prompts::load(prompts::REVIEW)?, &[("guidance", guidance)]);
+    let mut user = format!(
+        "Clause ids you may cite (from the guidance): {}\n\nChanged blocks:\n",
+        clauses.join(", ")
+    );
+    for (n, b) in blocks.iter().enumerate() {
+        let _ = write!(
+            user,
+            "\nBlock {}:\nBase text:\n{}\nProposed text:\n{}\n",
+            n + 1,
+            b.base,
+            b.proposed
+        );
+        if b.evidence.is_empty() {
+            let _ = writeln!(user, "Evidence: (none quoted)");
+        } else {
+            let _ = write!(user, "Evidence:\n{}\n", b.evidence.join("\n"));
+        }
+    }
+    call_json::<Vec<RuleConcern>>(
+        "review_draft",
+        client,
+        &[ChatMessage::system(system), ChatMessage::user(user)],
+        |parsed| {
+            let mut problems = Vec::new();
+            for c in parsed {
+                if !clauses.contains(&c.clause) {
+                    problems.push(format!(
+                        "clause {:?} is not one the guidance names",
+                        c.clause
+                    ));
+                }
+                if c.span.trim().is_empty() {
+                    problems.push(format!("clause {}: span must be non-empty", c.clause));
+                } else if !blocks.iter().any(|b| b.proposed.contains(c.span.trim())) {
+                    problems.push(format!(
+                        "clause {}: span is not verbatim in any block's proposed text",
+                        c.clause
+                    ));
+                }
+                if c.verdict == ConcernVerdict::Concern && c.note.trim().is_empty() {
+                    problems.push(format!(
+                        "clause {}: a concern needs a non-empty note",
+                        c.clause
+                    ));
+                }
+            }
+            if problems.is_empty() {
+                Ok(())
+            } else {
+                Err(problems)
+            }
+        },
+    )
+    .await
+}

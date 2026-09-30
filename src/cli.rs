@@ -101,6 +101,10 @@ pub enum Command {
         #[command(subcommand)]
         cmd: CommentsCmd,
     },
+    /// Rule review (rule-enforcement item 5): a model pass reads the
+    /// drafted text against the tier-1 rules and this loop's cards —
+    /// clause-by-clause advice, on demand, never a gate.
+    Review { slug: String },
     /// Publish the proposed edit (gate re-run + /dev/tty confirm).
     Publish {
         slug: String,
@@ -363,6 +367,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             CommentsCmd::Resolve { slug, id, note } => comments_resolve(&slug, &id, &note),
         },
         Command::Publish { slug, summary } => publish_cmd(&slug, &summary).await,
+        Command::Review { slug } => review_cmd(&slug).await,
         Command::Ledger { cmd } => match cmd {
             LedgerCmd::Register {
                 slug,
@@ -1327,6 +1332,89 @@ pub async fn publish_core(
         new_revid: outcome.new_revid,
         verification,
     })
+}
+
+/// `wa review <slug>` — the rule-review judgment point, tty path
+/// (rule-enforcement item 5): advice printed here and stored beside the
+/// session (`rule-review.json`, keyed by round) for the review page to
+/// show. Never a gate, on demand only.
+async fn review_cmd(slug: &str) -> Result<()> {
+    use crate::driver::steps::ConcernVerdict;
+    let (paths, meta) = load_session(slug)?;
+    let corpus =
+        RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let artifact = std::fs::read_to_string(paths.review_html())
+        .context("no review artifact — render first")?;
+    // Only the CURRENT artifact: a stale anchor table must not be
+    // reviewed (same refusal as the serve path).
+    let round = match crate::serve::artifact_state(&paths.dir) {
+        Some(crate::serve::ArtifactState::Current { round }) => round,
+        Some(crate::serve::ArtifactState::Stale { .. }) => {
+            anyhow::bail!("the review artifact is out of date — re-render first")
+        }
+        None => anyhow::bail!("no current review artifact — render first"),
+    };
+    let base = std::fs::read_to_string(paths.base())?;
+    let proposed = std::fs::read_to_string(paths.proposed())?;
+    let ledger = Ledger::load(&paths.ledger())?;
+    let blocks = crate::serve::rule_review_blocks(&artifact, &base, &proposed, &ledger);
+    anyhow::ensure!(!blocks.is_empty(), "no changed blocks to review");
+    let guidance = crate::rules::guidance_for_loop(&corpus, meta.entry_loop)
+        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let clauses = crate::rules::guidance_clauses(&corpus, meta.entry_loop);
+    let model = corpus
+        .house_rules
+        .zai
+        .as_ref()
+        .and_then(|z| z.model.clone())
+        .unwrap_or_else(|| "glm-5.3".to_string());
+    let zai = crate::driver::model::ZaiClient::from_env(&model)
+        .map_err(|e| anyhow::anyhow!("model client: {e}"))?;
+    let concerns = crate::driver::steps::review_draft(&zai, &guidance, &clauses, &blocks).await?;
+    // Store + print: concerns only (ok verdicts are discarded), each
+    // under the block whose proposed text contains the span.
+    let stored: Vec<(String, String, String, String)> = concerns
+        .into_iter()
+        .filter(|c| c.verdict == ConcernVerdict::Concern)
+        .map(|c| {
+            let element_id = blocks
+                .iter()
+                .find(|b| b.proposed.contains(c.span.trim()))
+                .map_or_else(String::new, |b| b.element_id.clone());
+            (c.clause, c.span, c.note, element_id)
+        })
+        .collect();
+    let file = serde_json::json!({
+        "round": round,
+        "timestamp": crate::comments::now_iso(),
+        "concerns": stored
+            .iter()
+            .map(|(clause, span, note, element_id)| {
+                serde_json::json!({
+                    "clause": clause, "span": span, "note": note, "element_id": element_id
+                })
+            })
+            .collect::<Vec<_>>(),
+    });
+    std::fs::write(paths.rule_review(), serde_json::to_string_pretty(&file)?)?;
+    if stored.is_empty() {
+        println!("rule review: no concerns raised");
+    } else {
+        println!("rule review: {} concern(s)", stored.len());
+        for (clause, span, note, _) in &stored {
+            println!("  [{clause}] {note}\n      about: \"{}\"", span.trim());
+        }
+    }
+    println!("stored: sessions/{slug}/rule-review.json (shown on the review page)");
+    let entry = RoundEntry {
+        round: 0,
+        timestamp: now_iso(),
+        summary: format!("rule review: {} concern(s)", stored.len()),
+        phase: "rule-reviewed".into(),
+        detail: Vec::new(),
+    };
+    append_round(&paths, &entry)?;
+    Ok(())
 }
 
 async fn publish_cmd(slug: &str, summary: &str) -> Result<()> {

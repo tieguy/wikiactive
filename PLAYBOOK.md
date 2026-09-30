@@ -112,7 +112,15 @@ dropped.
    gate runs as mandatory pre-flight; blocked = no artifact, all reasons
    listed. On success: review.html (read it in-app at
    `/sessions/<slug>/review`).
-7. **Review** — the operator reads the single-column diff with the
+7. **Rule check (optional)** — **Check against the rules** on the review
+   page, or `wa review <slug>` on the tty: a separate model pass reads
+   the drafted text against the tier-1 rules and this loop's cards and
+   reports concerns clause by clause — each concern named by its clause
+   id, its verbatim span, and a note, shown under the block it concerns.
+   Advice only: it never blocks, and it runs on demand (a paid call), not
+   at every render. A result from an earlier round is labelled, never
+   shown as current.
+8. **Review** — the operator reads the single-column diff with the
    evidence rail and leaves comments on the **review page**, with the
    **Comment** control under each changed block (plus one under each
    evidence card). Anchoring is exact: the form's hidden target IS the
@@ -120,24 +128,24 @@ dropped.
    a plain `L..:C..-L..:C..` range (new side), `base:`-prefixed (removed
    wording), or `ledger:Q<n>` (evidence). A comment addresses its whole
    block (the tty CLI's `--quoted` span is the only finer-grain form).
-8. **Resolve** — **Apply comments** (review page) maps the OPEN queue
+9. **Resolve** — **Apply comments** (review page) maps the OPEN queue
    entries through the model, grouped by enclosing changed
    block (both sides of a pair go in ONE call), splices the revised
    blocks into `proposed.wikitext` once per group, and writes each
    group's applied/rejected/reply note back to the queue. Or resolve by
    hand: `wa comments resolve <slug> --id K1 --note "…"` (evidence
    comments are about sources, not wikitext — always manual).
-9. **Re-render → re-comment** until the operator is satisfied (each
+10. **Re-render → re-comment** until the operator is satisfied (each
    resolution note says what was done: applied/rejected lines plus the
    model's reply).
-10. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
+11. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
     gate re-runs; then the ONE human gate: a `/dev/tty` confirmation. The
     model never self-publishes. On success the base re-pins and the saved
     revision is read back — the minor flag, parent revid, summary
     disclosure and saved text are checked against what was sent;
     mismatches print under `VERIFY` and land in the round log (a clean
     read-back says so too).
-11. **Post-publish** — Earwig compare per new web source; TALK provenance
+12. **Post-publish** — Earwig compare per new web source; TALK provenance
     note; disclosure-page session-log append; screenshots for the
     disclosure page (operator, manual Commons upload).
 
@@ -193,7 +201,9 @@ session page top to bottom. **Sources**: **Fetch pending sources**, then
 resolve what is left (**Sign disposition**, or **Attach text you captured
 yourself**). **Draft**: **Write findings**, check what the model proposed
 against the sources table, then **Draft the edit**. **Review**: **Render
-review** opens the in-app review (no external review server). On the
+review** opens the in-app review (no external review server). Optionally
+**Check against the rules** for clause-by-clause model advice on the
+drafted text. On the
 review page, leave comments with the **Comment** control under each
 changed block and each evidence card (the queue is
 `sessions/<slug>/comments.jsonl`), then **Apply comments** (judgment

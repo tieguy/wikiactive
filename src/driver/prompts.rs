@@ -14,6 +14,7 @@ use std::path::Path;
 pub const AUTHOR_FINDINGS: &str = "author-findings.md";
 pub const PROPOSE: &str = "propose.md";
 pub const RESOLVE: &str = "resolve.md";
+pub const REVIEW: &str = "review.md";
 
 /// Errors loading or rendering a prompt template.
 #[derive(Debug, thiserror::Error)]

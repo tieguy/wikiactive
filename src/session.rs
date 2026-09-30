@@ -181,6 +181,12 @@ impl SessionPaths {
     pub fn comments(&self) -> std::path::PathBuf {
         self.dir.join("comments.jsonl")
     }
+    /// The rule-review result (rule-enforcement item 5): the model's
+    /// clause-by-clause advice for the current round, keyed by round.
+    #[must_use]
+    pub fn rule_review(&self) -> std::path::PathBuf {
+        self.dir.join("rule-review.json")
+    }
     #[must_use]
     pub fn meta(&self) -> std::path::PathBuf {
         self.dir.join("session.json")
