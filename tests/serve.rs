@@ -557,6 +557,14 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         "plain-language new-side form: {artifact_page}"
     );
     assert!(
+        artifact_page.contains("looks right? publish this edit"),
+        "the publish action lives on the artifact page: {artifact_page}"
+    );
+    assert!(
+        artifact_page.contains(">start publish</button>"),
+        "{artifact_page}"
+    );
+    assert!(
         artifact_page.contains("comment on the removed (struck-through) wording"),
         "plain-language old-side affordance: {artifact_page}"
     );
@@ -704,6 +712,10 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
     assert!(
         !stale.contains("leave a comment"),
         "no comment forms on a stale artifact: {stale}"
+    );
+    assert!(
+        !stale.contains("start publish"),
+        "no publish action on a stale artifact: {stale}"
     );
     let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
         .await

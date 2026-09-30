@@ -499,14 +499,28 @@ th, td { border: 1px solid var(--line); padding: .3rem .5rem; text-align: left; 
 pre { font-family: ui-monospace, monospace; font-size: .8rem; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: .75rem; white-space: pre-wrap; }\n\
 </style>";
 
-/// GET /sessions/{slug}/review — the review artifact, served in-app.
-/// The artifact is self-contained HTML; reading it never needs the lavish
-/// server (B.6 operator catch: reading the diff was chained through
-/// lavish's lifecycle — "session is already over" — for no reason).
-async fn review_artifact(Path(slug): Path<String>) -> axum::response::Response {
+/// GET /sessions/{slug}/review — the review artifact, served in-app with
+/// the comment UI and — when the review is live — the publish action and
+/// any pending publish approval injected, so the whole review workflow
+/// (read → comment → apply → re-render → publish → approve) happens on
+/// THIS page, not a hop away (operator shakedown catches: the footer
+/// pointed at an "approve" that lived on a different page under a
+/// different name, greyed-out as metadata).
+async fn review_artifact(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+) -> axum::response::Response {
     let path = session_dir(&slug).join("review.html");
+    let pendings: Vec<(String, String, String)> = state
+        .confirmations
+        .lock()
+        .expect("confirmations")
+        .iter()
+        .filter(|(_, p)| p.slug == slug)
+        .map(|(id, p)| (id.clone(), p.summary.clone(), p.prompt.clone()))
+        .collect();
     match std::fs::read_to_string(&path) {
-        Ok(html) => Html(inject_comment_ui(&slug, &html)).into_response(),
+        Ok(html) => Html(inject_comment_ui(&slug, &html, &pendings)).into_response(),
         Err(_) => axum::http::StatusCode::NOT_FOUND.into_response(),
     }
 }
@@ -686,6 +700,22 @@ color: var(--muted); }
 border: 1px solid var(--line); border-radius: 6px; min-width: 14rem; }
   .wa-resolve button { font: inherit; border: 1px solid var(--line); color: var(--muted); \
 background: #fff; border-radius: 6px; padding: .25rem .6rem; cursor: pointer; }
+  .wa-publish, .wa-confirm { font-family: system-ui, sans-serif; font-size: .85rem; \
+border: 1px solid var(--line); border-radius: 8px; background: #fff; \
+padding: .75rem .9rem; margin: 1rem 0; }
+  .wa-publish h2, .wa-confirm h2 { margin: 0 0 .5rem 0; border: none; font-size: 1rem; }
+  .wa-publish form { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .wa-publish input { flex: 1 1 18rem; font: inherit; padding: .35rem .5rem; \
+border: 1px solid var(--line); border-radius: 6px; }
+  .wa-publish button, .wa-confirm button { font: inherit; border: 1px solid var(--accent); \
+color: var(--accent); background: #fff; border-radius: 6px; \
+padding: .35rem .9rem; cursor: pointer; }
+  .wa-publish p { color: var(--muted); margin: .4rem 0 0 0; }
+  .wa-confirm { border: 2px solid #b7a14b; background: #fdfaf1; }
+  .wa-confirm pre { font-family: ui-monospace, monospace; font-size: .75rem; \
+background: #fff; border: 1px solid var(--line); border-radius: 6px; \
+padding: .5rem .6rem; white-space: pre-wrap; }
+  .wa-confirm button.wa-decline { border-color: var(--line); color: var(--muted); }
 </style>";
 
 /// Serve-time injection of the comment UI into the review artifact: each
@@ -696,7 +726,11 @@ background: #fff; border-radius: 6px; padding: .25rem .6rem; cursor: pointer; }
 /// artifact's own. The on-disk artifact stays pristine (self-contained,
 /// structurally unchanged — plan-004's invariant); this is presentation
 /// only.
-fn inject_comment_ui(slug: &str, artifact_html: &str) -> String {
+fn inject_comment_ui(
+    slug: &str,
+    artifact_html: &str,
+    pendings: &[(String, String, String)],
+) -> String {
     let dir = session_dir(slug);
     let queue =
         crate::comments::CommentQueue::load(&dir.join("comments.jsonl")).unwrap_or_default();
@@ -742,6 +776,39 @@ fn inject_comment_ui(slug: &str, artifact_html: &str) -> String {
         );
         if let Some(i) = out.find("<main>") {
             out.insert_str(i + "<main>".len(), &bar);
+        }
+
+        // The publish leg lives HERE: a pending approval, if one exists,
+        // renders as the prominent block (approve/decline); otherwise the
+        // start-publish form sits at the end of the diff — the reviewer
+        // decides with the evidence in view, not a page-hop away.
+        let publish_html = if pendings.is_empty() {
+            format!(
+                "<div class=\"wa-publish\"><h2>looks right? publish this edit</h2>\
+                 <form method=post action=\"/sessions/{slug}/publish\">\
+                 <input name=summary size=50 placeholder=\"edit summary (for the page history)\">\
+                 <button>start publish</button></form>\
+                 <p>publishing asks for your approval — with the exact edit shown — \
+                 before anything is written.</p></div>"
+            )
+        } else {
+            let mut blocks = String::new();
+            for (id, summary, prompt) in pendings {
+                let _ = write!(
+                    blocks,
+                    "<div class=\"wa-confirm\"><h2>publish approval</h2>\
+                     <p>summary: {}</p><pre>{}</pre>\
+                     <form method=post action=\"/confirmations/{id}\">\
+                     <button name=approve value=true>approve — publish</button>\
+                     <button name=approve value=false class=wa-decline>decline</button></form></div>",
+                    esc(summary),
+                    esc(prompt)
+                );
+            }
+            blocks
+        };
+        if let Some(i) = out.rfind("</main>") {
+            out.insert_str(i, &publish_html);
         }
 
         // Any comments that did NOT land under a block (unknown

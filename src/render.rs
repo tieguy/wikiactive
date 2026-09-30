@@ -983,7 +983,7 @@ fn assemble_artifact(a: &AssembleArgs<'_>) -> String {
     </aside>
   </div>
   <p class="meta">current round marker: {round_marker} · anchor table embedded as #wa-anchor-table</p>
-  <p class="meta">looks right? approve the publish on the session page — nothing is published without that click · want changes? leave comments on the session page (one per block); the loop resolves them and quotes the span it acted on</p>
+  <p>looks right? <strong>publish it below</strong> — nothing is published without your approval · want changes? comment on any paragraph: the drafting model revises the text and you re-review the result</p>
 </main>
 </body>
 </html>
