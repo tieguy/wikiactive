@@ -672,13 +672,33 @@ fn sources_section(slug: &str, ledger: &Ledger) -> String {
 /// The model-drafting step: how many assessments exist, whether an edit is
 /// staged, and the two judgment-point actions.
 fn draft_section(slug: &str, dir: &std::path::Path) -> String {
-    let assessments = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
-        .map_or(0, |f| f.assessments.len());
+    let queue = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
+        .map_or(Vec::new(), |f| f.assessments);
+    let assessments = queue.len();
     let base = crate::fsio::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
     let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
     let staged = !proposed.trim().is_empty() && proposed != base;
+    // The queue is VISIBLE: id, rules, and the proposed fix — the head
+    // is marked as what Draft the edit takes (drafts run first-to-last).
+    let queue_html = if queue.is_empty() {
+        String::new()
+    } else {
+        use std::fmt::Write as _;
+        let mut list = String::from("<ol class=\"wa-assessments\">\n");
+        for (n, a) in queue.iter().enumerate() {
+            let _ = writeln!(
+                list,
+                "<li>{} <strong>{}</strong> [{}] — {}</li>",
+                a.id,
+                if n == 0 { "next draft" } else { "queued" },
+                a.rules.join(","),
+                crate::ui::esc(&a.proposed_fix)
+            );
+        }
+        format!("{}</ol>\n", list)
+    };
     format!(
-        "<h2>Draft</h2>\n<p>{} {}</p>\n<div class=\"row\">\
+        "<h2>Draft</h2>\n<p>{} {}</p>\n{queue_html}<div class=\"row\">\
          <form method=post action=\"/sessions/{slug}/analyze\">\
          <button>Analyze</button></form>\
          <form method=post action=\"/sessions/{slug}/driver/assess\">\

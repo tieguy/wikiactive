@@ -2449,3 +2449,37 @@ async fn analyze_control_refreshes_the_bundle_in_browser() {
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The Draft section SHOWS the assessment queue: id, rules, and the
+/// proposed fix, with the next-to-draft marked — the operator can see
+/// which assessment Draft the edit will take (and that AS2 exists).
+#[tokio::test]
+async fn draft_section_lists_the_assessment_queue() {
+    let dir = setup_session(true);
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("assessments.json"),
+        r#"{"assessments":[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C21","rules":["WP:V"],"evidence":["Q1"],"factual_note":"n1.","proposed_fix":"first fix","loop":2},{"id":"AS2","wikitext_anchor":"L2:C0-L2:C21","rules":["WP:NPOV"],"evidence":["Q1"],"factual_note":"n2.","proposed_fix":"second fix","loop":2}]}"#,
+    )
+    .unwrap();
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains("AS1"), "ids render: {page}");
+    assert!(
+        page.contains("AS2"),
+        "the second assessment is visible: {page}"
+    );
+    assert!(page.contains("first fix"), "{page}");
+    assert!(page.contains("second fix"), "{page}");
+    // The next draft is marked: AS1 is first, flagged as what Draft takes.
+    let as1 = page.find("AS1").expect("AS1");
+    let marker = page.find("next draft").expect("next-draft marker");
+    assert!(marker > as1, "the marker rides the queue head: {page}");
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
