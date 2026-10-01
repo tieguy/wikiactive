@@ -352,52 +352,45 @@ pub fn assess_entry_checks(
 
 /// The stale relation, if any: what `context.md` is older than.
 fn analyze_staleness(dir: &std::path::Path) -> Option<String> {
-    let ctx_mtime = std::fs::metadata(dir.join("context.md"))
+    // A missing analyze bundle is stale by absence.
+    let ctx = match std::fs::metadata(dir.join("context.md")) {
+        Ok(m) => m.modified().ok()?,
+        Err(_) => return Some("missing — run `wa analyze <slug>` first".into()),
+    };
+    if let Ok(prop) = std::fs::metadata(dir.join("proposed.wikitext")).and_then(|m| m.modified())
+        && ctx <= prop
+    {
+        return Some("older than proposed.wikitext's last modification".into());
+    }
+    // The newest round-advancing event (rendered, published,
+    // comments-resolved): the analysis must postdate it.
+    let newest = std::fs::read_to_string(dir.join("rounds.jsonl"))
         .ok()
-        .and_then(|m| m.modified().ok())
-        .map_or_else(
-            || Some("missing".to_string()),
-            |t| {
-                let ctx = t;
-                if let Ok(prop) =
-                    std::fs::metadata(dir.join("proposed.wikitext")).and_then(|m| m.modified())
-                    && ctx <= prop
-                {
-                    return Some("older than proposed.wikitext's last modification".into());
-                }
-                // The newest round-advancing event (rendered, published,
-                // comments-resolved): the analysis must postdate it.
-                let newest = std::fs::read_to_string(dir.join("rounds.jsonl"))
-                    .ok()
-                    .map(|text| {
-                        text.lines()
-                            .filter_map(|l| serde_json::from_str::<RoundEntry>(l).ok())
-                            .filter(|e| {
-                                matches!(
-                                    e.phase.as_str(),
-                                    "rendered" | "published" | "comments-resolved"
-                                )
-                            })
-                            .filter_map(|e| {
-                                chrono::DateTime::parse_from_rfc3339(&e.timestamp)
-                                    .ok()
-                                    .map(|ts| (ts, e))
-                            })
-                            .max_by_key(|(ts, _)| *ts)
-                    })
-                    .flatten();
-                if let Some((ts, e)) = newest
-                    && chrono::DateTime::<chrono::Utc>::from(ctx) <= ts
-                {
-                    return Some(format!(
-                        "older than the newest round-advancing event ({} round {})",
-                        e.phase, e.round
-                    ));
-                }
-                None
-            },
-        );
-    ctx_mtime
+        .and_then(|text| {
+            text.lines()
+                .filter_map(|l| serde_json::from_str::<RoundEntry>(l).ok())
+                .filter(|e| {
+                    matches!(
+                        e.phase.as_str(),
+                        "rendered" | "published" | "comments-resolved"
+                    )
+                })
+                .filter_map(|e| {
+                    chrono::DateTime::parse_from_rfc3339(&e.timestamp)
+                        .ok()
+                        .map(|ts| (ts, e))
+                })
+                .max_by_key(|(ts, _)| *ts)
+        });
+    if let Some((ts, e)) = newest
+        && chrono::DateTime::<chrono::Utc>::from(ctx) <= ts
+    {
+        return Some(format!(
+            "older than the newest round-advancing event ({} round {})",
+            e.phase, e.round
+        ));
+    }
+    None
 }
 
 #[cfg(test)]

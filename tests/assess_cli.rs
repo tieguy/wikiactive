@@ -17,12 +17,51 @@ fn setup_session() -> std::path::PathBuf {
     )
     .unwrap();
     std::fs::write(session.join("assessments.json"), r#"{"assessments":[]}"#).unwrap();
+    // A ledger whose S1 carries text and quote Q1 (verbatim-verified), and
+    // a fresh analyze bundle (context.md newer than proposed.wikitext).
     std::fs::write(
         session.join("ledger.json"),
-        r#"{"schema_version":1,"sources":[],"quotes":[],"claims":[]}"#,
+        r#"{"schema_version":1,"sources":[{"id":"S1","url":"https://example.com/s","access_date":"2026-09-30","fetched_text":"verbatim words"}],"quotes":[{"id":"Q1","source_id":"S1","text":"verbatim words","located_at":0}],"claims":[]}"#,
+    )
+    .unwrap();
+    std::fs::write(session.join("proposed.wikitext"), "base text\n").unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(4));
+    std::fs::write(
+        session.join("context.md"),
+        "# wa analyze — context bundle\n",
     )
     .unwrap();
     dir
+}
+
+/// Make the analyze bundle stale: proposed.wikitext written AFTER
+/// context.md.
+fn make_stale(dir: &std::path::Path) {
+    std::thread::sleep(std::time::Duration::from_millis(4));
+    std::fs::write(
+        dir.join("sessions/test-article/proposed.wikitext"),
+        "new draft\n",
+    )
+    .unwrap();
+}
+
+/// Simulate `wa analyze` re-running: context.md rewritten now.
+fn reanalyze(dir: &std::path::Path) {
+    std::thread::sleep(std::time::Duration::from_millis(4));
+    std::fs::write(
+        dir.join("sessions/test-article/context.md"),
+        "# wa analyze — context bundle\n",
+    )
+    .unwrap();
+}
+
+fn write_batch(dir: &std::path::Path, evidence: &str) -> std::path::PathBuf {
+    let json = format!(
+        r#"{{"id":"AS1","wikitext_anchor":"L1:C0-L1:C5","rules":["WP:V"],"evidence":[{evidence}],"factual_note":"n","proposed_fix":"f","loop":2}}"#
+    );
+    let path = dir.join("batch.json");
+    std::fs::write(&path, json).unwrap();
+    path
 }
 
 const VALID: &str = r#"{
@@ -166,4 +205,132 @@ fn retired_findings_command_fails_with_a_pointer() {
     let persisted =
         std::fs::read_to_string(dir.join("sessions/test-article/assessments.json")).unwrap();
     assert_eq!(persisted, r#"{"assessments":[]}"#);
+}
+
+// ----------------------------------- loop-mechanization Phase 3 entry checks
+
+/// loopmech.AC1.1 — an unknown evidence id refuses the batch, names the
+/// id, and saves NOTHING.
+#[test]
+fn entry_refuses_unknown_quote_names_ids_saves_nothing() {
+    let dir = setup_session();
+    let batch = write_batch(&dir, r#""Q9""#);
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "add", "test-article", batch.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("Q9"), "{stderr}");
+    assert!(stderr.contains("not in the ledger"), "{stderr}");
+    let persisted =
+        std::fs::read_to_string(dir.join("sessions/test-article/assessments.json")).unwrap();
+    assert_eq!(
+        persisted, r#"{"assessments":[]}"#,
+        "batch-atomic: nothing saved"
+    );
+}
+
+/// loopmech.AC2.1 + AC2.2 — a stale analyze bundle refuses with the
+/// relation named and `wa analyze` prescribed; re-running analyze admits
+/// the IDENTICAL batch.
+#[test]
+fn stale_analyze_refuses_then_reanalyze_admits_identical_batch() {
+    let dir = setup_session();
+    make_stale(&dir);
+    let batch = write_batch(&dir, r#""Q1""#);
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "add", "test-article", batch.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("stale"), "{stderr}");
+    assert!(stderr.contains("proposed.wikitext"), "{stderr}");
+    assert!(stderr.contains("wa analyze"), "{stderr}");
+
+    reanalyze(&dir);
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "add", "test-article", batch.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "identical batch admitted after re-analyze: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// loopmech.AC2.5 / AC3.2 — the bypass flags proceed past their guards
+/// and the bypass is recorded in the round log.
+#[test]
+fn bypass_flags_proceed_and_are_recorded() {
+    let dir = setup_session();
+    make_stale(&dir);
+    // A swept ledger with an unresolved source joins the fun.
+    std::fs::write(
+        dir.join("sessions/test-article/ledger.json"),
+        r#"{"schema_version":1,"sources":[{"id":"S1","url":"https://example.com/s","access_date":"2026-09-30","fetched_text":"verbatim words"},{"id":"S2","url":"https://example.com/paywalled","access_date":"2026-09-30","sweep_status":"pending"}],"quotes":[{"id":"Q1","source_id":"S1","text":"verbatim words","located_at":0}],"claims":[]}"#,
+    )
+    .unwrap();
+    let batch = write_batch(&dir, r#""Q1""#);
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args([
+            "assess",
+            "add",
+            "test-article",
+            batch.to_str().unwrap(),
+            "--allow-stale-analyze",
+            "--allow-unresolved-fetch",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "bypasses proceed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let rounds_path = dir.join("sessions/test-article/rounds.jsonl");
+    let rounds = std::fs::read_to_string(rounds_path).unwrap();
+    assert!(rounds.contains("assess-bypass"), "{rounds}");
+    assert!(rounds.contains("stale-analyze"), "{rounds}");
+    assert!(rounds.contains("unresolved-fetch"), "{rounds}");
+}
+
+/// loopmech.AC3.1 + AC3.3 — an unresolved fetch source refuses with the
+/// source and status named; once resolved the same command proceeds
+/// without the flag.
+#[test]
+fn unresolved_fetch_refuses_then_resolved_proceeds() {
+    let dir = setup_session();
+    let swept = r#"{"schema_version":1,"sources":[{"id":"S1","url":"https://example.com/s","access_date":"2026-09-30","fetched_text":"verbatim words"},{"id":"S2","url":"https://example.com/paywalled","access_date":"2026-09-30","sweep_status":"needs_operator"}],"quotes":[{"id":"Q1","source_id":"S1","text":"verbatim words","located_at":0}],"claims":[]}"#;
+    std::fs::write(dir.join("sessions/test-article/ledger.json"), swept).unwrap();
+    let batch = write_batch(&dir, r#""Q1""#);
+
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "add", "test-article", batch.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("S2 (needs_operator)"), "{stderr}");
+
+    // Resolved by a signed disposition: no flag needed.
+    let resolved = r#"{"schema_version":1,"sources":[{"id":"S1","url":"https://example.com/s","access_date":"2026-09-30","fetched_text":"verbatim words"},{"id":"S2","url":"https://example.com/paywalled","access_date":"2026-09-30","sweep_status":"needs_operator","disposition":"dropped: paywall"}],"quotes":[{"id":"Q1","source_id":"S1","text":"verbatim words","located_at":0}],"claims":[]}"#;
+    std::fs::write(dir.join("sessions/test-article/ledger.json"), resolved).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "add", "test-article", batch.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "resolved source proceeds without the flag: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }

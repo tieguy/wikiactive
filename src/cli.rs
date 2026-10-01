@@ -267,6 +267,14 @@ pub enum AssessCmd {
         /// Path to JSON ('-' = stdin). Content: an assessment object or an
         /// array of assessments.
         json: String,
+        /// Proceed past a stale analyze bundle (recorded in the round
+        /// log). The freshness guard otherwise refuses the batch.
+        #[arg(long)]
+        allow_stale_analyze: bool,
+        /// Proceed past unresolved fetch sources (recorded in the round
+        /// log). The fetch guard otherwise refuses the batch.
+        #[arg(long)]
+        allow_unresolved_fetch: bool,
     },
     /// List assessments.
     List { slug: String },
@@ -342,7 +350,19 @@ pub async fn run(cli: Cli) -> Result<()> {
         },
         Command::Analyze { slug, prior_base } => analyze(&slug, prior_base),
         Command::Assess { cmd } => match cmd {
-            AssessCmd::Add { slug, json } => assess_add(&slug, &json),
+            AssessCmd::Add {
+                slug,
+                json,
+                allow_stale_analyze,
+                allow_unresolved_fetch,
+            } => assess_add(
+                &slug,
+                &json,
+                crate::session::EntryChecks {
+                    allow_stale_analyze,
+                    allow_unresolved_fetch,
+                },
+            ),
             AssessCmd::List { slug } => assess_list(&slug),
         },
         Command::Findings { .. } => anyhow::bail!(
@@ -623,7 +643,7 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     Ok(())
 }
 
-fn assess_add(slug: &str, json_source: &str) -> Result<()> {
+fn assess_add(slug: &str, json_source: &str, checks: crate::session::EntryChecks) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let raw = if json_source == "-" {
         let mut buf = String::new();
@@ -648,6 +668,64 @@ fn assess_add(slug: &str, json_source: &str) -> Result<()> {
                 problems.join("; ")
             )
         })?;
+    }
+    // Entry checks (loop-mechanization Phase 3): evidence must exist in
+    // the ledger, the analyze bundle must be fresh, and every fetched
+    // source must be resolved. A batch with any refusal saves nothing.
+    let evidence: Vec<String> = incoming
+        .iter()
+        .flat_map(|a| a.evidence.iter().cloned())
+        .collect();
+    let ledger = Ledger::load(&paths.ledger())?;
+    let strict = crate::session::assess_entry_checks(
+        &paths.dir,
+        &ledger,
+        &evidence,
+        crate::session::EntryChecks::default(),
+    );
+    let mut bypassed: Vec<&'static str> = Vec::new();
+    let mut blocking: Vec<String> = Vec::new();
+    if let Err(refusals) = strict {
+        for refusal in refusals {
+            match refusal {
+                crate::session::EntryRefusal::UnknownQuote { .. } => {
+                    blocking.push(refusal.to_string());
+                }
+                crate::session::EntryRefusal::StaleAnalyze { .. } => {
+                    if checks.allow_stale_analyze {
+                        bypassed.push("stale-analyze: --allow-stale-analyze");
+                    } else {
+                        blocking.push(refusal.to_string());
+                    }
+                }
+                crate::session::EntryRefusal::UnresolvedFetch { .. } => {
+                    if checks.allow_unresolved_fetch {
+                        bypassed.push("unresolved-fetch: --allow-unresolved-fetch");
+                    } else {
+                        blocking.push(refusal.to_string());
+                    }
+                }
+            }
+        }
+        if !blocking.is_empty() {
+            anyhow::bail!(
+                "assess batch refused at entry (nothing saved): {}",
+                blocking.join("; ")
+            );
+        }
+        // Every fired guard was bypassed by its flag: record that.
+        let entry = RoundEntry {
+            round: 0,
+            timestamp: now_iso(),
+            summary: "assess admission proceeded past entry guards (operator flags)".into(),
+            phase: "assess-bypass".into(),
+            detail: bypassed.iter().map(|b| (*b).to_string()).collect(),
+        };
+        append_round(&paths, &entry)?;
+        println!(
+            "note: entry guards bypassed ({}); recorded in the round log",
+            bypassed.join(", ")
+        );
     }
     let mut file = if paths.assessments().exists() {
         AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?
