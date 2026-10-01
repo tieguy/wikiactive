@@ -14,3 +14,6 @@ jobs:
       - uses: SonarSource/sonarqube-scan-action@v2
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          # Without this the action targets a local server (http://localhost:9000)
+          # and dies with Connection refused — this project lives on SonarCloud.
+          SONAR_HOST_URL: https://sonarcloud.io
