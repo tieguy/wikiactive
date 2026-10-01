@@ -629,3 +629,77 @@ fn summary_with_resolvable_shortcut_and_default_pass() {
     );
     assert!(dir.join("sessions/test-article/review.html").exists());
 }
+
+/// loopmech.AC8.1 — `--llm` overrides the fork config: in a config-off
+/// fork, the flag still ATTEMPTS the pass (observable as the recorded
+/// skip: no key in the test env, so the attempt degrades to
+/// `rule-review-failed` — config-off without the flag attempts nothing).
+#[test]
+fn llm_flag_forces_the_pass_on_over_config() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let hr = dir.join("rules/house-rules.toml");
+    let raw = std::fs::read_to_string(&hr).unwrap();
+    std::fs::write(&hr, raw.replace("llm_pass = true", "llm_pass = false")).unwrap();
+
+    // Config-off, no flag: no attempt, no record.
+    let out = wa_env(&dir, &[]);
+    assert!(out.status.success());
+    let rounds = std::fs::read_to_string(dir.join("sessions/test-article/rounds.jsonl")).unwrap();
+    assert!(!rounds.contains("rule-review"), "no attempt: {rounds}");
+
+    // Config-off, --llm: the pass is attempted (and, keyless, recorded
+    // as the failed/skipped pass) — the flag beat the config.
+    let out = wa_env(&dir, &["--llm"]);
+    assert!(out.status.success());
+    let rounds = std::fs::read_to_string(dir.join("sessions/test-article/rounds.jsonl")).unwrap();
+    assert!(
+        rounds.contains("rule-review-failed"),
+        "the flag forced the attempt: {rounds}"
+    );
+}
+
+/// loopmech.AC8.4 (unreachable variant) — a CONFIGURED but unreachable
+/// endpoint never blocks the deterministic outcome: the client
+/// constructs, the transport fails, the skip is reported and recorded,
+/// and the artifact stands.
+#[test]
+fn unreachable_endpoint_skips_the_pass_without_blocking() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        // Constructible client, dead endpoint (nothing listens on port 1).
+        .env("ZAI_API_KEY", "test-key-not-real")
+        .env("ZAI_BASE_URL", "http://127.0.0.1:1")
+        .args([
+            "audit",
+            "--html-base",
+            "base-fixture.html",
+            "--html-proposed",
+            "proposed-fixture.html",
+            "test-article",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "the audit outcome is deterministic: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("diagnosis pass"),
+        "the transport failure is reported: {stdout}"
+    );
+    let session = dir.join("sessions/test-article");
+    assert!(session.join("review.html").exists(), "artifact stands");
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(rounds.contains("rule-review-failed"), "recorded: {rounds}");
+}

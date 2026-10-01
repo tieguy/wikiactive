@@ -259,6 +259,7 @@ async fn read_back_verifies_the_saved_revision() {
     matching_revision_yields_no_lines().await;
     failed_query_reports_could_not_verify().await;
     unresolvable_summary_shortcut_refuses_publish_without_edit().await;
+    unstaged_claim_blocks_publish_without_edit().await;
 }
 
 /// loopmech.AC5.2 (publish half) — a summary citing an unresolvable
@@ -287,6 +288,36 @@ async fn unresolvable_summary_shortcut_refuses_publish_without_edit() {
         0,
         "no edit request from a refused summary"
     );
+    assert!(std::env::set_current_dir(env!("CARGO_MANIFEST_DIR")).is_ok());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// loopmech.AC4.1 (publish half) — a claim registered without staged
+/// prose blocks PUBLISH too (the gate re-runs there): no edit request.
+/// A scenario (not a test): the process cwd switches.
+async fn unstaged_claim_blocks_publish_without_edit() {
+    let (root, dir, server) = publish_world("claim-not-staged").await;
+    let edit_mock = mock_edit(&server).await;
+    // The ledger carries one claim whose prose is in neither base
+    // ("old text") nor proposed ("new text").
+    std::fs::write(
+        dir.join("sessions/readback-article/ledger.json"),
+        r#"{"schema_version":1,"sources":[],"quotes":[],"claims":[{"id":"C1","prose":"The keep was rebuilt in stone.","quote_ids":[]}]}"#,
+    )
+    .unwrap();
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .unwrap();
+    assert!(std::env::set_current_dir(&dir).is_ok());
+    let mut approve = Approve;
+    let err = publish_core("readback-article", "Test summary", &wiki, &mut approve, Tty)
+        .await
+        .expect_err("unstaged claim blocks publish");
+    assert!(
+        err.to_string().contains("gate blocked publish"),
+        "gate reason surfaces: {err}"
+    );
+    assert_eq!(edit_mock.calls(), 0, "no edit while a claim is unstaged");
     assert!(std::env::set_current_dir(env!("CARGO_MANIFEST_DIR")).is_ok());
     let _ = std::fs::remove_dir_all(&root);
 }

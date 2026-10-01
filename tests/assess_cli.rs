@@ -334,3 +334,25 @@ fn unresolved_fetch_refuses_then_resolved_proceeds() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+/// loopmech.AC6.1 — `wa assess list` shows the admitted assessments.
+#[test]
+fn assess_list_shows_admitted_assessments() {
+    let dir = setup_session();
+    let batch = write_batch(&dir, r#""Q1""#);
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "add", "test-article", batch.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let out = Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args(["assess", "list", "test-article"])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("AS1"), "{stdout}");
+    assert!(stdout.contains("WP:V"), "rules shown: {stdout}");
+}
