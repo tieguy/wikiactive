@@ -260,6 +260,7 @@ async fn read_back_verifies_the_saved_revision() {
     failed_query_reports_could_not_verify().await;
     unresolvable_summary_shortcut_refuses_publish_without_edit().await;
     unstaged_claim_blocks_publish_without_edit().await;
+    nothing_staged_refuses_publish_without_edit().await;
 }
 
 /// loopmech.AC5.2 (publish half) — a summary citing an unresolvable
@@ -318,6 +319,37 @@ async fn unstaged_claim_blocks_publish_without_edit() {
         "gate reason surfaces: {err}"
     );
     assert_eq!(edit_mock.calls(), 0, "no edit while a claim is unstaged");
+    assert!(std::env::set_current_dir(env!("CARGO_MANIFEST_DIR")).is_ok());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// revux.AC1.5 (CLI half) — `publish_core` refuses up front when nothing
+/// is staged (proposed == base): no confirmation prompt, no edit. A
+/// scenario (not a test): the process cwd switches.
+async fn nothing_staged_refuses_publish_without_edit() {
+    let (root, dir, server) = publish_world("nothing-staged").await;
+    let edit_mock = mock_edit(&server).await;
+    // Nothing staged: proposed identical to base.
+    let base_text =
+        std::fs::read_to_string(dir.join("sessions/readback-article/base.wikitext")).unwrap();
+    std::fs::write(
+        dir.join("sessions/readback-article/proposed.wikitext"),
+        &base_text,
+    )
+    .unwrap();
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .unwrap();
+    assert!(std::env::set_current_dir(&dir).is_ok());
+    let mut approve = Approve;
+    let err = publish_core("readback-article", "Test summary", &wiki, &mut approve, Tty)
+        .await
+        .expect_err("nothing staged refuses");
+    assert!(
+        err.to_string().contains("nothing staged"),
+        "refusal names the state: {err}"
+    );
+    assert_eq!(edit_mock.calls(), 0, "no request of any kind");
     assert!(std::env::set_current_dir(env!("CARGO_MANIFEST_DIR")).is_ok());
     let _ = std::fs::remove_dir_all(&root);
 }

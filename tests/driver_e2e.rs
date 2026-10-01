@@ -122,7 +122,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
             then.status(200).json_body(completion(findings_completion));
         })
         .await;
-    let proposal_completion = r#"{"proposed_wikitext_block":"The tower is old.\n","edit_summary":"Cite the tower's age to the fetched history."}"#;
+    let proposal_completion = r#"{"proposed_wikitext_block":"The tower is centuries old.\n","edit_summary":"Cite the tower's age to the fetched history."}"#;
     model
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)

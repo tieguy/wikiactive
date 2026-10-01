@@ -1203,6 +1203,12 @@ pub async fn publish_core(
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
     let base_wikitext = crate::fsio::read_to_string(paths.base())?;
     let proposed_wikitext = crate::fsio::read_to_string(paths.proposed())?;
+    // revux.AC1.5: nothing staged (proposed == base) refuses up front —
+    // no confirmation prompt, no null edit.
+    anyhow::ensure!(
+        base_wikitext != proposed_wikitext,
+        "nothing staged to publish: proposed.wikitext matches the base — stage an edit first"
+    );
     let assessments =
         AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;

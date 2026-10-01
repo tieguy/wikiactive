@@ -843,6 +843,9 @@ pub(crate) enum StaleKind {
     Published,
     CommentsApplied,
     TextChanged,
+    /// revux.AC1.2: the operator rejected the edit at review — the
+    /// artifact is history; back to the session, no re-render offer.
+    Rejected,
 }
 
 impl StaleKind {
@@ -852,6 +855,7 @@ impl StaleKind {
             Self::Published => "the edit was published",
             Self::CommentsApplied => "comments were applied after the render",
             Self::TextChanged => "the text changed after the render",
+            Self::Rejected => "the edit was rejected at review",
         }
     }
 
@@ -866,6 +870,10 @@ impl StaleKind {
             Self::TextChanged => {
                 "The session's text changed after it was rendered (a hand edit?). Render \
                  again before commenting."
+            }
+            Self::Rejected => {
+                "The edit was rejected by the operator at review. Back to the session to \
+                 draft the next one — this review is history."
             }
         }
     }
@@ -883,6 +891,9 @@ pub(crate) fn next_round(state: Option<&ArtifactState>) -> u32 {
                 kind: StaleKind::TextChanged,
             },
         ) => (*round).max(1),
+        // Everything else — published, comments-applied, and REJECTED
+        // (a rejected round is done; the next edit starts a fresh
+        // round) — advances.
         Some(ArtifactState::Stale { round, .. }) => round + 1,
     }
 }
@@ -900,6 +911,12 @@ pub(crate) fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
     // Anything the loop did AFTER that render makes the artifact history.
     let later: &[crate::session::RoundEntry] = &rounds[render_idx + 1..];
     let stale = |kind| Some(ArtifactState::Stale { round, kind });
+    // revux: an aborted entry after the render is an operator rejection —
+    // it precedes the published/comments-resolved checks so the banner
+    // names the rejection, and it is inert to them (pinned by test).
+    if later.iter().any(|e| e.phase == "aborted") {
+        return stale(StaleKind::Rejected);
+    }
     if later.iter().any(|e| e.phase == "published") {
         return stale(StaleKind::Published);
     }
@@ -1085,7 +1102,7 @@ fn lint_warning_html(finding: &crate::checks::linter::LintFinding, description: 
 /// (unless it was published) the render form for the round that replaces
 /// it, right there.
 fn stale_banner(slug: &str, round: u32, kind: StaleKind) -> String {
-    let action = if matches!(kind, StaleKind::Published) {
+    let action = if matches!(kind, StaleKind::Published | StaleKind::Rejected) {
         format!(" <a href=\"/sessions/{slug}\">Back to the session</a>")
     } else {
         let next = next_round(Some(&ArtifactState::Stale { round, kind }));
@@ -2522,6 +2539,63 @@ async fn audit(
     }
 }
 
+/// POST /sessions/{slug}/reject — the operator's explicit "no" at
+/// review (revux.AC1): decline every pending publish confirmation for
+/// the session (a still-rendered Approve must find nothing to approve),
+/// restore the staged edit to the base text, and record the rejection
+/// as an `aborted` round entry. Assessments and the comment queue
+/// survive; the previous artifact goes stale under the rejected banner.
+async fn reject(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    // Parked confirmations decline FIRST, in both branches — publish
+    // captured the pre-reject text when it parked, so no Approve may
+    // survive a rejection (memory-state only; touches no file).
+    for (id, _, _) in state.pending_for(&slug) {
+        state.resolve(&id, false);
+    }
+    let dir = session_dir(&slug);
+    let outcome = match (
+        crate::fsio::read_to_string(dir.join("base.wikitext")),
+        crate::fsio::read_to_string(dir.join("proposed.wikitext")),
+    ) {
+        (Ok(base), Ok(proposed)) if base != proposed => {
+            let round = artifact_state(&dir).map_or(0, |s| match s {
+                ArtifactState::Current { round } | ArtifactState::Stale { round, .. } => round,
+            });
+            if crate::fsio::write(dir.join("proposed.wikitext"), &base).is_err() {
+                "reject failed: could not restore proposed.wikitext".to_string()
+            } else {
+                let entry = crate::session::RoundEntry {
+                    round,
+                    timestamp: crate::comments::now_iso(),
+                    summary: "edit rejected by operator at review".into(),
+                    phase: "aborted".into(),
+                    detail: vec!["proposed.wikitext restored to base".into()],
+                };
+                match serde_json::to_string(&entry) {
+                    Ok(json)
+                        if crate::fsio::append_line(dir.join("rounds.jsonl"), &json).is_ok() =>
+                    {
+                        "edit rejected — proposed restored to base; the review is out of date"
+                            .to_string()
+                    }
+                    _ => "edit rejected, but the round-log entry failed".to_string(),
+                }
+            }
+        }
+        (Ok(_), Ok(_)) => "nothing staged to reject".to_string(),
+        _ => "reject failed: session files unreadable".to_string(),
+    };
+    state.note_outcome(&slug, &outcome);
+    back_to(&slug, &q, Some("top")).into_response()
+}
+
 /// POST /sessions/{slug}/publish — start the shared publish flow with a
 /// [`WebConfirm`]; the edit posts only when the pending confirmation is
 /// approved (no auto-publish).
@@ -2569,6 +2643,14 @@ async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> Stri
     let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
     if proposed.trim().is_empty() {
         return "publish not started: proposed.wikitext is empty — stage an edit first \
+                (driver: draft proposal, or edit the file)"
+            .into();
+    }
+    // revux.AC1.5: nothing staged (proposed == base) refuses up front —
+    // no confirmation parks, no null edit rides an approve click.
+    let base = crate::fsio::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
+    if proposed == base {
+        return "publish not started: nothing staged — proposed.wikitext matches the base \
                 (driver: draft proposal, or edit the file)"
             .into();
     }
@@ -2728,6 +2810,7 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/comments/resolve", post(comments_resolve))
         .route("/sessions/{slug}/audit", post(audit))
         .route("/sessions/{slug}/publish", post(publish))
+        .route("/sessions/{slug}/reject", post(reject))
         .route("/confirmations", get(confirmations))
         .route("/confirmations/{id}", post(confirm))
         .with_state(state)

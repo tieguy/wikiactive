@@ -308,7 +308,8 @@ async fn mock_wiki(server: &MockServer) -> httpmock::Mock<'_> {
 /// then the session re-pins.
 #[tokio::test]
 async fn publish_requires_the_explicit_web_confirmation() {
-    let dir = setup_session(true);
+    // A staged edit: base-identical sessions refuse up-front (revux.AC1.5).
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
     let wiki = MockServer::start_async().await;
     let edit_mock = mock_wiki(&wiki).await;
     let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_API", &wiki.url("/"))]);
@@ -404,7 +405,7 @@ async fn publish_requires_the_explicit_web_confirmation() {
 /// A declined confirmation writes nothing.
 #[tokio::test]
 async fn declined_confirmation_never_edits() {
-    let dir = setup_session(true);
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
     let wiki = MockServer::start_async().await;
     let edit_mock = mock_wiki(&wiki).await;
     let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_API", &wiki.url("/"))]);
@@ -1882,6 +1883,234 @@ async fn driver_assess_unresolved_fetch_points_at_the_affordances() {
     );
     let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
     assert_eq!(persisted, r#"{"assessments":[]}"#);
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ------------------------------------------- review-ux-fixes (revux) Phase 1
+
+/// loopmech-style revux.AC1.1 — POST /reject on a staged edit: parked
+/// confirmations decline, proposed restores to base, an `aborted` round
+/// entry records the rejection.
+#[tokio::test]
+async fn reject_restores_proposed_and_records_aborted() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let session = dir.join("sessions/test-article");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    audit_offline(&client, port, &dir).await;
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/reject?from=review",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status().as_u16(),
+        303,
+        "back to where the operator acted"
+    );
+    let base = std::fs::read_to_string(session.join("base.wikitext")).unwrap();
+    let proposed = std::fs::read_to_string(session.join("proposed.wikitext")).unwrap();
+    assert_eq!(proposed, base, "the staged edit is gone");
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(rounds.contains("\"phase\":\"aborted\""), "{rounds}");
+    assert!(rounds.contains("rejected"), "{rounds}");
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// revux.AC1.4 — rejecting when nothing is staged is a visible no-op:
+/// no round entry, files untouched.
+#[tokio::test]
+async fn reject_with_nothing_staged_is_a_noop() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is old.\n");
+    let session = dir.join("sessions/test-article");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let before = std::fs::read_to_string(session.join("proposed.wikitext")).unwrap();
+    let resp = client
+        .post(format!("{}/sessions/test-article/reject", base_url(port)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains("nothing staged to reject"), "{page}");
+    let after = std::fs::read_to_string(session.join("proposed.wikitext")).unwrap();
+    assert_eq!(before, after, "files untouched");
+    assert!(
+        !session.join("rounds.jsonl").exists(),
+        "no round entry for a no-op"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// revux.AC1.2 — after a reject the artifact stales under the REJECTED
+/// banner (names the rejection, offers no re-render), and the aborted
+/// round entry is inert to the published/comments-resolved staleness
+/// legs (this test is that pin). Render precedes reject so the mtime
+/// ordering is strict.
+#[tokio::test]
+async fn reject_stales_the_artifact_under_the_rejected_banner() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    audit_offline(&client, port, &dir).await;
+    mtime_gap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/reject?from=review",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("rejected by the operator") || page.contains("edit was rejected"),
+        "the rejected banner names the rejection: {page}"
+    );
+    assert!(
+        !page.contains("Render round"),
+        "no re-render offer after a reject: {page}"
+    );
+    assert!(
+        !page.contains("a hand edit"),
+        "not the text-changed wording: {page}"
+    );
+    assert!(
+        !page.contains("<form method=post action=\"/sessions/test-article/comments\""),
+        "no live comment forms on a stale artifact: {page}"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// revux.AC1.6 — the race is closed end-to-end: publish parks a
+/// confirmation holding the pre-reject text; a reject declines it; the
+/// still-rendered Approve finds nothing — and NO edit request reaches
+/// the wiki.
+#[tokio::test]
+async fn reject_declines_a_parked_publish_confirmation() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let wiki = MockServer::start_async().await;
+    let edit_mock = mock_wiki(&wiki).await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_API", &wiki.url("/"))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    // Publish parks the confirmation (no edit yet).
+    let resp = client
+        .post(format!("{}/sessions/test-article/publish", base_url(port)))
+        .form(&[("summary", "web publish test")])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = poll_page_contains(
+        &client,
+        &format!("{}/sessions/test-article", base_url(port)),
+        "Approve this publish",
+        Duration::from_secs(15),
+    )
+    .await
+    .expect("pending confirmation renders");
+    assert_eq!(edit_mock.calls(), 0);
+    let confirm_path = page
+        .split("action=\"")
+        .find(|a| a.starts_with("/confirmations/"))
+        .and_then(|a| a.split('"').next())
+        .expect("confirmation form present")
+        .to_string();
+
+    // The operator rejects instead.
+    let resp = client
+        .post(format!("{}/sessions/test-article/reject", base_url(port)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+
+    // The still-rendered Approve finds nothing to approve.
+    let resp = client
+        .post(format!("{}{}", base_url(port), confirm_path))
+        .form(&[("approve", "true")])
+        .send()
+        .await
+        .unwrap();
+    let body = resp.text().await.unwrap_or_default();
+    assert!(
+        body.contains("Approval not found") || body.contains("Nothing was written"),
+        "the declined confirmation surfaces: {body}"
+    );
+    assert_eq!(
+        edit_mock.calls(),
+        0,
+        "the rejected text never reaches the wiki"
+    );
+    let proposed =
+        std::fs::read_to_string(dir.join("sessions/test-article/proposed.wikitext")).unwrap();
+    let base = std::fs::read_to_string(dir.join("sessions/test-article/base.wikitext")).unwrap();
+    assert_eq!(proposed, base, "the reject restored the text");
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// revux.AC1.5 — publish on a session with NOTHING staged (proposed ==
+/// base) refuses up front: no confirmation parks, no edit request.
+#[tokio::test]
+async fn publish_refuses_when_nothing_is_staged() {
+    let dir = setup_session(true); // base == proposed
+    let wiki = MockServer::start_async().await;
+    let edit_mock = mock_wiki(&wiki).await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_API", &wiki.url("/"))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!("{}/sessions/test-article/publish", base_url(port)))
+        .form(&[("summary", "should refuse")])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = poll_page_contains(
+        &client,
+        &format!("{}/sessions/test-article", base_url(port)),
+        "nothing staged",
+        Duration::from_secs(10),
+    )
+    .await
+    .expect("the refusal surfaces");
+    assert!(!page.contains("Approve this publish"), "{page}");
+    assert_eq!(edit_mock.calls(), 0);
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
