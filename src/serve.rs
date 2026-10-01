@@ -695,7 +695,7 @@ fn draft_section(slug: &str, dir: &std::path::Path) -> String {
                 crate::ui::esc(&a.proposed_fix)
             );
         }
-        format!("{}</ol>\n", list)
+        format!("{list}</ol>\n")
     };
     format!(
         "<h2>Draft</h2>\n<p>{} {}</p>\n{queue_html}<div class=\"row\">\
