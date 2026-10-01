@@ -10,3 +10,4 @@ pub mod gate;
 pub mod linter;
 pub mod paraphrase;
 pub mod quote_anchor;
+pub mod summary_rules;

@@ -576,3 +576,56 @@ fn claim_not_staged_groups_under_needs_anchor_in_audit_output() {
     assert!(stdout.contains("prose staged nowhere"), "{stdout}");
     assert!(stdout.contains("C1"), "{stdout}");
 }
+
+// ------------------------------------ loop-mechanization Phase 5 summary rules
+
+/// loopmech.AC5.2 — an audit summary citing an unresolvable shortcut is
+/// refused: no artifact, the token named.
+#[test]
+fn summary_with_unresolvable_shortcut_blocks_the_audit() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let out = wa_env(
+        &dir,
+        &["--no-llm", "--summary", "tighten the lead per MOS:NOTREAL"],
+    );
+    assert!(
+        !out.status.success(),
+        "unresolvable shortcut refuses: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(text.contains("MOS:NOTREAL"), "{text}");
+    assert!(
+        !dir.join("sessions/test-article/review.html").exists(),
+        "no artifact from a refused summary"
+    );
+}
+
+/// loopmech.AC5.1 — a summary citing a resolvable shortcut passes; the
+/// default summary (no tokens) is unaffected.
+#[test]
+fn summary_with_resolvable_shortcut_and_default_pass() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let out = wa_env(
+        &dir,
+        &["--no-llm", "--summary", "set the variety per MOS:VAR"],
+    );
+    assert!(
+        out.status.success(),
+        "resolvable shortcut passes: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(dir.join("sessions/test-article/review.html").exists());
+}

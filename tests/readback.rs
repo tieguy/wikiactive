@@ -258,4 +258,35 @@ async fn read_back_verifies_the_saved_revision() {
     minor_flag_yields_a_mismatch_line().await;
     matching_revision_yields_no_lines().await;
     failed_query_reports_could_not_verify().await;
+    unresolvable_summary_shortcut_refuses_publish_without_edit().await;
+}
+
+/// loopmech.AC5.2 (publish half) — a summary citing an unresolvable
+/// shortcut is refused BEFORE any request: no edit, the token named.
+/// A scenario (not a test): the process cwd switches.
+async fn unresolvable_summary_shortcut_refuses_publish_without_edit() {
+    let (root, dir, server) = publish_world("summary-refusal").await;
+    let edit_mock = mock_edit(&server).await;
+    let wiki = Wikipedia::connect_with_api_url(&server.url("/"), None)
+        .await
+        .unwrap();
+    assert!(std::env::set_current_dir(&dir).is_ok());
+    let mut approve = Approve;
+    let err = publish_core(
+        "readback-article",
+        "restore the date per MOS:NOTREAL",
+        &wiki,
+        &mut approve,
+        Tty,
+    )
+    .await
+    .expect_err("unresolvable shortcut refuses");
+    assert!(err.to_string().contains("MOS:NOTREAL"), "{err}");
+    assert_eq!(
+        edit_mock.calls(),
+        0,
+        "no edit request from a refused summary"
+    );
+    assert!(std::env::set_current_dir(env!("CARGO_MANIFEST_DIR")).is_ok());
+    let _ = std::fs::remove_dir_all(&root);
 }

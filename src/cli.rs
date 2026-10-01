@@ -1188,6 +1188,15 @@ pub async fn publish_core(
     confirm: &mut dyn ConfirmSource,
     via: Via,
 ) -> Result<PublishOutcome> {
+    // Summary rule resolution (loop-mechanization Phase 5): the one
+    // chokepoint both publish surfaces flow through — an unresolvable
+    // shortcut in the summary refuses BEFORE any request is sent.
+    let index =
+        crate::checks::summary_rules::ShortcutIndex::load().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let unresolvable = crate::checks::summary_rules::summary_rule_check(summary, &index);
+    if !unresolvable.is_empty() {
+        anyhow::bail!("summary refused: {}", unresolvable.join("; "));
+    }
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -1731,6 +1740,16 @@ pub async fn audit_flow(
     opts: &AuditOpts,
     zai: Option<&crate::driver::model::ZaiClient>,
 ) -> Result<()> {
+    // Summary rule resolution (loop-mechanization Phase 5): every
+    // shortcut-shaped token in the summary the artifact will carry must
+    // resolve against the canonical snapshots — a refused summary
+    // produces no artifact.
+    let index =
+        crate::checks::summary_rules::ShortcutIndex::load().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let unresolvable = crate::checks::summary_rules::summary_rule_check(&opts.summary, &index);
+    if !unresolvable.is_empty() {
+        anyhow::bail!("summary refused: {}", unresolvable.join("; "));
+    }
     gate_preflight(slug)?;
     let (paths, _) = load_session(slug)?;
     let round = crate::serve::next_round(crate::serve::artifact_state(&paths.dir).as_ref());
