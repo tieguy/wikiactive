@@ -1806,24 +1806,68 @@ async fn run_driver_assess(state: &Arc<ServeState>, slug: &str) -> String {
         Err(e) => return format!("driver assess: {e}"),
     };
     match crate::driver::steps::assess(&zai, &ctx).await {
-        Ok(findings) => {
-            // Same admission as `wa findings add`: validate (the step
-            // already did) and append without duplicate ids.
-            let path = dir.join("assessments.json");
-            let mut file = crate::session::AssessmentsFile::load(&path).unwrap_or_default();
-            for f in findings {
-                if file.assessments.iter().any(|e| e.id == f.id) {
-                    continue;
-                }
-                file.assessments.push(f);
-            }
-            match file.save(&path) {
-                Ok(()) => format!("driver assess: {} in the session", file.assessments.len()),
-                Err(e) => format!("driver assess: save failed: {e}"),
+        Ok(assessments) => {
+            // Entry checks (loop-mechanization Phase 3): the SAME
+            // predicate `wa assess add` runs, between the model's output
+            // and the append. No bypass on the web path; a refusal is
+            // surfaced, never a silent skip.
+            let evidence: Vec<String> = assessments
+                .iter()
+                .flat_map(|a| a.evidence.iter().cloned())
+                .collect();
+            let ledger = Ledger::load(&dir.join("ledger.json")).unwrap_or_default();
+            match crate::session::assess_entry_checks(
+                &dir,
+                &ledger,
+                &evidence,
+                crate::session::EntryChecks::default(),
+            ) {
+                Ok(()) => persist_assessments(&dir, assessments),
+                Err(refusals) => entry_refusal_outcome(&refusals),
             }
         }
         Err(e) => format!("driver assess: {e}"),
     }
+}
+
+/// The serve Assess save: append without duplicate ids (the same
+/// admission as `wa assess add`; the step validated before the paid
+/// call) and report what is now in the session.
+fn persist_assessments(
+    dir: &std::path::Path,
+    assessments: Vec<crate::session::Assessment>,
+) -> String {
+    let path = dir.join("assessments.json");
+    let mut file = crate::session::AssessmentsFile::load(&path).unwrap_or_default();
+    for f in assessments {
+        if file.assessments.iter().any(|e| e.id == f.id) {
+            continue;
+        }
+        file.assessments.push(f);
+    }
+    match file.save(&path) {
+        Ok(()) => format!("driver assess: {} in the session", file.assessments.len()),
+        Err(e) => format!("driver assess: save failed: {e}"),
+    }
+}
+
+/// The serve Assess entry refusal: every refusal verbatim, plus the
+/// on-page affordance pointer for unresolved fetch sources.
+fn entry_refusal_outcome(refusals: &[crate::session::EntryRefusal]) -> String {
+    let mut msg = refusals
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("; ");
+    if refusals
+        .iter()
+        .any(|r| matches!(r, crate::session::EntryRefusal::UnresolvedFetch { .. }))
+    {
+        msg.push_str(
+            " — resolve from the Sources table below (attach text or sign a disposition), then Assess again",
+        );
+    }
+    format!("driver assess: refused at entry (nothing saved): {msg}")
 }
 
 /// POST /sessions/{slug}/driver/propose — judgment point 2: draft the

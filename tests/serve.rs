@@ -63,6 +63,12 @@ fn setup_session(resolve_sweep: bool) -> PathBuf {
     // Gate-clean proposal: identical base and proposed, no findings.
     std::fs::write(session.join("base.wikitext"), "The tower is old.\n").unwrap();
     std::fs::write(session.join("proposed.wikitext"), "The tower is old.\n").unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(4));
+    std::fs::write(
+        session.join("context.md"),
+        "# wa analyze — context bundle\n",
+    )
+    .unwrap();
     copy_dir(Path::new("rules"), &dir.join("rules"));
     copy_dir(Path::new("prompts"), &dir.join("prompts"));
     dir
@@ -1601,6 +1607,183 @@ async fn config_off_fork_unchecks_the_toggle() {
         "config off => unchecked: {page}"
     );
     assert!(page.contains("name=llm"), "the toggle still exists: {page}");
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ------------------------------ loop-mechanization Phase 3 entry checks
+
+/// A driver-assess mock model whose output cites an unknown quote id —
+/// the step itself blocks (Malformed after retry); the refusal is
+/// VISIBLE on the page and nothing lands in assessments.json.
+#[tokio::test]
+async fn driver_assess_unknown_quote_is_refused_visibly() {
+    let dir = setup_session(true);
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("ledger.json"),
+        r#"{"schema_version":1,"sources":[
+            {"id":"S1","url":"https://example.com/s","access_date":"2026-09-29","sweep_status":"fetched","fetched_text":"The tower was built in stages."}],
+           "quotes":[{"id":"Q1","source_id":"S1","text":"The tower was built in stages.","located_at":0}],
+           "claims":[]}"#,
+    )
+    .unwrap();
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST).path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content":
+                    "[{\"id\":\"AS1\",\"wikitext_anchor\":\"L1:C0-L1:C19\",\"rules\":[\"WP:V\"],\"evidence\":[\"Q99\"],\"factual_note\":\"n.\",\"proposed_fix\":\"f.\",\"loop\":2}]"}}]
+        }));
+    })
+    .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("Q99") && page.contains("not a registered ledger quote"),
+        "refusal visible: {page}"
+    );
+    let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
+    assert_eq!(persisted, r#"{"assessments":[]}"#, "nothing saved");
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// loopmech.AC2.3 — the serve Assess path enforces the same freshness
+/// state and refuses with the same message (stale relation + wa analyze).
+#[tokio::test]
+async fn driver_assess_refuses_stale_analyze_with_the_cli_message() {
+    let dir = setup_session(true);
+    let session = dir.join("sessions/test-article");
+    // A quoted ledger so the fetch/evidence guards stay quiet.
+    std::fs::write(
+        session.join("ledger.json"),
+        r#"{"schema_version":1,"sources":[
+            {"id":"S1","url":"https://example.com/s","access_date":"2026-09-29","sweep_status":"fetched","fetched_text":"The tower was built in stages."}],
+           "quotes":[{"id":"Q1","source_id":"S1","text":"The tower was built in stages.","located_at":0}],
+           "claims":[]}"#,
+    )
+    .unwrap();
+    // Stale: proposed rewritten AFTER the analyze bundle.
+    std::thread::sleep(std::time::Duration::from_millis(4));
+    std::fs::write(session.join("proposed.wikitext"), "The tower is ancient.\n").unwrap();
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST).path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content":
+                    "[{\"id\":\"AS1\",\"wikitext_anchor\":\"L1:C0-L1:C19\",\"rules\":[\"WP:V\"],\"evidence\":[\"Q1\"],\"factual_note\":\"n.\",\"proposed_fix\":\"f.\",\"loop\":2}]"}}]
+        }));
+    })
+    .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("stale") && page.contains("wa analyze"),
+        "same freshness refusal as the CLI: {page}"
+    );
+    let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
+    assert_eq!(persisted, r#"{"assessments":[]}"#);
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// loopmech.AC3.4 — an unresolved fetch source refuses at the serve
+/// Assess path and the message points at the on-page affordances.
+#[tokio::test]
+async fn driver_assess_unresolved_fetch_points_at_the_affordances() {
+    let dir = setup_session(false); // S1 pending
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("ledger.json"),
+        r#"{"schema_version":1,"sources":[
+            {"id":"S1","url":"https://example.com/paywalled","access_date":"2026-09-29","sweep_status":"pending"},
+            {"id":"S2","url":"https://example.com/s","access_date":"2026-09-29","sweep_status":"fetched","fetched_text":"The tower was built in stages."}],
+           "quotes":[{"id":"Q1","source_id":"S2","text":"The tower was built in stages.","located_at":0}],
+           "claims":[]}"#,
+    )
+    .unwrap();
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST).path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content":
+                    "[{\"id\":\"AS1\",\"wikitext_anchor\":\"L1:C0-L1:C19\",\"rules\":[\"WP:V\"],\"evidence\":[\"Q1\"],\"factual_note\":\"n.\",\"proposed_fix\":\"f.\",\"loop\":2}]"}}]
+        }));
+    })
+    .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("S1 (pending)"),
+        "source and status named: {page}"
+    );
+    assert!(
+        page.contains("Sources table below"),
+        "points at the on-page affordances: {page}"
+    );
+    let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
+    assert_eq!(persisted, r#"{"assessments":[]}"#);
     let _ = child.kill();
     let _ = child.wait();
     let _ = std::fs::remove_dir_all(&dir);
