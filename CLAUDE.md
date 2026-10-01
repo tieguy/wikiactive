@@ -46,14 +46,16 @@ behavior spec — paired with code changes and audited, not runtime reading. Rea
 cargo test                 # everything (offline)
 cargo clippy --all-targets # must be clean
 wa session init --article "X" --entry-loop 2
+wa fetch <slug>             # fetch stage: inventory + fetch in one go
+wa fetch dispose <slug> --source S3 --disposition "..."
+wa fetch status <slug>
 wa analyze <slug>
-wa findings add <slug> -
+wa assess add <slug> -      # schema-validated assessment admission
+wa assess list <slug>
 wa ledger register|fetch|archive|attach|quote|claim ...
-wa sweep inventory|fetch|status <slug>   # fetch-or-dispose before analysis
-wa sweep dispose <slug> --source S3 --disposition "..."
-wa render <slug> --round 1 --summary "..."
-wa check <slug>            # standalone gate preflight (no artifact)
-wa review <slug>           # rule-review pass: clause-by-clause model advice
+wa audit <slug>             # deterministic gate preflight (no artifact)
+wa audit --llm <slug>       # model diagnosis pass (rule review)
+wa render <slug> --round 1 --summary "..."   # legacy tty path (Phase 1)
 wa comments list|add|resolve <slug> ...   # the review comment queue
 wa publish <slug> --summary "..."
 wa serve [--tsnet] [--port N]  # local web console (loopback default)

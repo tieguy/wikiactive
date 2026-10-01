@@ -103,12 +103,13 @@ wa ledger register <slug> --url https://… --title "…"
 wa ledger fetch <slug> --source S1
 wa ledger archive <slug> --source S1
 wa ledger quote <slug> --source S1 --text "verbatim words…"
-wa findings add <slug> - <<'JSON'
-[{"id":"F1","wikitext_anchor":"L3:C0-L3:C120","rules":["WP:V"],
+wa assess add <slug> - <<'JSON'
+[{"id":"AS1","wikitext_anchor":"L3:C0-L3:C120","rules":["WP:V"],
   "evidence":["Q1"],"factual_note":"…","proposed_fix":"…","loop":2}]
 JSON
 # edit sessions/<slug>/proposed.wikitext — ONE logical edit
-wa render <slug> --round 1 --summary "Fix ref-name formats"
+wa audit <slug>                        # deterministic gate preflight
+wa render <slug> --round 1 --summary "Fix ref-name formats"  # legacy tty path
 wa comments list <slug>                # the review comment queue (tty)
 wa comments add <slug> --target L3:C0-L3:C120 --text "tighten this"
 wa comments resolve <slug> --id K1 --note "applied by hand"
@@ -118,9 +119,9 @@ wa publish <slug> --summary "Format citations, fix auto ref names"
 ### The local web console — `wa serve` (plan-003 B.4/B.6, plan-004)
 
 The same loop, self-served in the browser, in ONE process: session
-console, the source sweep manifest (run fetch, sign dispositions, paste
-operator captures), the model-driver buttons (Write findings / Draft the
-edit), render, **the in-app review artifact with block-anchored
+console, the source fetch manifest (run fetch, sign dispositions, paste
+operator captures), the model-driver buttons (Assess / Draft the
+edit), audit, **the in-app review artifact with block-anchored
 comments** (one form per changed block, one per evidence card; the queue
 lives at `sessions/<slug>/comments.jsonl`) with inline lint warnings and
 an on-demand **Check against the rules** pass (clause-by-clause model
@@ -152,23 +153,26 @@ Environment and configuration:
   fallback default.
 - `WIKIACTIVE_OAUTH2_TOKEN` / `WIKIACTIVE_BOTPASSWORD` — publish
   credentials as before (bws fallback for the OAuth token).
-- `prompts/` — the three versioned judgment-point templates
-  (`author-findings.md`, `propose.md`, `resolve.md`), SHA-256
+- `prompts/` — the versioned judgment-point templates
+  (`assess.md`, `propose.md`, `resolve.md`, `review.md`), SHA-256
   checksum-pinned by test: edit deliberately, update the pin, say why.
 
-### The source sweep — fetch-or-dispose BEFORE analysis (plan-003 B.3)
+### The fetch stage — fetch-or-dispose BEFORE analysis (plan-003 B.3,
+### renamed from "sweep" in loop-mechanization Phase 1)
 
 ```
-wa sweep inventory <slug>        # citation apparatus → ledger candidates
-wa sweep fetch <slug>            # classify: fetched / needs_operator /
-                                  # snapshot_available (CDX) / no_text
-wa sweep status <slug>           # the manifest
-wa sweep dispose <slug> --source S3 --disposition "attested-unreachable"
+wa fetch <slug>                  # inventory + batch fetch in one
+                                  # invocation: citation apparatus →
+                                  # ledger candidates → fetched /
+                                  # needs_operator / snapshot_available
+                                  # (CDX) / no_text
+wa fetch status <slug>           # the manifest
+wa fetch dispose <slug> --source S3 --disposition "attested-unreachable"
 ```
 
 URL-less books are auto-dispositioned `print: no web text` at inventory;
 dead links get a Wayback CDX snapshot auto-registered (fetched via the
-snapshot). Unresolved sweep sources block `wa check`/render/publish
+snapshot). Unresolved fetch sources block audit/render/publish
 until each is fetched, captured, or dispositioned — resolve
 `needs_operator` sources by pasting your browser's capture into the
 serve console (attach) or `wa ledger attach <slug> --source S3 --file
@@ -258,7 +262,7 @@ Ohio-birthplace `{{cn}}` resolved, discrepancy footnote) and Temple
 Fielding (two published edits) — drove the review surface to
 reviewer-grade (deletion anchors, enwiki link affordances, single-column
 diff with evidence rail, consulted-source manifest, clickable
-citations), hardened the gate (`wa check` fail-fast, drift pin,
+citations), hardened the gate (`wa audit` fail-fast (formerly `wa check`), drift pin,
 config-tuned paraphrase thresholds, attributed-quote deferral,
 `wa ledger attach` for operator captures of unfetchable sources), and
 kept the disclosure log current per session. Phase B (in progress,
