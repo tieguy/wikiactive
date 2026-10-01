@@ -679,6 +679,8 @@ fn draft_section(slug: &str, dir: &std::path::Path) -> String {
     let staged = !proposed.trim().is_empty() && proposed != base;
     format!(
         "<h2>Draft</h2>\n<p>{} {}</p>\n<div class=\"row\">\
+         <form method=post action=\"/sessions/{slug}/analyze\">\
+         <button>Analyze</button></form>\
          <form method=post action=\"/sessions/{slug}/driver/assess\">\
          <button>Assess</button></form>\
          <form method=post action=\"/sessions/{slug}/driver/propose\">\
@@ -1942,6 +1944,12 @@ fn entry_refusal_outcome(refusals: &[crate::session::EntryRefusal]) -> String {
         .join("; ");
     if refusals
         .iter()
+        .any(|r| matches!(r, crate::session::EntryRefusal::StaleAnalyze { .. }))
+    {
+        msg.push_str(" — the Analyze control on this page refreshes the bundle");
+    }
+    if refusals
+        .iter()
         .any(|r| matches!(r, crate::session::EntryRefusal::UnresolvedFetch { .. }))
     {
         msg.push_str(
@@ -2597,6 +2605,25 @@ async fn audit(
     }
 }
 
+/// POST /sessions/{slug}/analyze — refresh the context bundle from the
+/// browser (the stage between fetch and assess; the stale-analyze
+/// entry refusal's fix, no CLI required).
+async fn analyze_action(
+    State(state): State<Arc<ServeState>>,
+    Path(slug): Path<String>,
+    axum::extract::Query(q): Params,
+) -> axum::response::Response {
+    if !known_session(&slug) {
+        return axum::http::StatusCode::NOT_FOUND.into_response();
+    }
+    let outcome = match crate::cli::analyze(&slug, None) {
+        Ok(()) => "analyze: context bundle refreshed — assess away".to_string(),
+        Err(e) => format!("analyze failed: {e}"),
+    };
+    state.note_outcome(&slug, &outcome);
+    back_to(&slug, &q, Some("top")).into_response()
+}
+
 /// POST /sessions/{slug}/reject — the operator's explicit "no" at
 /// review (revux.AC1): decline every pending publish confirmation for
 /// the session (a still-rendered Approve must find nothing to approve),
@@ -2869,6 +2896,7 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/audit", post(audit))
         .route("/sessions/{slug}/publish", post(publish))
         .route("/sessions/{slug}/reject", post(reject))
+        .route("/sessions/{slug}/analyze", post(analyze_action))
         .route("/confirmations", get(confirmations))
         .route("/confirmations/{id}", post(confirm))
         .with_state(state)

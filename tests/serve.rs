@@ -2355,3 +2355,97 @@ async fn assess_prompt_carries_the_ledger_fetch_summary() {
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ------------------------------------------------- in-browser analyze fix
+
+/// POST /analyze refreshes the context bundle from the browser (the
+/// stale-analyze refusal's fix, no CLI required); the Draft section
+/// carries the Analyze control above Assess; the stale refusal points
+/// at it.
+#[tokio::test]
+async fn analyze_control_refreshes_the_bundle_in_browser() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let session = dir.join("sessions/test-article");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    // The control renders in the Draft section, above Assess.
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let analyze_idx = page
+        .find(">Analyze</button>")
+        .unwrap_or_else(|| panic!("analyze control renders: {page}"));
+    let assess_idx = page
+        .find(">Assess</button>")
+        .unwrap_or_else(|| panic!("assess control renders: {page}"));
+    assert!(
+        analyze_idx < assess_idx,
+        "analyze precedes assess (stage order)"
+    );
+
+    // Stale the bundle, press Assess: the refusal points at the page's
+    // own control.
+    mtime_gap();
+    std::fs::write(
+        session.join("proposed.wikitext"),
+        "The tower is ancient again.\n",
+    )
+    .unwrap();
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content": "[]"}}]
+        }));
+    })
+    .await;
+    // (restart not needed: env override requires it at spawn — spawn a
+    // second serve with the mock for the Assess leg.)
+    reap_child(&mut child);
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains("stale"), "{page}");
+    assert!(
+        page.contains("Analyze control on this page"),
+        "the refusal points at the on-page fix: {page}"
+    );
+
+    // Press Analyze: the bundle refreshes in-browser.
+    let resp = client
+        .post(format!("{}/sessions/test-article/analyze", base_url(port)))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let ctx_meta = std::fs::metadata(session.join("context.md")).unwrap();
+    let prop_meta = std::fs::metadata(session.join("proposed.wikitext")).unwrap();
+    assert!(
+        ctx_meta.modified().unwrap() > prop_meta.modified().unwrap(),
+        "the bundle is fresh again"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}

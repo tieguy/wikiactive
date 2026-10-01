@@ -596,7 +596,7 @@ fn load_session(slug: &str) -> Result<(SessionPaths, SessionMeta)> {
     Ok((paths, meta))
 }
 
-fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
+pub(crate) fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
