@@ -362,6 +362,39 @@ pub fn build_context_bundle(
             assessment.factual_note
         );
     }
+    // Base-article defect candidates (loop-mechanization Phase 6): the
+    // linter corpus run over the BASE text — detection only. These are
+    // candidate assessments for the assess step to judge; nothing
+    // auto-applies, and no gate reason can originate from this list.
+    let defects = crate::checks::linter::scan_whole_page(&article.wikitext, &corpus.linter);
+    if !defects.is_empty() {
+        text.push_str(
+            "\n## Base-article defect candidates (detection only — nothing auto-applies)\n\n",
+        );
+        for d in &defects {
+            let description = corpus
+                .linter
+                .rules
+                .values()
+                .find(|r| r.id == d.rule)
+                .map_or("", |r| r.description.as_str());
+            let _ = writeln!(
+                text,
+                "- [{}] {} (line {}): {} — {}",
+                d.severity.label(),
+                d.rule,
+                d.line,
+                d.detail,
+                description
+            );
+        }
+        text.push_str(
+            "\nThese are MECHANICAL observations about the base article, offered as \
+             candidate assessments — the assess step decides what, if anything, to do \
+             with them. Detection is not enforcement: the gate's drafted-lines rules \
+             apply only to lines this tool drafts.\n",
+        );
+    }
     // Sweep manifest (plan-003 B.3): informational in the bundle — the
     // mechanical enforcement lives in the gate (SweepSourceUnresolved).
     if ledger.has_sweep_state() {

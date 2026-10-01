@@ -122,3 +122,81 @@ fn ac1_dropped_corpus_fails_the_bundle_not_silently() {
         .unwrap_err();
     assert!(err.contains("undue"), "{err}");
 }
+
+// --------------------------------- loop-mechanization Phase 6 defect scan
+
+/// loopmech.AC9.1 — the analyze bundle lists base-article mechanical
+/// defects as candidate assessments under a clearly-labeled section,
+/// with severity, rule id, and line; a clean base emits no section.
+#[test]
+fn defect_scan_lists_base_defects_as_candidates() {
+    let corpus = RulesCorpus::load(std::path::Path::new("rules")).unwrap();
+    let dirty = ArticleState {
+        title: "Dirty".into(),
+        base_revid: 1,
+        wikitext: "==History==\nThe railroad is now the largest employer in the county.\n".into(),
+        entry_loop: 2,
+        prior_session_diff: None,
+    };
+    let bundle = build_context_bundle(&corpus, &dirty, &[], &wikiloop::ledger::Ledger::default())
+        .expect("bundle builds");
+    assert!(
+        bundle.text.contains("Base-article defect candidates"),
+        "labeled section present: {}",
+        bundle.text
+    );
+    assert!(bundle.text.contains("tense-drift"), "{}", bundle.text);
+    assert!(bundle.text.contains("heading-spacing"), "{}", bundle.text);
+    assert!(bundle.text.contains("detection only"), "{}", bundle.text);
+
+    let clean = ArticleState {
+        title: "Clean".into(),
+        base_revid: 1,
+        wikitext: "The tower is old.\n".into(),
+        entry_loop: 2,
+        prior_session_diff: None,
+    };
+    let bundle = build_context_bundle(&corpus, &clean, &[], &wikiloop::ledger::Ledger::default())
+        .expect("bundle builds");
+    assert!(
+        !bundle.text.contains("Base-article defect candidates"),
+        "clean base, no section"
+    );
+}
+
+/// loopmech.AC9.2 / AC9.3 — the scan is informational: a base full of
+/// defects with an UNCHANGED proposed text passes the gate (scan output
+/// alone never blocks), and the drafted-lines scope keeps gating only
+/// lines the tool drafts (pre-existing defects in the base are not the
+/// gate's business).
+#[test]
+fn defect_scan_alone_never_blocks_and_scope_is_unchanged() {
+    let corpus = RulesCorpus::load(std::path::Path::new("rules")).unwrap();
+    let base = "==History==\nThe railroad is now the largest employer in the county.\n";
+    // The bundle lists the defects…
+    let article = ArticleState {
+        title: "Dirty".into(),
+        base_revid: 1,
+        wikitext: base.into(),
+        entry_loop: 2,
+        prior_session_diff: None,
+    };
+    let bundle =
+        build_context_bundle(&corpus, &article, &[], &wikiloop::ledger::Ledger::default()).unwrap();
+    assert!(bundle.text.contains("tense-drift"));
+
+    // …but the gate over base == proposed is green: detection is not
+    // enforcement, and the scan feeds no gate reason.
+    let verdict = wikiloop::checks::gate::run_gate(&wikiloop::checks::gate::GateInput {
+        ledger: &wikiloop::ledger::Ledger::default(),
+        assessments: &[],
+        base_wikitext: base,
+        proposed_wikitext: base,
+        linter_config: &corpus.linter,
+        paraphrase_config: &corpus.paraphrase,
+    });
+    assert!(
+        !verdict.blocked,
+        "detection alone never blocks: {verdict:?}"
+    );
+}
