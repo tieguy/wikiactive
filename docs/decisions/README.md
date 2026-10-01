@@ -39,6 +39,9 @@ record — that's the signal to split series later.
 
 ## Harvest status
 
-Seeded 2026-09-30: ADR-0001 lifted from PLAYBOOK. Decisions embedded in
-`docs/design-plans/*` are unharvested — lift on first cite (harvest-on-cite),
-as part of the citing plan's deliverables.
+Seeded 2026-09-30: ADR-0001 lifted from PLAYBOOK. Loop-mechanization added
+ADR-0002 (loop layering), ADR-0003 (loop vocabulary), ADR-0004
+(assessments implicitly typed), ADR-0005 (detection vs enforcement) on
+2026-10-01. Decisions embedded in `docs/design-plans/*` are unharvested —
+lift on first cite (harvest-on-cite), as part of the citing plan's
+deliverables.

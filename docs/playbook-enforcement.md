@@ -14,8 +14,10 @@ Statuses:
 - **JUDGMENT** — stays with operator/model by design (corpus, reviewer, human gate)
 - **DESCRIPTIVE** — documents existing mechanics; rot check only
 
-Baselined 2026-09-30 from PLAYBOOK.md by the Polytoken session; first
-`playbook-audit` run should confirm every VERIFY row.
+Reconciled 2026-10-01 against the loop-mechanization mechanisms
+(docs/design-plans/2026-09-30-loop-mechanization.md, phases 1–6). Both
+2026-09-30 VERIFY rows confirmed and flipped; the vocabulary is the ADR-0003
+surface (assess/fetch/audit/review).
 
 ## Session lifecycle
 
@@ -25,21 +27,22 @@ Baselined 2026-09-30 from PLAYBOOK.md by the Polytoken session; first
 | init refuses existing slug | ENFORCED | `wa session init` refusal |
 | `--review-since-user` drift diff in analyze bundle | ENFORCED | analyze bundle assembly |
 | corpus missing → analyze fails loudly | ENFORCED | analyze |
-| analyze is step 0 of EVERY iteration | ADVISORY | backlog: `wa findings add` refuses/warns without fresh analyze this iteration |
-| sweep before analysis (ordering) | ADVISORY | gate blocks render/publish on unresolved sources, but nothing orders sweep *before* findings; backlog: findings-add guard |
-| gate blocks render/publish while swept source unresolved | ENFORCED | gate |
-| findings evidence quotes must exist in ledger | VERIFY | claimed; confirm in `wa findings add` / gate |
+| analyze is fresh for the iteration being assessed | ENFORCED | assess entry checks: `assess_entry_checks` (`src/session.rs`) refuses `wa assess add` and the serve Assess save when `context.md` predates `proposed.wikitext`'s mtime or the newest rendered/published/comments-resolved round entry; prescribes `wa analyze`; `--allow-stale-analyze` bypass recorded in the round log |
+| fetch resolution precedes assessment | ENFORCED | assess entry checks refuse while any `sweep_status` source lacks text and disposition (both surfaces; `--allow-unresolved-fetch` bypass recorded); the gate's `SweepSourceUnresolved` remains the render/publish backstop |
+| assessment evidence quotes must exist in the ledger | ENFORCED | three layers: driver step validation (`src/driver/steps.rs` assess step), assess entry checks (`UnknownQuote` refusal, no bypass), gate `UnknownQuoteId` |
 | quotes that don't locate verbatim rejected at entry | ENFORCED | `wa ledger quote` |
-| claim sequencing (register when staging) | ADVISORY | gate punishes early claims by blocking; backlog: distinct gate report category "claims with no staged prose" |
+| claims are registered only with staged prose | ENFORCED | gate `ClaimNotStaged` (loopmech.AC4): prose in neither base nor proposed wikitext is a NEEDS ANCHOR reason; inherited prose keeps its skip |
 | propose ONE logical edit | JUDGMENT | scope discipline; reviewer/checks surface |
-| `wa check` NEEDS ANCHOR vs HARD BLOCK grouping | ENFORCED | `wa check` output |
-| render pre-flight gate; blocked = no artifact | ENFORCED | render; AC.11 |
-| evidence-card comments resolve manually; driver never splices them | VERIFY | confirm apply-comments skips `ledger:Qn` |
+| audit report NEEDS ANCHOR vs HARD BLOCK grouping | ENFORCED | `wa audit` output (`format_reasons`) |
+| a green audit renders the artifact; blocked writes nothing | ENFORCED | `audit_flow` (render-on-pass; `RenderError::GateBlocked` semantics preserved); retired `wa render`/`wa poll` fail with pointers |
+| LLM diagnosis pass never blocks; default per fork config | ENFORCED | `wa audit --llm/--no-llm` + `[audit] llm_pass`; concerns cannot gate; unconfigured/unreachable endpoint degrades to a reported skip recorded as a `rule-review-failed` round entry with the artifact standing |
+| evidence-card comments resolve manually; driver never splices them | ENFORCED | `Comment::is_evidence()` (`src/comments.rs`) + the serve apply-comments skip (`src/serve.rs`) |
+| edit summaries resolve their rule attributions | ENFORCED | `summary_rule_check` (`src/checks/summary_rules.rs`): every `MOS:`/`WP:`/… token must resolve against the offline-built `ShortcutIndex` from `rules/canonical/`; refused at `wa audit --summary` (no artifact) and at `publish_core` (no edit request — both surfaces) |
 | publish re-runs gate; non-empty summary; disclosure suffix appended | ENFORCED | publish |
 | publish requires interactive tty/app confirmation; model never self-publishes | ENFORCED | pinned by tests/serve.rs |
 | post-publish read-back VERIFY checks | ENFORCED | publish read-back |
 | Earwig compare per new web source | ADVISORY | semi-manual; backlog: post-publish command |
-| TALK note default-skip (2026-09-29 decision) | JUDGMENT | operator policy |
+| TALK note default-skip (2026-09-29 decision) | JUDGMENT | operator policy (ADR-0001) |
 | disclosure-log append, idempotent per session | ENFORCED | disclosure log upsert |
 | screenshots (operator, manual Commons upload) | JUDGMENT | manual by design |
 
@@ -47,18 +50,14 @@ Baselined 2026-09-30 from PLAYBOOK.md by the Polytoken session; first
 
 | Playbook rule | Status | Mechanism / note |
 |---|---|---|
-| edit summaries name a rule only when verified vs `rules/canonical/` | ADVISORY | mechanically checkable; backlog: gate resolves `per MOS:X` in summaries against canonical corpus |
-| house rules never attributed to MOS | ADVISORY | same backlog item as above (distinct house-vs-MOS namespace check) |
+| resolvable shortcut cited for an edit it does not cover | ADVISORY | attribution truthfulness is judgment — resolution is enforced (row above), coverage stays with the reviewer |
 | base:-prefixed vs plain anchor semantics | DESCRIPTIVE | comments queue mechanics |
-| disposition ladder (use → efn → talk → drop) | JUDGMENT | corpus/cards |
-| drafted-lines guards vs article defects scoping | ENFORCED | `rules/linter.toml` drafted-lines scope |
+| drafted-lines guards vs article defects scoping | ENFORCED | `rules/linter.toml` drafted-lines scope; the analyze bundle's defect-candidates section is detection only and no gate reason can originate from it (ADR-0005; pinned by the rules-corpus suite) |
 | per-loop rule-pack table | DESCRIPTIVE | duplicates analyze loading config |
 | BundledConsent backs only disclosure-log upsert | ENFORCED | tests/serve.rs |
+| retired command names fail with pointers, never dispatch | ENFORCED | hidden variants: `wa findings`/`wa sweep`/`wa check`/`wa review`/`wa render`/`wa poll` (tests/assess_cli, fetch_cli, audit_cli) |
 
 ## Move-to-code backlog (ADVISORY rows above)
 
-1. findings-add requires fresh analyze per iteration
-2. sweep-resolution guard before findings authoring
-3. gate report category: claims with no staged prose
-4. edit-summary rule resolution against `rules/canonical/` (+ house-vs-MOS namespace)
-5. Earwig post-publish check as a command
+1. Earwig post-publish check as a command
+2. attribution-truthfulness aid (surface the cited shortcut's canonical text at publish confirmation — the judgment stays human)

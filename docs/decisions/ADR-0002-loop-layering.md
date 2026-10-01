@@ -1,0 +1,10 @@
+# ADR-0002: Loop layering — specific rules live only in `wa`; PLAYBOOK is the higher-level spec
+Status: Accepted (2026-10-01)
+Context: The loop's rules reached the drafting model partly through prose (`PLAYBOOK.md`) that sessions were trusted to read, and partly through the tool (gate, prompts, refusals). Every prose-only rule was a compliance performance waiting to fail: the harness "follows" text while the tool enforces nothing. The loop-mechanization plan (docs/design-plans/2026-09-30-loop-mechanization.md) moved every rule the loop depends on into a mechanism.
+Decision: A drafting session that works only from the tool and its prompts follows every rule. `wa` carries all specific rules (gate reasons, entry checks, command refusals, linter scopes, summary resolution); the versioned checksum-pinned prompts carry the rules that govern drafted output. `PLAYBOOK.md` survives as the higher-level spec of the loop — its stages, its guarantees, who owns each — and no longer carries specific drafting rules.
+Alternatives considered:
+- Keep PLAYBOOK as runtime reading for editing sessions — rejected: prose is not a mechanism; the 2026-09-30 playbook-audit found VERIFY rows exactly where trust had been placed in reading.
+- Duplicate rules in both PLAYBOOK and `wa` — rejected: two statements of one rule drift; the copy in prose always rots first.
+- Move the rules into the coding harness's context (CLAUDE.md) — rejected: that is the camouflaged-failure shape docs/harness-layering.md already names; the coding harness maintains the tool, it does not perform the loop.
+Consequences: PLAYBOOK edits are for stage/guarantee/ownership descriptions; a new loop rule enters as a mechanism or a prompt, and PLAYBOOK at most names the stage it belongs to. Reviewers flag any new PLAYBOOK line that prescribes drafting behavior. The enforcement inventory (docs/playbook-enforcement.md) remains the reconciliation surface between spec and mechanisms.
+Open questions: none — the layering is total by construction; residual ADVISORY rows are recorded there, not here.

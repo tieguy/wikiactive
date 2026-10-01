@@ -1,280 +1,176 @@
-# PLAYBOOK — the wikiactive loop driver
+# PLAYBOOK — the wikiactive loop, as stages and guarantees
 
-This is the durable process artifact: the session protocol the agent follows
-for every article. The tool (`wa`) mechanically enforces the invariants;
-this document is the operating manual for the loop itself.
+This is the higher-level spec of the loop: its stages, the guarantee each
+stage makes, and who acts in it (ADR-0002). Every specific rule the loop
+depends on is a mechanism in `wa` — a gate reason, an entry check, a
+command refusal, a linter scope — or a rule in the versioned,
+checksum-pinned prompts the drafting model receives. A drafting session
+that works only from the tool and its prompts follows every rule; this
+document does not carry drafting rules. Which rule is enforced by what:
+`docs/playbook-enforcement.md`.
 
-## Session protocol
+## The loop (states, transitions, who acts)
 
 ```
-session init ─► [step 0] analyze ─► triage (already done at init) ─► iterate:
-                    │                                                │
-                    │      propose ONE logical edit (findings → proposed.wikitext)
-                    │                                                │
-                    │      ledger work: register/fetch/archive/quote/claim
-                    │                                                │
-                    │      wa render ──► GATE ──► review.html (in-app)
-                    │                    │                            │
-                    │                 blocked                   leave comments
-                    │                    │                     (review page,
-                    │              fix + re-render               under each block)
-                    │                                                 │
-                    │      driver: apply review comments ──► revise ──┘
-                    │          (queue → model → splice → resolution note)
-                    │
-                    └──► operator confirms ──► wa publish ──► GATE re-run
-                                                  │                │
-                                              tty confirm      re-pin base
-                                                  │
-                                        post-publish: Earwig, TALK note,
-                                        disclosure-page log append
+             ┌──────────────────────── the operator owns the loop ────────────────────────┐
+             │                                                                            │
+ SESSION ─► FETCH ─► ANALYZE ─► ASSESS ─► PROPOSE ─► AUDIT ── green ──► artifact ─► REVIEW
+ (init       (tool +      (tool)     (model)     (model)    │                (rendered   (human)
+  pins base)  operator                │          │         blocked              by the     │
+              resolves)               │          │         all reasons          audit)     │ leave
+                                       │          │         nothing written               │ comments
+                                       │          │                │                       ▼
+                                       │          │                └─► fix ledger/draft  RESOLVE (model)
+                                       │          │                                       │
+                                       └─► wa analyze re-runs when state moved ◄──────────┘
+                                                                                  (then AUDIT again)
+ REVIEW satisfied ─► PUBLISH (gate re-run + the one human confirmation) ─► re-pin base
+                                                                                        │
+                                                              POST-PUBLISH: disclosure log;
+                                                              Earwig deferred; TALK per ADR-0001;
+                                                              screenshots manual
 ```
 
-### 0. `wa session init --article <title> --entry-loop <n>`
+- **Tool acts** (`wa`): init, fetch, analyze, the audit gate, render-on-pass,
+  publish, the post-publish read-back. Deterministic Rust; every refusal names
+  its reason.
+- **Model acts** at exactly three judgment points with pinned prompts:
+  assess (`prompts/assess.md`), propose (`prompts/propose.md`), resolve
+  (`prompts/resolve.md`) — plus the never-blocking diagnosis pass
+  (`prompts/review.md`, `wa audit --llm`).
+- **Human acts**: review (comments on the artifact) and the publish
+  confirmation. The word "review" belongs to the operator only (ADR-0003).
 
-Pins the current revid (the session's base) and stores the base wikitext.
-Every edit in the session is prepared against this base; a moved base aborts
-publish (AC.10), never silently overwrites. Init refuses a slug that
-already has a session (it would erase that session's ledger, findings
-and draft): remove `sessions/<slug>/` to start over.
+## Stages, guarantees, ownership
 
-`--review-since-user [<name>]` (default: house-rules `[operator]` username)
-records your last edit to the article; `wa analyze` then embeds the drift
-diff since that revision — the re-review-of-own-past-work entry path.
+### Session init — `wa session init --article <t> --entry-loop <n>`
+Guarantees: the base revid is pinned (a moved base aborts publish, never
+silently overwrites); an existing session is never erased. Owner: operator.
+`--review-since-user` records the operator's last edit; analyze embeds the
+drift diff since.
 
-### Step 0 of EVERY iteration: `wa analyze`
+### Fetch — `wa fetch <slug>` (inventory + fetch in one invocation)
+Guarantee: the accessibility of every cited source is decided up front, against
+the full picture — every source ends the stage with text, an operator capture,
+or a signed disposition (`wa fetch dispose`, `wa ledger attach`, or the serve
+console). Unresolved sources refuse assessment and block audit/publish.
+Owner: tool + operator (captures and dispositions are the operator's to sign).
+The ordering is the lesson of the 1874→1870→1874 Kidder episode.
 
-Before proposing anything, run `wa analyze <slug>` and read its output. The
-context bundle mechanically contains:
+### Analyze — `wa analyze <slug>`
+Guarantee: the iteration's judgment context is mechanically assembled — article
+state, tier-1 core verbatim, this loop's cards, fetch manifest, session
+summary, and base-article defect candidates (detection only, ADR-0005). A
+missing corpus fails loudly. Analyze must be fresh for the iteration being
+assessed: the assess entry checks refuse a stale bundle. Owner: tool.
 
-- article state (title, pinned base revid, entry loop, wikitext bytes),
-- **Tier 1 judgment core, verbatim** (the three clusters + standing
-  checklist — this is the "Tier 1 always in context" guarantee),
-- the triage-selected trigger cards for the entry loop,
-- session summary (ledger sources/quotes/claims, findings).
+### Assess — `wa assess add <slug> -` / the serve Assess action (model)
+Guarantee: every admitted assessment is schema-valid, cites only ledger quotes
+that exist, rides a fresh analyze, and rides a resolved fetch stage; bypasses
+are explicit flags recorded in the round log. Assessments look backward at the
+article (ADR-0003's two-layer split: the ledger is the evidence basis, the
+assessment the editorial judgment). Owner: model drafts, tool admits.
 
-If the corpus were missing, `analyze` fails loudly — it cannot be silently
-dropped.
+### Propose (model + operator)
+Guarantee: one logical edit per publish unit, scoped like a code-review
+commit. Owner: model drafts (`prompts/propose.md`), operator checks.
 
-### Triage — selecting the entry loop (not just "does L1 run")
+### Audit — `wa audit <slug> [--llm|--no-llm] [--summary "…"]`
+Guarantee: the deterministic gate (ledger wiring, linter on drafted lines,
+paraphrase, anchors, claim staging, fetch completeness, summary rule
+resolution) is the whole decision — green renders the round artifact
+(render-on-pass), blocked lists every reason and writes nothing. The LLM
+diagnosis pass is a rider that never decides and never blocks; its default is
+fork config (`[audit] llm_pass`). Owner: tool (gate), model (diagnosis
+only), operator (reads the artifact).
 
-- **L1 Rescue** — article below basic quality: no structure, no lead, no
-  citations. Do the minimum scaffold: MOS-compliant headings, a lead
-  sentence with its first citation. Resist doing more.
-- **L2 Mine existing sources** — article has citations: verify claims
-  against the article's *existing* sources (claim ↔ quote), extract more
-  from them, fix citation formats, remove uncited material, Earwig-check
-  suspicious passages, kill spamlinks.
-- **L3 GA-style pass** — articles already at basic quality, and re-reviews
-  of articles the operator improved before (the analyze bundle carries the
-  diff since the prior session for drift review). Substantive criteria
-  first (V, NOR/SYNTH, NPOV, coverage/UNDUE), stylistic later (MOS:LEAD,
-  Words to watch, linter).
+### Review — the human act
+Guarantee: comments anchor exactly (the form's hidden target is the block's
+wikitext anchor from the artifact's embedded anchor table); the queue
+(`comments.jsonl`) is the durable record. Owner: operator. The word is the
+operator's.
+
+### Resolve — the serve Apply-comments action (model) or `wa comments resolve`
+Guarantee: the open queue entries map through the model grouped by enclosing
+changed block, splice once per group, and write each group's
+applied/rejected/reply note back to the queue; the next audit starts the next
+round. Evidence-card comments stay manual (they are about sources, not
+wikitext). Owner: model drafts revisions, tool splices and records.
+
+### Publish — `wa publish <slug> --summary "…"`
+Guarantee: the gate re-runs, the summary resolves its rule attributions, then
+the ONE human gate (tty or in-app approval) — the model never self-publishes.
+On success the base re-pins and the saved revision is read back (mismatches
+print under VERIFY and land in the round log). Owner: operator confirms.
+
+### Post-publish
+Disclosure-page log append (idempotent per session); Earwig compare deferred
+(backlog); TALK note default-skip per ADR-0001; screenshots manual.
+
+## Triage — selecting the entry loop (at init)
+
+- **L1 Rescue** — no structure, no lead, no citations: minimum scaffold, resist
+  doing more.
+- **L2 Mine existing sources** — verify claims against existing sources
+  (claim ↔ quote), extract more, fix formats, remove uncited material.
+- **L3 GA-style pass / re-review of own prior work** (the bundle carries the
+  drift diff) — substantive criteria first, stylistic later.
 - **L4 New sources, one at a time** — each publish unit is one source →
-  integrated content. Conflicts between sources become `{{efn}}` notes,
-  never silent adjudication.
+  integrated content; conflicts become `{{efn}}` notes, never silent
+  adjudication.
 - **L5 Wikidata writeback** — deferred (schema hooks only).
 
-### One iteration (one logical edit)
+## Driver mode — `wa serve`
 
-0. **Source sweep** (plan-003, before any analysis): `wa sweep inventory
-   <slug>` → `wa sweep fetch <slug>` → resolve every `needs_operator`
-   source — paste your browser's saved page into `wa serve`'s attach box
-   or `wa ledger attach <slug> --source S3 --file capture.html`
-   (MHTML/HTML/WARC/text; the browser's "save page" is the capture), or
-   sign a disposition (`wa sweep dispose … --disposition
-   "dropped: paywall"`). The gate blocks render/publish while any swept
-   source is unresolved. This ordering is the lesson of the
-   1874→1870→1874 Kidder episode: source-access decisions are made once,
-   up front, against the full accessibility picture — not mid-analysis.
-1. **Analyze** (step 0, always — the bundle embeds the sweep manifest).
-2. **Findings** — author findings against the tier-1 checklist and cards:
-   `wa findings add <slug> -` with JSON `{id, wikitext_anchor, rules[],
-   evidence: [Q ids], factual_note, proposed_fix, loop}`. Evidence quotes
-   MUST already exist in the ledger (register → fetch → quote).
-3. **Ledger** — every source: `wa ledger register --url …`, `wa ledger
-   fetch --source S1`, `wa ledger archive --source S1` (save-page-now),
-   `wa ledger quote --source S1 --text "…"`, `wa ledger claim --prose "…"
-   --quotes Q1`. Quotes that don't locate verbatim are rejected at entry.
-   **Claim sequencing (live-session lesson):** register a claim only when
-   staging the edit whose wikitext carries its prose — the gate assesses
-   *every* claim not already in the base wikitext at *each* run
-   (`wa check`, render, publish), so a claim registered ahead of its edit
-   blocks unrelated publishes on prose that isn't staged yet.
-4. **Propose** — edit `sessions/<slug>/proposed.wikitext` with ONE logical
-   edit (scoped like a code-review commit).
-5. **Check (fail-fast)** — `wa check <slug>` runs the full gate standalone
-   against `proposed.wikitext` (no artifact attempt). Iterate here until it
-   passes: the report groups reasons as NEEDS ANCHOR (ledger wiring:
-   register/fetch/quote) vs HARD BLOCK (revise prose, quote, or lint), each
-   with the offending wikitext span.
-6. **Render** — `wa render <slug> --round <n> --summary "<one line>"`. The
-   gate runs as mandatory pre-flight; blocked = no artifact, all reasons
-   listed. On success: review.html (read it in-app at
-   `/sessions/<slug>/review`).
-7. **Rule check (optional)** — **Check against the rules** on the review
-   page, or `wa review <slug>` on the tty: a separate model pass reads
-   the drafted text against the tier-1 rules and this loop's cards and
-   reports concerns clause by clause — each concern named by its clause
-   id, its verbatim span, and a note, shown under the block it concerns.
-   Advice only: it never blocks, and it runs on demand (a paid call), not
-   at every render. A result from an earlier round is labelled, never
-   shown as current.
-8. **Review** — the operator reads the single-column diff with the
-   evidence rail and leaves comments on the **review page**, with the
-   **Comment** control under each changed block (plus one under each
-   evidence card). Anchoring is exact: the form's hidden target IS the
-   block's `wikitext_anchor` from the artifact's embedded anchor table —
-   a plain `L..:C..-L..:C..` range (new side), `base:`-prefixed (removed
-   wording), or `ledger:Q<n>` (evidence). A comment addresses its whole
-   block (the tty CLI's `--quoted` span is the only finer-grain form).
-9. **Resolve** — **Apply comments** (review page) maps the OPEN queue
-   entries through the model, grouped by enclosing changed
-   block (both sides of a pair go in ONE call), splices the revised
-   blocks into `proposed.wikitext` once per group, and writes each
-   group's applied/rejected/reply note back to the queue. Or resolve by
-   hand: `wa comments resolve <slug> --id K1 --note "…"` (evidence
-   comments are about sources, not wikitext — always manual).
-10. **Re-render → re-comment** until the operator is satisfied (each
-   resolution note says what was done: applied/rejected lines plus the
-   model's reply).
-11. **Publish** — `wa publish <slug> --summary "<scoped summary>"`. The
-    gate re-runs; then the ONE human gate: a `/dev/tty` confirmation. The
-    model never self-publishes. On success the base re-pins and the saved
-    revision is read back — the minor flag, parent revid, summary
-    disclosure and saved text are checked against what was sent;
-    mismatches print under `VERIFY` and land in the round log (a clean
-    read-back says so too).
-12. **Post-publish** — Earwig compare per new web source; TALK provenance
-    note; disclosure-page session-log append; screenshots for the
-    disclosure page (operator, manual Commons upload).
-
-### Comment conventions
-
-- **Edit summaries name a rule only when verified.** "per MOS:PROSE" style
-  attributions require the rule to actually say what the edit does — check
-  against `rules/canonical/` before naming it. wikiactive house rules
-  (e.g. the semicolon guard) are NOT Wikipedia rules and must never be
-  attributed to the MOS; describe such edits plainly ("split a
-  semicolon-joined sentence for readability") or as house style.
-
-- Comments on **changed blocks** target wikitext ranges — fix in
-  proposed.wikitext. A **plain** range (`L..:C..-L..:C..`) points into
-  the *proposed* wikitext (new side); a **`base:`-prefixed** range
-  (`base:L..:C..-L..:C..`) points into the *base* wikitext (old side —
-  the removed wording, including pure deletions). When acting on a
-  `base:` anchor, the resolution quotes the base span.
-- Comments on **evidence cards** (`ledger:Q<n>`) are about the
-  source/quote, not the prose: swap sources, adjust quotes (re-verify!),
-  or note the dispute. They resolve manually — the driver never edits
-  wikitext on their say-so.
-- The queue (`sessions/<slug>/comments.jsonl`) is the record: every
-  resolution persists its note there (applied/rejected lines + the
-  model's reply); the session page renders that, not in-memory state.
-
-### Publish gate invariant
-
-`wa publish` re-runs the same gate as render (AC.11) and then requires an
-interactive tty confirmation. If either fails: nothing is written. The
-edit summary must be non-empty; the disclosure suffix is appended
-mechanically (`LLM-Disclosure: U:LuisVilla/wikiactive`).
-
-## Driver mode — `wa serve` (plan-003 Phase B, plan-004)
-
-The loop, self-served in the browser, with the model called at exactly
-the three judgment points (findings authoring, proposal drafting,
-comment resolution — `prompts/` is the versioned, checksum-pinned
-prompt set; the disclosure page's "exact code including model prompts"
-promise is mechanical). Everything else — loop control, the ledger, the
-gate, the review comments, the publish confirmation — is deterministic
-Rust. One process, zero external server lifecycles (plan-004 cut the
-lavish interlink out of the default loop; see the addendum's decision
-record).
+The loop, self-served in the browser, one process. The session page top to
+bottom is the stage order: **Sources** (run fetch, sign dispositions, attach
+captures), **Draft** (**Assess**, then **Draft the edit** — both call the
+drafting model through the pinned prompts), **Audit** (the form: what changed
+this round + the LLM diagnosis toggle; the round is computed, rendering is a
+consequence), the in-app review artifact with block-anchored comments,
+**Apply comments**, and **Publish this edit** behind the explicit approval
+block. No auto-publish, the same gate at audit and publish, `BundledConsent`
+backs only the disclosure-log upsert. Credentials: `ZAI_API_KEY` in the env;
+endpoint/model in `rules/house-rules.toml [zai]`; audit default in `[audit]`.
 
 ```
 ./target/debug/wa serve            # loopback only (default)
 ./target/debug/wa serve --tsnet    # thin-client: bind the tailnet only
 ```
 
-Protocol: init the session CLI-side (`wa session init …`), then work the
-session page top to bottom. **Sources**: **Fetch pending sources**, then
-resolve what is left (**Sign disposition**, or **Attach text you captured
-yourself**). **Draft**: **Write findings**, check what the model proposed
-against the sources table, then **Draft the edit**. **Review**: **Render
-review** opens the in-app review (no external review server). Optionally
-**Check against the rules** for clause-by-clause model advice on the
-drafted text. On the
-review page, leave comments with the **Comment** control under each
-changed block and each evidence card (the queue is
-`sessions/<slug>/comments.jsonl`), then **Apply comments** (judgment
-point 3: open comments → model, grouped per changed block → spliced
-revisions + per-group notes) and render the next round from the banner.
-When the edit reads right, **Publish this edit** on the review page and
-answer the approval block (**Approve and publish** / **Don't publish**),
-which shows the exact prompt. The whole loop runs in this
-one process — no Node, no review-server lifecycle.
-
-Invariants preserved: no auto-publish (the edit posts only on the
-explicit approve click — pinned by tests/serve.rs), the same gate runs
-at render and publish, and `BundledConsent` backs only the
-disclosure-log upsert bundled into the one yes, never the article edit.
-Credentials: `ZAI_API_KEY` in the env; endpoint and model in
-`rules/house-rules.toml [zai]` (fork config, not shell exports); wiki
-OAuth as before.
-
 ## End-of-session artifacts
 
-- **TALK provenance note** — offer source scans on request; summarize what
-  was checked. **Operator decision 2026-09-29 (Kidder close-out):** a
-  dedicated TALK note is usually redundant to what the diffs and the
-  disclosure log already show — default to skipping it; write one only
-  when a talk-page audience genuinely needs the reasoning (e.g. a
-  contested fact).
-- **Disclosure-page log append** — one entry per **article session** (each
-  `wa session init` is a page-session; the entry lands when that session's
-  publishing completes): article, date, drafting model + version, tool code
-  revision, per-edit diff links. Entries live on the `/log` subpage;
-  idempotent per session id.
-- **Screenshots** — capture the live review artifact (itself a browser
-  page); upload to Commons as own work per the README's licensing note.
-  The evidence-rail round is the canonical citation-review demonstration.
-- **Earwig post-checks** — compare each new web source against the
-  published revision; record verdicts in the round log.
+- **Disclosure-page log append** — one entry per article session (lands when
+  that session's publishing completes): article, date, drafting model +
+  version, tool code revision, per-edit diff links; idempotent per session id.
+- **Screenshots** — capture the live review artifact; Commons upload per the
+  README's licensing note. The evidence-rail round is the canonical
+  demonstration.
+- **Earwig post-checks** — deferred (backlog: a post-publish command).
 
-### Disposition ladder for discovered material
+## Guards vs defects (scoping)
 
-*use in article with attribution → `{{efn}}` → talk page (negative results
-and end-of-session provenance only) → drop.*
+Linter rules like the semicolon ban are **model-quirk guards**: they gate
+every line *this tool drafts* (drafted-lines scope, hard block) and are never
+reported as pre-existing article defects. The analyze bundle's defect
+candidates invert the telescope honestly: detection of base-article defects is
+labeled detection, feeds assessment judgment, and can never originate a gate
+reason (ADR-0005).
 
-### Drafting-style guards vs article defects
+## Known limitations (by design)
 
-Rules like the semicolon ban (`semicolon-prose`) are **model-quirk guards**:
-they gate every line *this tool drafts* (added-lines enforcement, hard
-block) but are not reported as pre-existing article defects — a semicolon
-in existing prose may be another editor's (or another model's) style, not
-ours to flag. Scope `drafted-lines` in `rules/linter.toml` encodes this
-(operator review note, TF live session round 1: the semicolon tic is an
-Opus 5.5 drafting quirk).
-
-### Known limitations (by design)
-
-- The revisions registry embedded in the artifact keeps every round; the
-  on-page legend was a lavish feature (legacy CLI path) and listed at
-  most 6 rounds — the registry itself is unbounded.
-- Wikitext anchors are line-based (`L..:C..`); col are char columns.
-- The linter is regex-level; no `<nowiki>` handling, refs spanning lines
+- The revisions registry embedded in the artifact keeps every round,
+  unbounded.
+- Wikitext anchors are line-based (`L..:C..`); columns are char columns.
+- The linter is regex-level; no `<nowiki>` handling; refs spanning lines
   attribute to the opening line.
-- Comment fidelity is block-level, not text-selection: a comment names
-  its whole block, and the resolution's applied/rejected + reply notes
-  carry what was done (acceptable for a single-reviewer tool —
-  operator's call, plan-004; the tty CLI's `--quoted` span is the only
-  finer-grain form).
-- Block anchors are single-line ranges: the driver's revised block
-  splices by the anchor's line, so a multi-line block (multi-paragraph
-  pair, table) is resolved and spliced at its anchor line, not over its
-  full extent.
-- Legacy CLI: `wa render` (lavish open) and `wa poll` still work for the
-  tty path, but the default loop and the app UI no longer use them.
+- Comment fidelity is block-level, not text-selection; the resolution notes
+  carry what was done.
+- Block anchors are single-line ranges: multi-line blocks splice at their
+  anchor line.
+- The lavish tty pair (`wa render`/`wa poll`) is retired; a green audit
+  renders (ADR-0003). The lavish pin and fixtures remain as the recorded
+  reference.
 
 ## Per-loop rule packs (what `wa analyze` loads)
 

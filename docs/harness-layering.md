@@ -11,11 +11,11 @@ wikiactive has two distinct model consumers, and rules must live with the one
 that executes them:
 
 - **Drafting context** — the model `wa serve` calls at the three judgment points
-  (findings, proposal, comment resolution). Its context is assembled by the tool:
-  the versioned, checksum-pinned prompts in `prompts/` plus the analyze bundle
-  (tier-1 core, cards, sweep manifest). Rules governing drafted output — the
-  disposition ladder, summary rule-attribution, one-logical-edit scoping — belong
-  here or in the gate. Never in the coding harness.
+  (assess, propose, resolve). Its context is assembled by the tool: the
+  versioned, checksum-pinned prompts in `prompts/` plus the analyze bundle
+  (tier-1 core, cards, fetch manifest, base-defect candidates). Rules governing
+  drafted output — summary rule-attribution, one-logical-edit scoping — belong
+  here or in the gate. Never in the coding harness (ADR-0002).
 - **Coding context** — a Polytoken session maintaining the tool, rules corpus,
   prompts, and docs. Carries repo facts (CLAUDE.md), plan/execute governance,
   and no drafting procedure. `PLAYBOOK.md` is NOT loaded at runtime by this
@@ -24,7 +24,9 @@ that executes them:
 A rule that only exists in prose the coding harness reads is a camouflaged
 failure: the harness performs compliance in text while `wa` enforces nothing.
 The cure is always the same — move the rule into the gate, into `prompts/`, or
-onto the enforcement inventory's backlog.
+onto the enforcement inventory's backlog. ADR-0002 makes this total: every
+rule the drafting loop depends on is a mechanism in `wa` or a pinned prompt;
+PLAYBOOK carries stages, guarantees, and ownership only.
 
 ## Control flow
 
@@ -33,7 +35,7 @@ CODING SIDE                                    DRAFTING SIDE (inside wa serve)
 CLAUDE.md (facts + triggers)                   prompts/ (versioned, checksum-pinned,
   ├─ wikimedia-api skill ─► wmfetch hook               disclosed on the wiki)
   └─ repo facts                                 analyze bundle (tier-1 core verbatim,
-        │                                             cards, sweep manifest, session state)
+        │                                             cards, fetch manifest, session state)
         ▼                                             │
 PLAN FACET ◄── project_vars.yaml plan spec            ▼
   └─ plan-reviewer → handoff (operator)        the three judgment points ─► GATE
@@ -60,8 +62,8 @@ docs/implementation-plans/ — per-phase task files (just-in-time)
 | CLAUDE.md | repo facts, skill-load triggers | harness (auto-loaded) |
 | prompts/ | what the drafting model is told | `wa` only; versioned + checksum-pinned |
 | analyze bundle | per-iteration judgment context | `wa analyze` (mechanized) |
-| `wa` code | mechanical enforcement of the loop | everything defers to it |
-| PLAYBOOK.md | intended loop behavior (spec) | plan-facet pairing, playbook-audit |
+| `wa` code | mechanical enforcement of the loop (ADR-0002) | everything defers to it |
+| PLAYBOOK.md | higher-level loop spec: stages, guarantees, ownership (ADR-0002, ADR-0003) | plan-facet pairing, playbook-audit |
 | docs/playbook-enforcement.md | which playbook rules are code vs advisory | playbook-audit |
 | project_vars.yaml (plan spec) | plan shape + process rules | plan facet, plan-reviewer |
 | finishing-a-plan skill | execute-side loop + final-gate order | execute facet |
@@ -84,7 +86,8 @@ docs/implementation-plans/ — per-phase task files (just-in-time)
 | Disclosure suffix on every edit | house-rules `[disclosure]` | publish path | gate |
 | WMF fetches via wm-fetch only | CLAUDE.md, wikimedia-api skill | `wmfetch-only-for-wikimedia` hook | mechanical |
 | Playbook/code pairing | plan spec + this doc | code-reviewer finding | final gate + playbook-audit |
-| Drafting rules live in prompts/ or gate, not the harness | this document | review discipline | playbook-audit + code-reviewer |
+| Drafting rules live in prompts/ or gate, not the harness | ADR-0002 | review discipline | playbook-audit + code-reviewer |
+| Detection ≠ enforcement (base scan detects; drafted-lines gate) | ADR-0005 | `rules/linter.toml` scope + the bundle's labeled section | linter suite + rules-corpus suite |
 
 New invariants get a row here when they are born; a row with no enforcement
 mechanism is a backlog item (same rule as the playbook inventory).

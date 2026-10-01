@@ -10,8 +10,10 @@ interactive confirmation. Article drafting runs inside `wa serve`: the model is
 called at exactly the three judgment points with the versioned, checksum-pinned
 prompts in `prompts/` — rules that govern drafted output live there and in the
 gate, never in the coding harness's context. The coding harness (this session
-type) maintains the tool, rules corpus, and prompts. `PLAYBOOK.md` is the loop's
-behavior spec — paired with code changes and audited, not runtime reading. Read
+type) maintains the tool, rules corpus, and prompts. `PLAYBOOK.md` is the
+loop's higher-level spec (stages, guarantees, ownership — ADR-0002): specific
+rules live only in `wa` or the pinned prompts; PLAYBOOK is paired with code
+changes and audited, never runtime reading. Read
 `docs/design-plans/2026-09-24-mvp1-structured-loop.md` for the design.
 
 ## Working rules
