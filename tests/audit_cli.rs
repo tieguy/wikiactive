@@ -41,16 +41,47 @@ fn setup_session(findings: &str, base: &str, proposed: &str) -> PathBuf {
     .unwrap();
     std::fs::write(session.join("base.wikitext"), base).unwrap();
     std::fs::write(session.join("proposed.wikitext"), proposed).unwrap();
+    std::fs::write(dir.join("base-fixture.html"), html_of(base)).unwrap();
+    std::fs::write(dir.join("proposed-fixture.html"), html_of(proposed)).unwrap();
     copy_dir(Path::new("rules"), &dir.join("rules"));
     dir
 }
 
+/// Offline Parsoid HTML fixture for one wikitext string (tests never hit
+/// the live endpoint).
+fn html_of(wt: &str) -> String {
+    use std::fmt::Write as _;
+    let mut body = String::new();
+    for l in wt.lines() {
+        let _ = write!(body, "<p>{l}</p>");
+    }
+    format!("<html><body>{body}</body></html>")
+}
+
+/// `wa audit --no-llm` with the offline fixtures (deterministic gate +
+/// render, no model call). Tests never carry a live model key.
 fn wa(dir: &Path) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_wa"))
-        .current_dir(dir)
-        .args(["audit", "test-article"])
-        .output()
-        .unwrap()
+    wa_env(dir, &["--no-llm"])
+}
+
+/// Spawn `wa audit …` with the offline fixtures and NO model credentials
+/// in the child environment (the default-on pass must degrade to a
+/// reported skip, never a live call).
+fn wa_env(dir: &Path, extra: &[&str]) -> std::process::Output {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_wa"));
+    cmd.current_dir(dir)
+        .env_remove("ZAI_API_KEY")
+        .env_remove("ZAI_BASE_URL")
+        .args(["audit"]);
+    cmd.args(extra);
+    cmd.args([
+        "--html-base",
+        "base-fixture.html",
+        "--html-proposed",
+        "proposed-fixture.html",
+        "test-article",
+    ]);
+    cmd.output().unwrap()
 }
 
 #[test]
@@ -86,7 +117,7 @@ fn blocked_proposal_reports_disposition_groups_without_artifact() {
     );
     assert!(
         stdout.contains("no artifact written"),
-        "audit never renders: {stdout}"
+        "a blocked audit writes nothing: {stdout}"
     );
     assert!(
         !dir.join("sessions/test-article/review.html").exists(),
@@ -94,8 +125,10 @@ fn blocked_proposal_reports_disposition_groups_without_artifact() {
     );
 }
 
+/// loopmech.AC7.1 — a green audit produces the round artifact with no
+/// separate render command: review.html + a `rendered` round entry.
 #[test]
-fn clean_proposal_passes_without_artifact() {
+fn green_audit_renders_the_artifact_and_round_entry() {
     let dir = setup_session(
         r#"{"assessments":[]}"#,
         "The tower is old.\n",
@@ -104,15 +137,133 @@ fn clean_proposal_passes_without_artifact() {
     let out = wa(&dir);
     assert!(
         out.status.success(),
-        "clean gate must pass; stdout: {}\nstderr: {}",
+        "green audit succeeds; stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("gate: PASS"), "stdout: {stdout}");
+    let session = dir.join("sessions/test-article");
+    assert!(session.join("review.html").exists(), "artifact written");
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(rounds.contains("\"phase\":\"rendered\""), "{rounds}");
+    assert!(rounds.contains("\"round\":1"), "first round: {rounds}");
+}
+
+/// loopmech.AC7.3 — re-audit after comment resolution starts the NEXT
+/// round; re-auditing an unchanged current round replaces that round's
+/// artifact (registry replace-on-rerender preserved).
+#[test]
+fn re_audit_advances_rounds_and_replaces_on_rerender() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let session = dir.join("sessions/test-article");
+    let first = wa(&dir);
+    assert!(first.status.success());
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(rounds.contains("\"round\":1"), "{rounds}");
+
+    // Comments were applied: the next audit is round 2.
+    let resolved = r#"{"round":1,"timestamp":"2026-09-30T12:00:00Z","summary":"applied","phase":"comments-resolved","detail":[]}"#;
+    std::fs::write(
+        session.join("rounds.jsonl"),
+        format!("{rounds}\n{resolved}\n"),
+    )
+    .unwrap();
+    let second = wa(&dir);
+    assert!(second.status.success());
+    let html = std::fs::read_to_string(session.join("review.html")).unwrap();
+    assert!(html.contains("Round 2"), "next round artifact: {html:.200}");
+
+    // Re-audit with nothing advancing: SAME round replaces (registry
+    // keeps round 1 once, round 2 once — not two round-2 entries).
+    let third = wa(&dir);
+    assert!(third.status.success());
+    let html = std::fs::read_to_string(session.join("review.html")).unwrap();
+    let r2 = html.matches("Round 2").count();
+    assert_eq!(r2, 1, "replace-on-rerender: one round-2 entry");
     assert!(
-        !dir.join("sessions/test-article/review.html").exists(),
-        "check writes no artifact on pass either"
+        html.contains("Round 1"),
+        "earlier rounds stay in the registry"
+    );
+}
+
+/// loopmech.AC8.1 — `--no-llm` skips the pass entirely.
+#[test]
+fn no_llm_flag_skips_the_pass() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let out = wa(&dir);
+    assert!(out.status.success());
+    assert!(
+        !dir.join("sessions/test-article/rule-review.json").exists(),
+        "no diagnosis without the pass"
+    );
+}
+
+/// loopmech.AC8.4 — an unconfigured model endpoint never blocks the
+/// deterministic outcome: the artifact renders, the skip is reported in
+/// the output AND recorded in the round log.
+#[test]
+fn unconfigured_endpoint_skips_the_pass_without_blocking() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    // No flags: the default-on pass finds no ZAI_API_KEY (removed by the
+    // spawn helper) and must degrade to a reported skip.
+    let out = wa_env(&dir, &[]);
+    assert!(
+        out.status.success(),
+        "the audit outcome is deterministic; stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.to_lowercase().contains("diagnosis") && stdout.contains("skip"),
+        "the skip is reported: {stdout}"
+    );
+    let session = dir.join("sessions/test-article");
+    assert!(session.join("review.html").exists(), "artifact stands");
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(
+        rounds.contains("rule-review-failed") || rounds.contains("rule-review-skipped"),
+        "the failed pass is recorded: {rounds}"
+    );
+}
+
+/// loopmech.AC8.1 — flipping the fork config flips the default: with
+/// `llm_pass = false` a flagless audit makes no pass attempt at all
+/// (no rule-review.json, no skip entry — the pass is simply off).
+#[test]
+fn config_flip_turns_the_default_off() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let hr = dir.join("rules/house-rules.toml");
+    let raw = std::fs::read_to_string(&hr).unwrap();
+    std::fs::write(&hr, raw.replace("llm_pass = true", "llm_pass = false")).unwrap();
+    let out = wa_env(&dir, &[]);
+    assert!(out.status.success());
+    let session = dir.join("sessions/test-article");
+    assert!(
+        !session.join("rule-review.json").exists(),
+        "pass off by config"
+    );
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(
+        !rounds.contains("rule-review"),
+        "no pass attempt, no skip record: {rounds}"
     );
 }
 
@@ -374,28 +525,32 @@ fn retired_check_and_review_fail_with_pointers() {
     assert!(!dir.join("sessions/test-article/review.html").exists());
 }
 
-/// `wa audit --llm <slug>` is the renamed rule-review pass (still on
-/// demand in Phase 1): with no current artifact it refuses exactly like
-/// the old `wa review` did.
+/// loopmech.AC7.1 — the lavish legacy pair is retired: both fail with
+/// pointers to the audit surface and never dispatch.
 #[test]
-fn audit_llm_without_artifact_refuses_like_review_did() {
+fn retired_render_and_poll_fail_with_pointers() {
     let dir = setup_session(
         r#"{"assessments":[]}"#,
         "The tower is old.\n",
         "The tower is older than it looks.\n",
     );
-    let out = wa_args(&dir, &["audit", "--llm", "test-article"]);
-    assert!(
-        !out.status.success(),
-        "no artifact => the diagnosis pass cannot run"
-    );
-    let text = format!(
-        "{}{}",
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    assert!(
-        text.contains("no current review artifact") || text.contains("render first"),
-        "refusal names the artifact prerequisite: {text}"
-    );
+    for args in [
+        vec!["render", "test-article", "--round", "1"],
+        vec!["render"],
+        vec!["poll", "test-article"],
+        vec!["poll"],
+    ] {
+        let out = wa_args(&dir, &args);
+        assert!(!out.status.success(), "{args:?} must fail");
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            text.contains("wa audit") || text.contains("wa serve"),
+            "pointer to the replacement missing: {text}"
+        );
+    }
+    assert!(!dir.join("sessions/test-article/review.html").exists());
 }

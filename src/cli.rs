@@ -70,36 +70,20 @@ pub enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         _rest: Vec<String>,
     },
-    /// Gate + render the review artifact (writes review.html).
+    /// Retired name (loop-mechanization Phase 2): a green `wa audit`
+    /// renders the artifact (render-on-pass). Always fails with a
+    /// pointer; never dispatches.
+    #[command(hide = true)]
     Render {
-        slug: String,
-        /// Round number (revisions registry appends r<N>).
-        #[arg(long)]
-        round: u32,
-        /// Offline: Parsoid HTML of the base wikitext (fixture path).
-        #[arg(long)]
-        html_base: Option<PathBuf>,
-        /// Offline: Parsoid HTML of the proposed wikitext (fixture path).
-        #[arg(long)]
-        html_proposed: Option<PathBuf>,
-        /// Round summary for the revisions registry.
-        #[arg(long, default_value = "proposed edit")]
-        summary: String,
-        /// Do not open a lavish session after rendering.
-        #[arg(long)]
-        no_open: bool,
-        /// Reopen a user-ended lavish session (explicit operator request).
-        #[arg(long)]
-        reopen: bool,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _rest: Vec<String>,
     },
-    /// Long-poll the lavish session; on feedback, print resolved anchors.
-    /// (Legacy tty path — the default loop reviews in-app via `wa serve`;
-    /// see `wa comments`.)
+    /// Retired name (loop-mechanization Phase 2): the lavish tty loop.
+    /// Always fails with a pointer; never dispatches.
+    #[command(hide = true)]
     Poll {
-        slug: String,
-        /// Reply to show in the Lavish conversation panel before waiting.
-        #[arg(long)]
-        agent_reply: Option<String>,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _rest: Vec<String>,
     },
     /// The review comment queue (plan-004): block-anchored comments, the
     /// single reviewer↔loop interface (the session page's forms write
@@ -109,14 +93,26 @@ pub enum Command {
         cmd: CommentsCmd,
     },
     /// Audit the draft: the deterministic gate (ledger wiring, linter,
-    /// paraphrase, anchors) with structured, disposition-grouped output;
-    /// writes NO artifact (render-on-pass is Phase 2). `--llm` runs the
-    /// model diagnosis pass (rule review) against the current artifact
-    /// instead — on demand, never a gate.
+    /// paraphrase, anchors); a green gate renders the round artifact
+    /// (render-on-pass — no separate render step). The LLM diagnosis
+    /// pass rides a green audit unless skipped; it NEVER blocks.
     Audit {
         slug: String,
-        #[arg(long)]
+        /// Force the LLM diagnosis pass on (overrides the fork config).
+        #[arg(long, conflicts_with = "no_llm")]
         llm: bool,
+        /// Skip the LLM diagnosis pass (overrides the fork config).
+        #[arg(long)]
+        no_llm: bool,
+        /// Round summary for the revisions registry.
+        #[arg(long, default_value = "proposed edit")]
+        summary: String,
+        /// Offline: Parsoid HTML of the base wikitext (fixture path).
+        #[arg(long)]
+        html_base: Option<PathBuf>,
+        /// Offline: Parsoid HTML of the proposed wikitext (fixture path).
+        #[arg(long)]
+        html_proposed: Option<PathBuf>,
     },
     /// Retired name (loop-mechanization Phase 1): the audit. Always fails
     /// with a pointer; never dispatches.
@@ -364,28 +360,15 @@ pub async fn run(cli: Cli) -> Result<()> {
              `wa fetch status <slug>`"
         ),
         Command::Serve { port, tsnet } => crate::serve::run(port.unwrap_or(7427), tsnet).await,
-        Command::Render {
-            slug,
-            round,
-            html_base,
-            html_proposed,
-            summary,
-            no_open,
-            reopen,
-        } => {
-            render_cmd(
-                &slug,
-                round,
-                html_base,
-                html_proposed,
-                &summary,
-                no_open,
-                reopen,
-                Via::Tty,
-            )
-            .await
-        }
-        Command::Poll { slug, agent_reply } => poll_cmd(&slug, agent_reply.as_deref()),
+        Command::Render { .. } => anyhow::bail!(
+            "`wa render` is retired — `wa audit <slug>` renders the round artifact when the \
+             gate passes (render-on-pass)"
+        ),
+        Command::Poll { .. } => anyhow::bail!(
+            "`wa poll` is retired with the legacy tty lavish loop — review in-app via \
+             `wa serve` (block-anchored comments on the session page) or read the artifact \
+             at sessions/<slug>/review.html"
+        ),
         Command::Comments { cmd } => match cmd {
             CommentsCmd::List { slug } => comments_list(&slug),
             CommentsCmd::Add {
@@ -397,12 +380,22 @@ pub async fn run(cli: Cli) -> Result<()> {
             CommentsCmd::Resolve { slug, id, note } => comments_resolve(&slug, &id, &note),
         },
         Command::Publish { slug, summary } => publish_cmd(&slug, &summary).await,
-        Command::Audit { slug, llm } => {
-            if llm {
-                rule_review_cmd(&slug).await
+        Command::Audit {
+            slug,
+            llm,
+            no_llm,
+            summary,
+            html_base,
+            html_proposed,
+        } => {
+            let choice = if llm {
+                LlmChoice::On
+            } else if no_llm {
+                LlmChoice::Off
             } else {
-                audit_cmd(&slug)
-            }
+                LlmChoice::Config
+            };
+            audit_cmd(&slug, choice, &summary, html_base, html_proposed).await
         }
         Command::Check { .. } => anyhow::bail!(
             "`wa check` is now `wa audit <slug>` — the same deterministic gate (no artifact)"
@@ -861,10 +854,10 @@ fn fetch_status(slug: &str) -> Result<()> {
     Ok(())
 }
 
-/// Who is driving the command — selects the review-link surface
-/// (plan-004 P.4): the web path prints the in-app artifact path and never
-/// touches lavish state; the tty path keeps the lavish session link (it
-/// still uses `wa poll` legitimately).
+/// Who is driving the command — selects the publish-confirmation
+/// surface (plan-004 P.4): the web path runs the pending-confirmation
+/// flow; the tty path confirms on the terminal. (The render-side arms
+/// retired with `wa render`/`wa poll` in loop-mechanization Phase 2.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Via {
     /// The CLI (lavish link + `wa poll` remain available).
@@ -873,23 +866,20 @@ pub enum Via {
     Web,
 }
 
-/// Gate + render the review artifact (driver-facing surface: the e2e
-/// session runner and `wa serve` call the same path as the CLI).
+/// Render one round's artifact (the render-on-pass pipeline behind
+/// [`audit_flow`]). The gate runs again inside [`render`] as its
+/// mandatory pre-flight; a blocked gate writes nothing.
 ///
 /// # Errors
-/// Session/rules IO, a blocked gate (no artifact is written), or lavish
-/// open failures.
-#[allow(clippy::too_many_arguments)]
-pub async fn render_cmd(
+/// Session/rules IO, a blocked gate (no artifact is written), or a
+/// Parsoid failure on the live path.
+async fn render_round(
     slug: &str,
     round: u32,
     html_base: Option<PathBuf>,
     html_proposed: Option<PathBuf>,
     summary: &str,
-    no_open: bool,
-    reopen: bool,
-    via: Via,
-) -> Result<()> {
+) -> Result<usize> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -953,30 +943,7 @@ pub async fn render_cmd(
         detail: vec![],
     };
     append_round(&paths, &entry)?;
-    println!(
-        "rendered sessions/{slug}/review.html ({} anchor entries)",
-        output.anchor_table.len()
-    );
-    if !no_open && via == Via::Tty {
-        let out = lavish::open_session(&paths.review_html(), false, reopen)?;
-        print_lavish_output(&out)?;
-    }
-    match via {
-        Via::Tty => {
-            if let Some(url) = lavish::session_url(&paths.review_html()) {
-                println!(
-                    "review: {}  (or: {url})",
-                    lavish::terminal_link(&url, "open the review session")
-                );
-            }
-        }
-        Via::Web => {
-            // The web loop's review surface is the in-app artifact; no
-            // lavish state is read, no lavish URL printed (AC.1).
-            println!("review: /sessions/{slug}/review (in-app)");
-        }
-    }
-    Ok(())
+    Ok(output.anchor_table.len())
 }
 
 fn read_registry(review_html: &std::path::Path) -> Vec<crate::render::RevisionEntry> {
@@ -1031,65 +998,6 @@ fn append_round(paths: &SessionPaths, entry: &RoundEntry) -> Result<()> {
         .append(true)
         .open(paths.rounds())?;
     writeln!(file, "{}", serde_json::to_string(entry)?)?;
-    Ok(())
-}
-
-fn poll_cmd(slug: &str, agent_reply_msg: Option<&str>) -> Result<()> {
-    let (paths, _) = load_session(slug)?;
-    let artifact = paths.review_html();
-    let output = if let Some(msg) = agent_reply_msg {
-        lavish::agent_reply(&artifact, msg)?
-    } else {
-        let file = artifact.to_string_lossy().to_string();
-        lavish::lavish_command(&["poll", &file])
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::inherit())
-            .spawn()?
-            .wait_with_output()?
-    };
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    if !output.status.success() && stdout.trim().is_empty() {
-        anyhow::bail!(
-            "lavish poll failed ({}): {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    }
-    let tree = lavish::parse_toon(&stdout);
-    let comments = lavish::comments_from_poll(&tree);
-    if comments.is_empty() {
-        println!("{stdout}");
-        return Ok(());
-    }
-    // Resolve against the artifact's embedded anchor table.
-    let anchor_table = read_anchor_table(&paths.review_html());
-    println!("feedback: {} comment(s)", comments.len());
-    for comment in &comments {
-        match crate::anchors::resolve_comment(comment, &anchor_table) {
-            Ok(resolved) => {
-                println!("  [{}] {}", resolved.element_id, resolved.wikitext_anchor);
-                if let Some(text) = &resolved.selected_text {
-                    println!("      selection: {text:?}");
-                }
-                println!("      comment: {}", resolved.comment);
-            }
-            Err(e) => println!("  UNRESOLVED ({e}): {}", comment.prompt),
-        }
-    }
-    println!("next_step: apply the requested changes, re-render, and re-poll with --agent-reply");
-    Ok(())
-}
-
-fn read_anchor_table(review_html: &std::path::Path) -> Vec<(String, String)> {
-    crate::render::read_anchor_table(review_html)
-        .into_iter()
-        .map(|e| (e.element_id, e.wikitext_anchor))
-        .collect()
-}
-
-fn print_lavish_output(output: &std::process::Output) -> Result<()> {
-    std::io::stdout().write_all(&output.stdout)?;
-    std::io::stderr().write_all(&output.stderr)?;
     Ok(())
 }
 
@@ -1425,11 +1333,17 @@ pub async fn publish_core(
     })
 }
 
-/// `wa audit --llm <slug>` — the model diagnosis pass (rule-enforcement
-/// item 5, renamed from `wa review`): clause-cited advice printed here and
-/// stored beside the session (`rule-review.json`, keyed by round) for the
-/// review page to show. Never a gate, on demand only.
-async fn rule_review_cmd(slug: &str) -> Result<()> {
+/// The LLM diagnosis pass (rule-enforcement item 5; wording moved from
+/// advice to diagnosis in loop-mechanization Phase 2): clause-cited
+/// concerns on the CURRENT artifact, printed and stored beside the
+/// session (`rule-review.json`, keyed by round) for the review page to
+/// show under their blocks. A diagnosis, never a decision — nothing here
+/// gates or blocks; callers treat failure as a reported skip.
+///
+/// # Errors
+/// Missing/stale artifact, corpus or model failures — never fatal to the
+/// audit outcome (the caller records and reports).
+async fn diagnosis_pass(slug: &str, zai: &crate::driver::model::ZaiClient) -> Result<()> {
     use crate::driver::steps::ConcernVerdict;
     let (paths, meta) = load_session(slug)?;
     let corpus =
@@ -1453,15 +1367,7 @@ async fn rule_review_cmd(slug: &str) -> Result<()> {
     let guidance = crate::rules::guidance_for_loop(&corpus, meta.entry_loop)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     let clauses = crate::rules::guidance_clauses(&corpus, meta.entry_loop);
-    let model = corpus
-        .house_rules
-        .zai
-        .as_ref()
-        .and_then(|z| z.model.clone())
-        .unwrap_or_else(|| "glm-5.3".to_string());
-    let zai = crate::driver::model::ZaiClient::from_env(&model)
-        .map_err(|e| anyhow::anyhow!("model client: {e}"))?;
-    let concerns = crate::driver::steps::review_draft(&zai, &guidance, &clauses, &blocks).await?;
+    let concerns = crate::driver::steps::review_draft(zai, &guidance, &clauses, &blocks).await?;
     // Store + print: concerns only (ok verdicts are discarded), each
     // under the block whose proposed text contains the span.
     let stored: Vec<(String, String, String, String)> = concerns
@@ -1673,12 +1579,151 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
     Ok(())
 }
 
-/// `wa audit <slug>` — the deterministic draft-side examination: the same
-/// gate as render's mandatory pre-flight, run without any artifact attempt
-/// and without opening a session. Output is the structured, disposition-
-/// grouped report; exits non-zero when blocked so the driver can iterate
-/// cheaply before rendering.
-fn audit_cmd(slug: &str) -> Result<()> {
+/// `wa audit <slug>` — the single draft-side examination: the
+/// deterministic gate, and on a pass the round artifact (render-on-pass,
+/// loop-mechanization Phase 2), then the LLM diagnosis pass unless
+/// skipped. The diagnosis NEVER blocks (AC8.3/8.4): an unconfigured or
+/// unreachable endpoint degrades to a reported, recorded skip.
+async fn audit_cmd(
+    slug: &str,
+    llm: LlmChoice,
+    summary: &str,
+    html_base: Option<PathBuf>,
+    html_proposed: Option<PathBuf>,
+) -> Result<()> {
+    let corpus =
+        RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let choice = match llm {
+        LlmChoice::On | LlmChoice::Off => llm,
+        LlmChoice::Config => {
+            if corpus.house_rules.audit.llm_pass {
+                LlmChoice::On
+            } else {
+                LlmChoice::Off
+            }
+        }
+    };
+    let opts = AuditOpts {
+        llm: choice,
+        summary: summary.to_string(),
+        html_base,
+        html_proposed,
+    };
+    audit_flow(slug, &opts, None).await
+}
+
+/// Whether a green audit runs the LLM diagnosis pass.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LlmChoice {
+    /// Run it (`--llm`).
+    On,
+    /// Skip it (`--no-llm`).
+    Off,
+    /// The fork config decides (`[audit] llm_pass`).
+    Config,
+}
+
+/// Options for [`audit_flow`] (the one audit both surfaces run).
+pub struct AuditOpts {
+    pub llm: LlmChoice,
+    pub summary: String,
+    pub html_base: Option<PathBuf>,
+    pub html_proposed: Option<PathBuf>,
+}
+
+/// The audit both surfaces run (CLI and the serve Audit action):
+///
+/// 1. the deterministic gate preflight — blocked ⇒ the disposition-
+///    grouped report prints and NOTHING is written (AC7.2);
+/// 2. a green gate renders the round artifact (round numbering mirrors
+///    the serve surface's `next_round`: comments-resolved/published bump
+///    the round; an unchanged current round re-renders in place —
+///    AC7.1/7.3);
+/// 3. `LlmChoice::On` rides the diagnosis pass; failure of any kind is
+///    reported and recorded (`rule-review-failed` round entry), never
+///    fatal (AC8.4).
+///
+/// `zai` injects the model client (the serve surface's test wiring);
+/// `None` constructs from the environment when the pass runs.
+///
+/// # Errors
+/// Gate blocked (after the report prints), or render/session IO.
+pub async fn audit_flow(
+    slug: &str,
+    opts: &AuditOpts,
+    zai: Option<&crate::driver::model::ZaiClient>,
+) -> Result<()> {
+    gate_preflight(slug)?;
+    let (paths, _) = load_session(slug)?;
+    let round = crate::serve::next_round(crate::serve::artifact_state(&paths.dir).as_ref());
+    let anchors = render_round(
+        slug,
+        round,
+        opts.html_base.clone(),
+        opts.html_proposed.clone(),
+        &opts.summary,
+    )
+    .await?;
+    println!(
+        "audit: round {round} rendered — sessions/{slug}/review.html ({anchors} anchor entries)"
+    );
+    if opts.llm == LlmChoice::Off {
+        return Ok(());
+    }
+    // The diagnosis pass: never fatal to the audit outcome. The client
+    // comes injected (serve) or from the environment (CLI); an
+    // unconfigured endpoint is a reported, recorded skip (AC8.4).
+    let from_env;
+    let client: &crate::driver::model::ZaiClient = if let Some(c) = zai {
+        c
+    } else {
+        let corpus =
+            RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let model = corpus
+            .house_rules
+            .zai
+            .as_ref()
+            .and_then(|z| z.model.clone())
+            .unwrap_or_else(|| "glm-5.3".to_string());
+        match crate::driver::model::ZaiClient::from_env(&model) {
+            Ok(c) => {
+                from_env = c;
+                &from_env
+            }
+            Err(e) => {
+                let why = format!("no model endpoint configured ({e})");
+                println!("diagnosis pass skipped: {why} — the audit outcome stands");
+                record_failed_pass(&paths, &why)?;
+                return Ok(());
+            }
+        }
+    };
+    if let Err(e) = diagnosis_pass(slug, client).await {
+        println!("diagnosis pass failed: {e} — the audit outcome stands");
+        record_failed_pass(&paths, &e.to_string())?;
+    }
+    Ok(())
+}
+
+/// A skipped or failed diagnosis pass is part of the audit trail: a
+/// round-log entry records why (inert to `artifact_state` — only
+/// published/comments-resolved/text-mtime stale the artifact).
+fn record_failed_pass(paths: &SessionPaths, why: &str) -> Result<()> {
+    let entry = RoundEntry {
+        round: 0,
+        timestamp: now_iso(),
+        summary: format!("diagnosis pass not run: {why}"),
+        phase: "rule-review-failed".into(),
+        detail: Vec::new(),
+    };
+    append_round(paths, &entry)
+}
+
+/// The deterministic gate preflight shared by the audit's entry: loads
+/// the session's state and runs the gate; on a block the disposition-
+/// grouped report prints (plus warn-level lint findings) and the caller
+/// sees `Err` — nothing is written (AC7.2).
+fn gate_preflight(slug: &str) -> Result<()> {
     use std::fmt::Write as _;
     let (paths, _meta) = load_session(slug)?;
     let corpus =
@@ -1707,8 +1752,6 @@ fn audit_cmd(slug: &str) -> Result<()> {
         }
         let _ = writeln!(out, "WARNINGS (advisory — they do not block):");
         for w in &warnings {
-            // NB: the config's map keys are snake_case; findings carry the
-            // kebab-case id — look up by id.
             let description = corpus
                 .linter
                 .rules
@@ -1730,10 +1773,10 @@ fn audit_cmd(slug: &str) -> Result<()> {
         let mut report = crate::checks::gate::format_reasons(&verdict.reasons);
         print_warnings(&mut report);
         print!("{report}");
-        println!("\nno artifact written (the audit never renders)");
+        println!("\nno artifact written (the gate blocked)");
         anyhow::bail!("gate blocked");
     }
-    println!("gate: PASS — the proposal is sound (no artifact written by audit)");
+    println!("gate: PASS — rendering the round artifact");
     let mut out = String::new();
     print_warnings(&mut out);
     print!("{out}");

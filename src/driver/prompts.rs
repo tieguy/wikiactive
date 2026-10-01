@@ -99,10 +99,10 @@ mod tests {
             ),
             (
                 REVIEW,
-                // rule-enforcement item 5: the rule-review prompt
-                // (clause-by-clause advice schema). Review finding 2: it
-                // shipped unpinned — every prompt is checksum-pinned.
-                "80aa7e9a08850f0b35f189fb95cc5e9d2aa1961527acf9cd9aebfb4e70275b7f",
+                // loop-mechanization Phase 2: advice wording became a
+                // diagnosis contract ("a diagnosis, never a decision: you
+                // never approve, block, or rewrite").
+                "869a1a16c5ab8c2feee374be0e8b1cb5b5d723fef9d1894e21724742e0c047ae",
             ),
         ] {
             let text = load(name).unwrap_or_else(|e| panic!("{e}"));

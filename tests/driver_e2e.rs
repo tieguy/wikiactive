@@ -294,24 +294,25 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     });
     assert!(!verdict.blocked, "gate: {:?}", verdict.reasons);
 
-    // ---- Render offline (recorded Parsoid fixtures; render fidelity has
-    // its own suite — here we exercise the offline path completing). ----
+    // ---- Audit offline (recorded Parsoid fixtures; render fidelity has
+    // its own suite — here we exercise the offline path completing).
+    // The LLM pass is off: this e2e is about the deterministic loop.
     let parsoid_fixture = format!(
         "{}/fixtures/parsoid/temple-fielding@1372827284.html",
         env!("CARGO_MANIFEST_DIR")
     );
-    wikiloop::cli::render_cmd(
+    wikiloop::cli::audit_flow(
         "e2e-article",
-        1,
-        Some(Path::new(&parsoid_fixture).to_path_buf()),
-        Some(Path::new(&parsoid_fixture).to_path_buf()),
-        "e2e round",
-        true,
-        false,
-        wikiloop::cli::Via::Tty,
+        &wikiloop::cli::AuditOpts {
+            llm: wikiloop::cli::LlmChoice::Off,
+            summary: "e2e round".into(),
+            html_base: Some(Path::new(&parsoid_fixture).to_path_buf()),
+            html_proposed: Some(Path::new(&parsoid_fixture).to_path_buf()),
+        },
+        None,
     )
     .await
-    .expect("offline render completes");
+    .expect("offline audit renders");
 
     // ---- Publish WITHOUT confirmation: nothing writes. ----
     let mut declined = DeclineSim;

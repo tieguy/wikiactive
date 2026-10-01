@@ -76,6 +76,11 @@ fn spawn_serve(dir: &Path, env: &[(&str, &str)]) -> (Child, u16) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_wa"))
         .current_dir(dir)
         .env_remove("WIKIACTIVE_SERVE_TEST_API")
+        // Tests never make live model calls: without an explicit
+        // WIKIACTIVE_SERVE_TEST_ZAI override the client must fail to
+        // construct (the reported-skip path), never reach an endpoint.
+        .env_remove("ZAI_API_KEY")
+        .env_remove("ZAI_BASE_URL")
         .envs(env.iter().copied())
         .args(["serve", "--port", "0"])
         .stdout(Stdio::piped())
@@ -517,7 +522,6 @@ async fn audit_offline(client: &reqwest::Client, port: u16, dir: &Path) {
     let resp = client
         .post(format!("{}/sessions/test-article/audit", base_url(port)))
         .form(&[
-            ("round", "1"),
             ("summary", "test round"),
             (
                 "html_base",
@@ -1462,6 +1466,10 @@ async fn session_page_shows_assess_and_audit_controls() {
         "the LLM toggle rides the audit form: {page}"
     );
     assert!(
+        page.contains("name=llm checked"),
+        "the fork config ships the toggle ON by default: {page}"
+    );
+    assert!(
         !page.contains("Write findings") && !page.contains("Render review"),
         "retired labels are gone: {page}"
     );
@@ -1523,6 +1531,76 @@ async fn retired_serve_routes_are_gone() {
             .unwrap();
         assert_eq!(resp.status().as_u16(), 404, "{path} must be gone");
     }
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// loopmech.AC8.4 (serve half) — the toggle ON with NO constructible
+/// model client: the audit still renders the artifact and the failed
+/// pass is recorded in the round log.
+#[tokio::test]
+async fn audit_llm_on_without_an_endpoint_renders_and_records_the_skip() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let session = dir.join("sessions/test-article");
+    let (mut child, port) = spawn_serve(&dir, &[]); // no key, no override
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!("{}/sessions/test-article/audit", base_url(port)))
+        .form(&[
+            ("summary", "test round"),
+            (
+                "html_base",
+                dir.join("base.html").to_string_lossy().as_ref(),
+            ),
+            (
+                "html_proposed",
+                dir.join("proposed.html").to_string_lossy().as_ref(),
+            ),
+            ("llm", "on"),
+        ])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303, "to the fresh review");
+    assert!(session.join("review.html").exists(), "the artifact stands");
+    let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
+    assert!(
+        rounds.contains("rule-review-failed"),
+        "the failed pass is recorded: {rounds}"
+    );
+    assert!(
+        !session.join("rule-review.json").exists(),
+        "no stored concerns from a failed pass"
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// loopmech.AC8.1 (serve half) — flipping the fork config flips the
+/// toggle's default state on the page.
+#[tokio::test]
+async fn config_off_fork_unchecks_the_toggle() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let hr = dir.join("rules/house-rules.toml");
+    let raw = std::fs::read_to_string(&hr).unwrap();
+    std::fs::write(&hr, raw.replace("llm_pass = true", "llm_pass = false")).unwrap();
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        !page.contains("name=llm checked"),
+        "config off => unchecked: {page}"
+    );
+    assert!(page.contains("name=llm"), "the toggle still exists: {page}");
     let _ = child.kill();
     let _ = child.wait();
     let _ = std::fs::remove_dir_all(&dir);

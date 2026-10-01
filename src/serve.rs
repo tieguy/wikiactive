@@ -729,16 +729,22 @@ fn review_section(slug: &str, dir: &std::path::Path) -> String {
         }
         None => html.push_str("<p>Nothing has been rendered for review yet.</p>\n"),
     }
+    // The Audit action (loop-mechanization Phase 2): gate + render-on-pass
+    // + the diagnosis rider. The round is computed (comments-resolved
+    // bumps it; an unchanged current round re-renders in place); the
+    // LLM toggle defaults to the fork config ([audit] llm_pass).
+    let llm_default = match crate::rules::RulesCorpus::load(std::path::Path::new("rules")) {
+        Ok(c) => c.house_rules.audit.llm_pass,
+        Err(_) => true,
+    };
     let _ = writeln!(
         html,
         "<form method=post action=\"/sessions/{slug}/audit\" class=\"row\">\
-         <label class=\"field\">Round<input name=round type=number min=1 value={} \
-         style=\"width:5rem\"></label>\
          <label class=\"field grow\">What changed this round\
          <input name=summary placeholder=\"e.g. corrected the marriage date\"></label>\
-         <label class=\"field\"><input type=checkbox name=llm> LLM diagnosis</label>\
+         <label class=\"field\"><input type=checkbox name=llm{}> LLM diagnosis</label>\
          <button>Audit</button></form>",
-        next_round(state.as_ref())
+        if llm_default { " checked" } else { "" }
     );
     html.push_str("<h3>Comments</h3>\n");
     html.push_str(&queue_html(slug, dir));
@@ -867,7 +873,7 @@ impl StaleKind {
 
 /// The round a render started now should carry: the first round, the same
 /// round again while nothing was reviewed in between, else the next one.
-fn next_round(state: Option<&ArtifactState>) -> u32 {
+pub(crate) fn next_round(state: Option<&ArtifactState>) -> u32 {
     match state {
         None => 1,
         Some(
@@ -1670,108 +1676,6 @@ pub(crate) fn rule_review_blocks(
         .collect()
 }
 
-/// Judgment point 4, web path: run the rule-review step against the
-/// CURRENT artifact (a stale anchor table must not be reviewed), store
-/// the concerns with the round, and log the round entry. Advice only.
-async fn run_rule_review(state: &Arc<ServeState>, slug: &str) -> String {
-    use crate::driver::steps::ConcernVerdict;
-    let dir = session_dir(slug);
-    let Ok(artifact) = std::fs::read_to_string(dir.join("review.html")) else {
-        return "rule review: no review artifact — render first".into();
-    };
-    let round = match artifact_state(&dir) {
-        Some(ArtifactState::Current { round }) => round,
-        Some(ArtifactState::Stale { .. }) => {
-            return "rule review: the review artifact is out of date — re-render first".into();
-        }
-        None => return "rule review: no current review artifact — render first".into(),
-    };
-    let (Ok(base), Ok(proposed), Ok(ledger)) = (
-        std::fs::read_to_string(dir.join("base.wikitext")),
-        std::fs::read_to_string(dir.join("proposed.wikitext")),
-        Ledger::load(&dir.join("ledger.json")),
-    ) else {
-        return "rule review: session files unreadable".into();
-    };
-    let blocks = rule_review_blocks(&artifact, &base, &proposed, &ledger);
-    if blocks.is_empty() {
-        return "rule review: no changed blocks to review".into();
-    }
-    let Ok(corpus) = crate::rules::RulesCorpus::load(std::path::Path::new("rules")) else {
-        return "rule review: rules corpus failed to load".into();
-    };
-    let Ok(meta) = serde_json::from_str::<SessionMeta>(
-        &std::fs::read_to_string(dir.join("session.json")).unwrap_or_default(),
-    ) else {
-        return "rule review: no session meta".into();
-    };
-    let (Ok(guidance), loop_id) = (
-        crate::rules::guidance_for_loop(&corpus, meta.entry_loop),
-        meta.entry_loop,
-    ) else {
-        return "rule review: guidance failed to build".into();
-    };
-    let clauses = crate::rules::guidance_clauses(&corpus, loop_id);
-    let zai = match state.zai_client() {
-        Ok(z) => z,
-        Err(e) => return format!("rule review: {e}"),
-    };
-    match crate::driver::steps::review_draft(&zai, &guidance, &clauses, &blocks).await {
-        Ok(concerns) => {
-            // Store concerns only, placed under the block whose proposed
-            // text contains the span (validation already proved one does).
-            let stored: Vec<StoredConcern> = concerns
-                .into_iter()
-                .filter(|c| c.verdict == ConcernVerdict::Concern)
-                .map(|c| {
-                    let element_id = blocks
-                        .iter()
-                        .find(|b| b.proposed.contains(c.span.trim()))
-                        .map_or_else(String::new, |b| b.element_id.clone());
-                    StoredConcern {
-                        clause: c.clause,
-                        span: c.span,
-                        note: c.note,
-                        element_id,
-                    }
-                })
-                .collect();
-            let count = stored.len();
-            let file = RuleReviewFile {
-                round,
-                timestamp: crate::comments::now_iso(),
-                concerns: stored,
-            };
-            let _ = std::fs::write(
-                dir.join("rule-review.json"),
-                serde_json::to_string_pretty(&file).unwrap_or_default(),
-            );
-            // Round-log entry (inert to artifact_state: only published /
-            // comments-resolved / text-mtime trip staleness — pinned by
-            // test). The entry names the phase for the audit trail.
-            let entry = crate::session::RoundEntry {
-                round: 0,
-                timestamp: crate::comments::now_iso(),
-                summary: format!("rule review: {count} concern(s)"),
-                phase: "rule-reviewed".into(),
-                detail: Vec::new(),
-            };
-            if let Ok(json) = serde_json::to_string(&entry)
-                && let Ok(mut file) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(dir.join("rounds.jsonl"))
-            {
-                let _ = writeln!(file, "{json}");
-            }
-            format!(
-                "rule review: {count} concern(s) recorded — shown under their blocks on the review page"
-            )
-        }
-        Err(e) => format!("rule review failed: {e}"),
-    }
-}
-
 /// The status bar for the comment queue on a live review: what applying
 /// does, or the empty-queue pointer to the Comment controls.
 fn comments_bar(slug: &str, open_count: usize) -> String {
@@ -2502,10 +2406,9 @@ fn apply_splices(proposed: &str, splices: &[(usize, usize, String, bool)]) -> St
 
 #[derive(serde::Deserialize)]
 struct AuditForm {
-    round: u32,
     summary: String,
-    /// The LLM diagnosis toggle: present ("on") when checked — the rule
-    /// review pass runs after the render, in this same request.
+    /// The LLM diagnosis toggle: present ("on") when checked — the
+    /// diagnosis pass runs after the render, in this same request.
     #[serde(default)]
     llm: Option<String>,
     /// Offline/test hooks: fixture Parsoid HTML paths, passed through to
@@ -2537,34 +2440,35 @@ async fn audit(
             .filter(|s| !s.is_empty())
             .map(std::path::PathBuf::from)
     };
-    let rendered = crate::cli::render_cmd(
-        &slug,
-        form.round,
-        pair(&form.html_base),
-        pair(&form.html_proposed),
-        &form.summary,
-        true,
-        false,
-        crate::cli::Via::Web,
-    )
-    .await;
-    // A successful render lands on the review it produced; a failure (a
-    // blocked gate above all) must be READ, so it goes back with the
-    // reasons shown.
-    match rendered {
+    let llm = if form.llm.as_deref().is_some_and(|v| !v.is_empty()) {
+        crate::cli::LlmChoice::On
+    } else {
+        crate::cli::LlmChoice::Off
+    };
+    let opts = crate::cli::AuditOpts {
+        llm,
+        summary: form.summary,
+        html_base: pair(&form.html_base),
+        html_proposed: pair(&form.html_proposed),
+    };
+    // The same flow the CLI runs: gate, render-on-pass, diagnosis rider.
+    // The serve client injects its test wiring; construction failure
+    // inside the flow degrades to a reported skip (AC8.4).
+    let zai = state.zai_client().ok();
+    match crate::cli::audit_flow(&slug, &opts, zai.as_ref()).await {
         Ok(()) => {
-            // The LLM diagnosis toggle (rule-enforcement item 5): run the
-            // pass against the artifact this request just produced.
-            let mut outcome = format!("rendered round {}", form.round);
-            if form.llm.as_deref().is_some_and(|v| !v.is_empty()) {
-                let review = run_rule_review(&state, &slug).await;
-                outcome = format!("{outcome}; {review}");
-            }
-            state.note_outcome(&slug, &outcome);
+            // Plan-004 AC.1: the web path prints the in-app artifact path
+            // and never touches lavish state.
+            println!("review: /sessions/{slug}/review (in-app)");
+            state.note_outcome(&slug, "audit complete — the review is ready");
             Redirect::to(&format!("/sessions/{slug}/review")).into_response()
         }
         Err(e) => {
-            state.note_outcome(&slug, &format!("audit failed: {e}"));
+            // A blocked gate must be READ: the full report rides the
+            // outcome (the flow already printed it to stdout).
+            let report = gate_report(&slug)
+                .map_or_else(|| e.to_string(), |r| format!("audit blocked:\n{r}"));
+            state.note_outcome(&slug, &report);
             back_to(&slug, &q, Some("top")).into_response()
         }
     }
