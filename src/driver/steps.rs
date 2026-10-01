@@ -64,6 +64,10 @@ pub struct AssessContext {
     pub entry_loop: u8,
     /// Cap on findings per run (prompt slot).
     pub max_assessments: usize,
+    /// revux.AC3.2: the fetch-manifest summary line (total cited
+    /// sources; how many are without fetched text) — what the
+    /// cannot-verify craft rule keys on.
+    pub fetch_summary: String,
     /// The rules guidance for this entry loop (`rules::guidance_for_loop`
     /// output): tier-1 verbatim + the triage-selected cards. Built BEFORE
     /// the step runs — a corpus missing a card fails the handler, not the
@@ -197,9 +201,10 @@ pub async fn assess(client: &ZaiClient, ctx: &AssessContext) -> Result<Vec<Asses
         }
         let _ = write!(
             user,
-            "\nRegistered quote ids (evidence must cite among these): {}\nEntry loop: {}.\n",
+            "\nRegistered quote ids (evidence must cite among these): {}\nEntry loop: {}.\nFetch summary: {}\n",
             ctx.quote_ids.join(", "),
-            ctx.entry_loop
+            ctx.entry_loop,
+            ctx.fetch_summary
         );
     }
 

@@ -79,11 +79,13 @@ mod tests {
         for (name, pinned) in [
             (
                 ASSESS,
-                // loop-mechanization Phase 1: author-findings.md renamed to
-                // assess.md with the assessment vocabulary (AS<n> ids,
-                // {{max_assessments}} slot) — the record and command are
-                // `wa assess` now.
-                "aa8491f8f659da5d7a81ca75df4f722a8366364cbc2f941dd0bb4d1499fb0f66",
+                // revux (2026-10-01): the cannot-verify craft rule —
+                // absence in fetched evidence is unverifiability, never
+                // a deletion proposal — keyed to the new fetch summary
+                // the step's context carries. (Phase 1 of
+                // loop-mechanization renamed this file and set the AS
+                // schema.)
+                "0b7e1793cf433e2493dc923144fa059445e30b3f3cc879165cc48f7805667eeb",
             ),
             (
                 PROPOSE,

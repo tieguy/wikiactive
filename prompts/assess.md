@@ -31,6 +31,14 @@ Craft rules:
   line:column coordinates.
 - `factual_note` is one or two sentences of what the evidence shows —
   it renders on the review artifact next to the verbatim quote.
+- Absence in evidence is unverifiability, not refutation. The fetch
+  summary above names how many cited sources are WITHOUT fetched text
+  (unreachable or dispositioned). For a claim whose support might live
+  in those sources, NEVER propose deleting or altering cited content on
+  the ground that the fetched evidence does not mention it. Instead flag
+  it in `factual_note` as: cannot verify from available sources: <claim>
+  — and make `proposed_fix` state the verification need (a source in
+  reach or an operator capture), not a content change.
 
 Output the JSON array only: no markdown fences, no commentary. If there
 is genuinely nothing worth reporting, output [].

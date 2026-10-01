@@ -56,6 +56,7 @@ fn ctx() -> AssessContext {
         quote_ids: vec!["Q1".into()],
         entry_loop: 2,
         max_assessments: 2,
+        fetch_summary: "cited sources: 2 total, 1 without fetched text".into(),
         guidance: guidance(),
     }
 }
@@ -79,7 +80,12 @@ async fn assess_accepts_valid_output() {
                 .body_includes("at most 2") // max_assessments slot
                 .body_includes("Loop 2 discipline") // rendered template body
                 .body_includes("Cluster A") // tier-1 guidance rides the prompt
-                .body_includes("Registered quote ids (evidence must cite among these): Q1");
+                .body_includes("Registered quote ids (evidence must cite among these): Q1")
+                // revux.AC3.2: the fetch summary rides the user message…
+                .body_includes("cited sources: 2 total, 1 without fetched text")
+                // …and the cannot-verify craft rule rides the system
+                // prompt (revux.AC3.1 marker).
+                .body_includes("cannot verify from available sources");
             then.status(200).json_body(completion(VALID_FINDINGS));
         })
         .await;

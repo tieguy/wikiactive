@@ -2228,3 +2228,57 @@ async fn process_comments_control_is_labeled_and_placed() {
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// revux.AC3.2 (serve layer) — the fetch summary is BUILT from the
+/// ledger where the counting happens: exact counts ride the wire body.
+#[tokio::test]
+async fn assess_prompt_carries_the_ledger_fetch_summary() {
+    let dir = setup_session(true);
+    let session = dir.join("sessions/test-article");
+    // 4 sources: 2 with fetched text, 2 without (predicate: fetched_text
+    // absent).
+    std::fs::write(
+        session.join("ledger.json"),
+        r#"{"schema_version":1,"sources":[
+            {"id":"S1","url":"https://example.com/a","access_date":"2026-10-01","fetched_text":"text a"},
+            {"id":"S2","url":"https://example.com/b","access_date":"2026-10-01","fetched_text":"text b"},
+            {"id":"S3","url":"https://example.com/paywalled","access_date":"2026-10-01","disposition":"attested-unreachable (paywall)"},
+            {"id":"S4","url":"isbn:1","access_date":"2026-10-01","disposition":"print: no web text"}],
+           "quotes":[],"claims":[]}"#,
+    )
+    .unwrap();
+    let zai = MockServer::start_async().await;
+    let zai_mock = zai
+        .mock_async(|when, then| {
+            when.method(httpmock::Method::POST)
+                .path("/chat/completions")
+                .body_includes("cited sources: 4 total, 2 without fetched text");
+            then.status(200).json_body(serde_json::json!({
+                "choices": [{"finish_reason": "stop", "index": 0,
+                    "message": {"role": "assistant", "content": "[]"}}]
+            }));
+        })
+        .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    // The mock MATCHED (body_includes is part of the matcher): without
+    // the exact summary line on the wire the request matches no mock.
+    assert!(
+        zai_mock.calls() >= 1,
+        "the summary line rode the request body"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -251,6 +251,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
         quote_ids: vec![qid.clone()],
         entry_loop: 2,
         max_assessments: 3,
+        fetch_summary: "cited sources: 2 total, 0 without fetched text".into(),
         guidance: guidance.clone(),
     };
     let assessments = assess(&zai, &ctx)

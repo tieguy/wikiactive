@@ -1871,6 +1871,18 @@ async fn run_driver_assess(state: &Arc<ServeState>, slug: &str) -> String {
         quote_ids: ledger.quotes.iter().map(|q| q.id.clone()).collect(),
         entry_loop: meta.entry_loop,
         max_assessments: 3,
+        // revux.AC3.2: built where the counting happens — predicate is
+        // the digest filter's complement (fetched_text absent).
+        fetch_summary: format!(
+            "cited sources: {} total, {} without fetched text (unreachable or dispositioned) — \
+             verify what you can, flag what you cannot",
+            ledger.sources.len(),
+            ledger
+                .sources
+                .iter()
+                .filter(|s| s.fetched_text.is_none())
+                .count()
+        ),
         guidance,
     };
     let zai = match state.zai_client() {
