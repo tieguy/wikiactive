@@ -1,5 +1,5 @@
 //! `wa serve` (plan-003 B.4) — the Phase-B local web console: axum,
-//! loopback-only. Hosts the session console, the sweep/source manifest
+//! loopback-only. Hosts the session console, the source-fetch manifest
 //! (per-source status, attach ingestion, disposition signing), and the
 //! publish confirmation as an EXPLICIT operator action backed by
 //! [`WebConfirm`] — a pending-confirmation state resolved by a web click.

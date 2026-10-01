@@ -178,7 +178,7 @@ pub enum Command {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         _rest: Vec<String>,
     },
-    /// Local web console (plan-003 B.4): session console, sweep manifest,
+    /// Local web console (plan-003 B.4): session console, source-fetch manifest,
     /// publish confirmation. Loopback-only bind by default; `--tsnet`
     /// (thin-client setups) binds the machine's TAILNET interface only.
     Serve {
