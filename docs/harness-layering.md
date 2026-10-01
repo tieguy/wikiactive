@@ -87,7 +87,7 @@ docs/implementation-plans/ — per-phase task files (just-in-time)
 | WMF fetches via wm-fetch only | CLAUDE.md, wikimedia-api skill | `wmfetch-only-for-wikimedia` hook | mechanical |
 | Playbook/code pairing | plan spec + this doc | code-reviewer finding | final gate + playbook-audit |
 | Drafting rules live in prompts/ or gate, not the harness | ADR-0002 | review discipline | playbook-audit + code-reviewer |
-| Detection ≠ enforcement (base scan detects; drafted-lines gate) | ADR-0005 | `rules/linter.toml` scope + the bundle's labeled section | linter suite + rules-corpus suite |
+| Detection ≠ enforcement (base scan detects; added-lines gate) | ADR-0005 | `rules/linter.toml` `applies` scope + the bundle's labeled section | linter suite + rules-corpus suite |
 
 New invariants get a row here when they are born; a row with no enforcement
 mechanism is a backlog item (same rule as the playbook inventory).

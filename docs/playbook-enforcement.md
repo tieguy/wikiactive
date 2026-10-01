@@ -52,9 +52,15 @@ surface (assess/fetch/audit/review).
 |---|---|---|
 | resolvable shortcut cited for an edit it does not cover | ADVISORY | attribution truthfulness is judgment — resolution is enforced (row above), coverage stays with the reviewer |
 | base:-prefixed vs plain anchor semantics | DESCRIPTIVE | comments queue mechanics |
-| drafted-lines guards vs article defects scoping | ENFORCED | `rules/linter.toml` drafted-lines scope; the analyze bundle's defect-candidates section is detection only and no gate reason can originate from it (ADR-0005; pinned by the rules-corpus suite) |
+| drafted-lines guards vs article defects scoping | ENFORCED | `rules/linter.toml` `applies = "added-lines"`; the analyze bundle's defect-candidates section is detection only and no gate reason can originate from it (ADR-0005; pinned by the rules-corpus suite) |
 | per-loop rule-pack table | DESCRIPTIVE | duplicates analyze loading config |
-| BundledConsent backs only disclosure-log upsert | ENFORCED | tests/serve.rs |
+| BundledConsent backs only disclosure-log upsert | ENFORCED | tests/serve.rs (`publish_requires_the_explicit_web_confirmation`, `declined_confirmation_never_edits`) |
+| prompts are versioned and checksum-pinned | ENFORCED | `prompt_checksums_are_pinned` (`src/driver/prompts.rs`); every prompt edit re-pins with a reason in the commit |
+| assessment admission is schema-validated (batch-atomic) | ENFORCED | `Assessment::validate` + `AssessmentsFile::parse_validated` (`src/session.rs`); a rejected batch saves nothing; ids are `AS<n>` |
+| assessments are implicitly typed via `rules[]` | DESCRIPTIVE | no code branches on a "type" (ADR-0004; revisit triggers recorded there) |
+| the model is called at exactly the three judgment points (+ the diagnosis rider) | ENFORCED | the only call sites are `src/driver/steps.rs` (`assess`, `draft_proposal`, `resolve_comments`, `review_draft`), each through a pinned prompt |
+| resolve splices revised blocks once per group and records the note | ENFORCED | serve apply-comments (grouped splice + applied/rejected/reply notes persisted to `comments.jsonl`; tests/serve.rs) |
+| review comments anchor exactly to the artifact's blocks | ENFORCED | the embedded anchor table (`src/render.rs`) + comment targets (`base:`-prefixed / plain / `ledger:Qn`); tests/serve.rs |
 | retired command names fail with pointers, never dispatch | ENFORCED | hidden variants: `wa findings`/`wa sweep`/`wa check`/`wa review`/`wa render`/`wa poll` (tests/assess_cli, fetch_cli, audit_cli) |
 
 ## Move-to-code backlog (ADVISORY rows above)

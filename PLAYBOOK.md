@@ -69,7 +69,9 @@ Guarantee: every admitted assessment is schema-valid, cites only ledger quotes
 that exist, rides a fresh analyze, and rides a resolved fetch stage; bypasses
 are explicit flags recorded in the round log. Assessments look backward at the
 article (ADR-0003's two-layer split: the ledger is the evidence basis, the
-assessment the editorial judgment). Owner: model drafts, tool admits.
+assessment the editorial judgment — implicitly typed via `rules[]`, tentative
+by construction with revisit triggers in ADR-0004). Owner: model drafts, tool
+admits.
 
 ### Propose (model + operator)
 Guarantee: one logical edit per publish unit, scoped like a code-review
@@ -151,7 +153,7 @@ endpoint/model in `rules/house-rules.toml [zai]`; audit default in `[audit]`.
 ## Guards vs defects (scoping)
 
 Linter rules like the semicolon ban are **model-quirk guards**: they gate
-every line *this tool drafts* (drafted-lines scope, hard block) and are never
+every line *this tool drafts* (`applies = "added-lines"` in `rules/linter.toml`, hard block) and are never
 reported as pre-existing article defects. The analyze bundle's defect
 candidates invert the telescope honestly: detection of base-article defects is
 labeled detection, feeds assessment judgment, and can never originate a gate
