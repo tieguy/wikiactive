@@ -469,7 +469,7 @@ async fn session_init(
         "session sessions/{slug} already exists — init would erase its ledger, assessments \
          and draft; remove the directory first to start over"
     );
-    std::fs::create_dir_all(&paths.dir).context("create session dir")?;
+    crate::fsio::create_dir_all(&paths.dir).context("create session dir")?;
 
     // Drift-review default: the operator identity from house rules (single
     // fork-edit point) unless the flag names another user explicitly. A
@@ -510,7 +510,7 @@ async fn session_init(
                     .wikitext_at_revid(article, rs_revid)
                     .await
                     .context("fetch wikitext at review-since revid")?;
-                std::fs::write(paths.dir.join("review-since.wikitext"), &prior)?;
+                crate::fsio::write(paths.dir.join("review-since.wikitext"), &prior)?;
                 drift_note = format!(", drift pin: {user}'s last edit @ {rs_revid}");
                 (Some(rs_revid), Some(user))
             }
@@ -534,9 +534,9 @@ async fn session_init(
         review_since_revid,
         review_since_user,
     };
-    std::fs::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
-    std::fs::write(paths.base(), &wikitext)?;
-    std::fs::write(paths.proposed(), &wikitext)?;
+    crate::fsio::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
+    crate::fsio::write(paths.base(), &wikitext)?;
+    crate::fsio::write(paths.proposed(), &wikitext)?;
     Ledger::default().save(&paths.ledger())?;
     AssessmentsFile::default()
         .save(&paths.assessments())
@@ -590,7 +590,7 @@ fn slugify(title: &str) -> String {
 fn load_session(slug: &str) -> Result<(SessionPaths, SessionMeta)> {
     let paths = SessionPaths::new(slug);
     let meta: SessionMeta = serde_json::from_str(
-        &std::fs::read_to_string(paths.meta())
+        &crate::fsio::read_to_string(paths.meta())
             .with_context(|| format!("session {slug} not initialized"))?,
     )?;
     Ok((paths, meta))
@@ -600,10 +600,10 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let wikitext = std::fs::read_to_string(paths.proposed()).with_context(|| {
+    let wikitext = crate::fsio::read_to_string(paths.proposed()).with_context(|| {
         format!("sessions/{slug}/proposed.wikitext missing; nothing to analyze")
     })?;
-    let base_wikitext = std::fs::read_to_string(paths.base())
+    let base_wikitext = crate::fsio::read_to_string(paths.base())
         .with_context(|| format!("sessions/{slug}/base.wikitext missing"))?;
     let assessments =
         AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -612,14 +612,14 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     // session initialized with --review-since-user diffs against the
     // operator's last-edit wikitext (review-since.wikitext).
     let prior_and_label: Option<(String, String)> = if let Some(path) = prior_base {
-        let prior = std::fs::read_to_string(&path)
+        let prior = crate::fsio::read_to_string(&path)
             .with_context(|| format!("--prior-base {} unreadable", path.display()))?;
         Some((prior, "prior base".to_string()))
     } else {
         let rs_path = paths.dir.join("review-since.wikitext");
         if meta.review_since_revid.is_some() && rs_path.exists() {
-            let prior =
-                std::fs::read_to_string(&rs_path).context("review-since.wikitext unreadable")?;
+            let prior = crate::fsio::read_to_string(&rs_path)
+                .context("review-since.wikitext unreadable")?;
             let user = meta.review_since_user.clone().unwrap_or_default();
             let revid = meta.review_since_revid.unwrap_or_default();
             Some((prior, format!("{user}'s last edit (revid {revid})")))
@@ -638,7 +638,7 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     };
     let bundle = build_context_bundle(&corpus, &article, &assessments.assessments, &ledger)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
-    std::fs::write(paths.dir.join("context.md"), &bundle.text)?;
+    crate::fsio::write(paths.dir.join("context.md"), &bundle.text)?;
     println!("{}", bundle.text);
     Ok(())
 }
@@ -650,7 +650,7 @@ fn assess_add(slug: &str, json_source: &str, checks: crate::session::EntryChecks
         std::io::stdin().read_to_string(&mut buf)?;
         buf
     } else {
-        std::fs::read_to_string(json_source).context("read assessments json")?
+        crate::fsio::read_to_string(json_source).context("read assessments json")?
     };
     let trimmed = raw.trim();
     // Accept a single object or an array.
@@ -772,8 +772,10 @@ fn assess_list(slug: &str) -> Result<()> {
 fn fetch_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let wikitext = match wikitext_path {
-        Some(p) => std::fs::read_to_string(p).with_context(|| format!("read {}", p.display()))?,
-        None => std::fs::read_to_string(paths.base())?,
+        Some(p) => {
+            crate::fsio::read_to_string(p).with_context(|| format!("read {}", p.display()))?
+        }
+        None => crate::fsio::read_to_string(paths.base())?,
     };
     let candidates = crate::sweep::parse_citations(&wikitext);
     let mut ledger = Ledger::load(&paths.ledger())?;
@@ -961,15 +963,18 @@ async fn render_round(
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let base_wikitext = std::fs::read_to_string(paths.base())?;
-    let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
+    let base_wikitext = crate::fsio::read_to_string(paths.base())?;
+    let proposed_wikitext = crate::fsio::read_to_string(paths.proposed())?;
     let assessments =
         AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
 
     // HTML sides: offline fixtures when provided; otherwise live Parsoid.
     let (base_html, proposed_html) = match (html_base, html_proposed) {
-        (Some(b), Some(p)) => (std::fs::read_to_string(b)?, std::fs::read_to_string(p)?),
+        (Some(b), Some(p)) => (
+            crate::fsio::read_to_string(b)?,
+            crate::fsio::read_to_string(p)?,
+        ),
         (None, None) => {
             let client =
                 parsoid::Client::new("https://en.wikipedia.org/w/rest.php", crate::USER_AGENT)
@@ -1006,7 +1011,7 @@ async fn render_round(
     })
     .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-    std::fs::write(paths.review_html(), &output.artifact_html)?;
+    crate::fsio::write(paths.review_html(), &output.artifact_html)?;
     // Back-filled rendered_span_ids persist.
     let mut updated = assessments;
     updated.assessments = output.updated_assessments;
@@ -1025,7 +1030,7 @@ async fn render_round(
 }
 
 fn read_registry(review_html: &std::path::Path) -> Vec<crate::render::RevisionEntry> {
-    let Ok(html) = std::fs::read_to_string(review_html) else {
+    let Ok(html) = crate::fsio::read_to_string(review_html) else {
         return Vec::new();
     };
     let Some(i) = html.find("data-lavish-revisions") else {
@@ -1071,12 +1076,8 @@ fn archive_assessments(paths: &SessionPaths, diff_url: &str) -> Result<()> {
 }
 
 fn append_round(paths: &SessionPaths, entry: &RoundEntry) -> Result<()> {
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(paths.rounds())?;
-    writeln!(file, "{}", serde_json::to_string(entry)?)?;
-    Ok(())
+    crate::fsio::append_line(paths.rounds(), &serde_json::to_string(entry)?)
+        .map_err(anyhow::Error::from)
 }
 
 /// `wa comments list` — the queue, open first.
@@ -1200,8 +1201,8 @@ pub async fn publish_core(
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let base_wikitext = std::fs::read_to_string(paths.base())?;
-    let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
+    let base_wikitext = crate::fsio::read_to_string(paths.base())?;
+    let proposed_wikitext = crate::fsio::read_to_string(paths.proposed())?;
     let assessments =
         AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
@@ -1272,8 +1273,8 @@ pub async fn publish_core(
     if let Some(diff) = published_diff.first() {
         meta.last_published_diff_url = Some(diff.clone());
     }
-    std::fs::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
-    std::fs::write(paths.base(), &proposed_wikitext)?;
+    crate::fsio::write(paths.meta(), serde_json::to_string_pretty(&meta)?)?;
+    crate::fsio::write(paths.base(), &proposed_wikitext)?;
     // Read-back (rule-enforcement item 1): compare what the wiki recorded
     // with what this path intended. The edit is already live, so a
     // mismatch warns and records — it can never turn the publish into an
@@ -1350,7 +1351,7 @@ pub async fn publish_core(
     // confirming covers this). One entry per article session, growing with
     // each published diff.
     if outcome.created_revision() {
-        let diffs: Vec<String> = std::fs::read_to_string(paths.rounds())
+        let diffs: Vec<String> = crate::fsio::read_to_string(paths.rounds())
             .map(|text| {
                 text.lines()
                     .filter_map(|line| serde_json::from_str::<RoundEntry>(line).ok())
@@ -1435,7 +1436,7 @@ async fn diagnosis_pass(slug: &str, zai: &crate::driver::model::ZaiClient) -> Re
     let (paths, meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let artifact = std::fs::read_to_string(paths.review_html())
+    let artifact = crate::fsio::read_to_string(paths.review_html())
         .context("no review artifact — render first")?;
     // Only the CURRENT artifact: a stale anchor table must not be
     // reviewed (same refusal as the serve path).
@@ -1446,8 +1447,8 @@ async fn diagnosis_pass(slug: &str, zai: &crate::driver::model::ZaiClient) -> Re
         }
         None => anyhow::bail!("no current review artifact — render first"),
     };
-    let base = std::fs::read_to_string(paths.base())?;
-    let proposed = std::fs::read_to_string(paths.proposed())?;
+    let base = crate::fsio::read_to_string(paths.base())?;
+    let proposed = crate::fsio::read_to_string(paths.proposed())?;
     let ledger = Ledger::load(&paths.ledger())?;
     let blocks = crate::serve::rule_review_blocks(&artifact, &base, &proposed, &ledger);
     anyhow::ensure!(!blocks.is_empty(), "no changed blocks to review");
@@ -1480,7 +1481,7 @@ async fn diagnosis_pass(slug: &str, zai: &crate::driver::model::ZaiClient) -> Re
             })
             .collect::<Vec<_>>(),
     });
-    std::fs::write(paths.rule_review(), serde_json::to_string_pretty(&file)?)?;
+    crate::fsio::write(paths.rule_review(), serde_json::to_string_pretty(&file)?)?;
     if stored.is_empty() {
         println!("rule review: no concerns raised");
     } else {
@@ -1600,7 +1601,7 @@ pub fn ledger_attach(slug: &str, source: &str, file: &str) -> Result<()> {
         std::io::stdin().read_to_string(&mut buf)?;
         buf
     } else {
-        std::fs::read_to_string(file).with_context(|| format!("--file {file} unreadable"))?
+        crate::fsio::read_to_string(file).with_context(|| format!("--file {file} unreadable"))?
     };
     anyhow::ensure!(!text.trim().is_empty(), "attached capture is empty");
     let (extracted, format) = Ledger::text_from_capture(file, &text);
@@ -1825,8 +1826,8 @@ fn gate_preflight(slug: &str) -> Result<()> {
     let (paths, _meta) = load_session(slug)?;
     let corpus =
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let base_wikitext = std::fs::read_to_string(paths.base())?;
-    let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
+    let base_wikitext = crate::fsio::read_to_string(paths.base())?;
+    let proposed_wikitext = crate::fsio::read_to_string(paths.proposed())?;
     let assessments =
         AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
@@ -1881,7 +1882,7 @@ fn gate_preflight(slug: &str) -> Result<()> {
 }
 
 fn lint_cmd(path: &std::path::Path) -> Result<()> {
-    let text = std::fs::read_to_string(path)?;
+    let text = crate::fsio::read_to_string(path)?;
     let config = LinterConfig::load(std::path::Path::new("rules/linter.toml"))?;
     let lint_hits = linter::scan_whole_page(&text, &config);
     if lint_hits.is_empty() {

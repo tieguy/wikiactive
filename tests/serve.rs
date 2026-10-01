@@ -63,7 +63,7 @@ fn setup_session(resolve_sweep: bool) -> PathBuf {
     // Gate-clean proposal: identical base and proposed, no findings.
     std::fs::write(session.join("base.wikitext"), "The tower is old.\n").unwrap();
     std::fs::write(session.join("proposed.wikitext"), "The tower is old.\n").unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(4));
+    mtime_gap();
     std::fs::write(
         session.join("context.md"),
         "# wa analyze — context bundle\n",
@@ -154,6 +154,46 @@ async fn poll_page_contains(
     None
 }
 
+/// Run `wa <args>` in `dir` synchronously (tests: the subprocess IS the
+/// work under test; blocking on it is the point).
+fn run_wa(dir: &Path, args: &[&str]) -> std::process::Output {
+    std::process::Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .expect("wa runs")
+}
+
+/// A wall-clock gap so filesystem mtimes order strictly (nanosecond
+/// resolution makes a few milliseconds sufficient).
+fn mtime_gap() {
+    std::thread::sleep(Duration::from_millis(4));
+}
+
+/// Stop a spawned `wa serve` child and reap it (blocking by design —
+/// the test is finished with the process).
+fn reap_child(child: &mut Child) {
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Bounded-poll a tee'd serve log until it carries `needle` (the drain
+/// thread writes per-line asynchronously; asserting on a possibly
+/// undrained log is a flake). Synchronous by design — the file IS the
+/// thing under observation.
+fn poll_log_for(log_path: &Path, needle: &str) -> String {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    let mut stdout = String::new();
+    while std::time::Instant::now() < deadline {
+        stdout = std::fs::read_to_string(log_path).unwrap_or_default();
+        if stdout.contains(needle) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    stdout
+}
+
 #[tokio::test]
 async fn console_and_manifest_routes_render_on_loopback() {
     let dir = setup_session(false);
@@ -188,7 +228,7 @@ async fn console_and_manifest_routes_render_on_loopback() {
         .unwrap();
     assert!(pendings.contains("No publish is waiting"), "{pendings}");
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -223,7 +263,7 @@ async fn web_dispose_records_the_operator_disposition() {
     let ledger = std::fs::read_to_string(dir.join("sessions/test-article/ledger.json")).unwrap();
     assert!(ledger.contains("attested-unreachable"), "{ledger}");
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -347,16 +387,7 @@ async fn publish_requires_the_explicit_web_confirmation() {
     // the saved revision. The drain thread writes per-line asynchronously,
     // so bounded-poll for the line before asserting on the file (review
     // finding: asserting on a possibly-undrained log is a flake).
-    let log_path = dir.join("serve-stdout.log");
-    let mut stdout = String::new();
-    let deadline = std::time::Instant::now() + Duration::from_secs(5);
-    while std::time::Instant::now() < deadline {
-        stdout = std::fs::read_to_string(&log_path).unwrap_or_default();
-        if stdout.contains("check it: ") {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
+    let stdout = poll_log_for(&dir.join("serve-stdout.log"), "check it: ");
     assert!(
         stdout.contains("check it: http"),
         "plain permalink in the web log: {stdout}"
@@ -366,7 +397,7 @@ async fn publish_requires_the_explicit_web_confirmation() {
         "no escape sequences in the web serve log: {stdout}"
     );
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -427,7 +458,7 @@ async fn declined_confirmation_never_edits() {
     let meta = std::fs::read_to_string(dir.join("sessions/test-article/session.json")).unwrap();
     assert!(meta.contains("\"base_revid\":500"), "no re-pin: {meta}");
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -482,7 +513,7 @@ async fn driver_findings_endpoint_runs_the_model_and_admits_findings() {
     assert_eq!(f1["id"], "AS1", "{findings}");
     assert_eq!(f1["evidence"][0], "Q1", "{findings}");
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -581,8 +612,7 @@ async fn lint_warnings_show_on_the_review_page_without_blocking() {
         page.contains("MOS:TENSE proxy"),
         "config description shown: {page}"
     );
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
 }
 
 /// loopmech.AC6.4 — the Audit action's LLM diagnosis toggle: one POST
@@ -672,8 +702,7 @@ async fn audit_llm_toggle_renders_and_diagnoses_without_staling() {
         "rule-reviewed must not stale the artifact: {page}"
     );
     assert!(page.contains("Comment"), "comment forms still live: {page}");
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -723,8 +752,7 @@ async fn missing_card_fails_the_handler_without_a_model_call() {
         page.contains("rs-tiers") && page.contains("missing"),
         "the outcome names the missing card: {page}"
     );
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -769,8 +797,7 @@ async fn rule_review_result_from_an_earlier_round_is_labelled() {
         !page.contains("/driver/rule-review"),
         "no standalone rule-review control anymore: {page}"
     );
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1023,7 +1050,7 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
     )
     .unwrap();
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1206,7 +1233,7 @@ async fn driver_resolve_merges_pair_sides_into_one_call_and_splices_both_groups(
         "{last_run}"
     );
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1322,7 +1349,7 @@ async fn driver_resolve_splices_three_groups_in_one_pass() {
     let last_run = std::fs::read_to_string(session.join("last-run.txt")).unwrap();
     assert!(last_run.contains("3 comment(s) resolved"), "{last_run}");
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1439,7 +1466,7 @@ async fn misaligned_deletion_group_surfaces_error_and_stays_open() {
         "no blind splice"
     );
 
-    let _ = child.kill();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1479,8 +1506,7 @@ async fn session_page_shows_assess_and_audit_controls() {
         !page.contains("Write findings") && !page.contains("Render review"),
         "retired labels are gone: {page}"
     );
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1509,8 +1535,7 @@ async fn audit_without_the_toggle_makes_no_model_call() {
         !session.join("rule-review.json").exists(),
         "no diagnosis pass without the toggle"
     );
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1537,8 +1562,7 @@ async fn retired_serve_routes_are_gone() {
             .unwrap();
         assert_eq!(resp.status().as_u16(), 404, "{path} must be gone");
     }
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1582,8 +1606,7 @@ async fn audit_llm_on_without_an_endpoint_renders_and_records_the_skip() {
         !session.join("rule-review.json").exists(),
         "no stored concerns from a failed pass"
     );
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1607,8 +1630,7 @@ async fn config_off_fork_unchecks_the_toggle() {
         "config off => unchecked: {page}"
     );
     assert!(page.contains("name=llm"), "the toggle still exists: {page}");
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1665,8 +1687,7 @@ async fn driver_assess_unknown_quote_is_refused_visibly() {
     );
     let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
     assert_eq!(persisted, r#"{"assessments":[]}"#, "nothing saved");
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1686,7 +1707,7 @@ async fn driver_assess_refuses_stale_analyze_with_the_cli_message() {
     )
     .unwrap();
     // Stale: proposed rewritten AFTER the analyze bundle.
-    std::thread::sleep(std::time::Duration::from_millis(4));
+    mtime_gap();
     std::fs::write(session.join("proposed.wikitext"), "The tower is ancient.\n").unwrap();
     let zai = MockServer::start_async().await;
     zai.mock_async(|when, then| {
@@ -1724,8 +1745,7 @@ async fn driver_assess_refuses_stale_analyze_with_the_cli_message() {
     );
     let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
     assert_eq!(persisted, r#"{"assessments":[]}"#);
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -1745,7 +1765,7 @@ async fn both_assess_surfaces_refuse_the_same_batch_identically() {
     )
     .unwrap();
     // Stale: proposed rewritten AFTER the analyze bundle.
-    std::thread::sleep(std::time::Duration::from_millis(4));
+    mtime_gap();
     std::fs::write(session.join("proposed.wikitext"), "The tower is ancient.\n").unwrap();
     let batch = r#"[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C19","rules":["WP:V"],"evidence":["Q1"],"factual_note":"n.","proposed_fix":"f.","loop":2}]"#;
     let refusal = "context.md (the analyze bundle) is stale — older than proposed.wikitext's last modification";
@@ -1782,22 +1802,20 @@ async fn both_assess_surfaces_refuse_the_same_batch_identically() {
         .await
         .unwrap();
     assert!(page.contains(refusal), "serve refusal verbatim: {page}");
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
 
     // Surface 2: the CLI, the SAME batch on the SAME fixture.
     let batch_path = dir.join("batch.json");
     std::fs::write(&batch_path, batch).unwrap();
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_wa"))
-        .current_dir(&dir)
-        .args([
+    let out = run_wa(
+        &dir,
+        &[
             "assess",
             "add",
             "test-article",
             batch_path.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
+        ],
+    );
     assert!(!out.status.success());
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains(refusal), "CLI refusal identical: {stderr}");
@@ -1864,7 +1882,6 @@ async fn driver_assess_unresolved_fetch_points_at_the_affordances() {
     );
     let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
     assert_eq!(persisted, r#"{"assessments":[]}"#);
-    let _ = child.kill();
-    let _ = child.wait();
+    reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }

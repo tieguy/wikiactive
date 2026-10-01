@@ -142,7 +142,7 @@ impl ServeState {
         *runs.entry(slug.to_string()).or_default() += 1;
         // Persist too: a failed publish's error must be diagnosable from
         // the session directory, not only from the live server's memory.
-        let _ = std::fs::write(session_dir(slug).join("last-run.txt"), outcome);
+        let _ = crate::fsio::write(session_dir(slug).join("last-run.txt"), outcome);
     }
 
     fn run_count(&self, slug: &str) -> u64 {
@@ -243,7 +243,7 @@ fn session_dir(slug: &str) -> std::path::PathBuf {
 }
 
 fn read_meta(slug: &str) -> Option<SessionMeta> {
-    let text = std::fs::read_to_string(session_dir(slug).join("session.json")).ok()?;
+    let text = crate::fsio::read_to_string(session_dir(slug).join("session.json")).ok()?;
     serde_json::from_str(&text).ok()
 }
 
@@ -674,8 +674,8 @@ fn sources_section(slug: &str, ledger: &Ledger) -> String {
 fn draft_section(slug: &str, dir: &std::path::Path) -> String {
     let assessments = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
         .map_or(0, |f| f.assessments.len());
-    let base = std::fs::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
-    let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
+    let base = crate::fsio::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
+    let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
     let staged = !proposed.trim().is_empty() && proposed != base;
     format!(
         "<h2>Draft</h2>\n<p>{} {}</p>\n<div class=\"row\">\
@@ -794,7 +794,7 @@ async fn review_artifact(
 ) -> axum::response::Response {
     let path = session_dir(&slug).join("review.html");
     let artifact = known_session(&slug)
-        .then(|| std::fs::read_to_string(&path).ok())
+        .then(|| crate::fsio::read_to_string(&path).ok())
         .flatten();
     match artifact {
         Some(html) => Html(inject_comment_ui(
@@ -889,11 +889,12 @@ pub(crate) fn next_round(state: Option<&ArtifactState>) -> u32 {
 
 pub(crate) fn artifact_state(dir: &std::path::Path) -> Option<ArtifactState> {
     // The render under discussion is the LAST `rendered` round entry.
-    let rounds: Vec<crate::session::RoundEntry> = std::fs::read_to_string(dir.join("rounds.jsonl"))
-        .ok()?
-        .lines()
-        .filter_map(|l| serde_json::from_str(l).ok())
-        .collect();
+    let rounds: Vec<crate::session::RoundEntry> =
+        crate::fsio::read_to_string(dir.join("rounds.jsonl"))
+            .ok()?
+            .lines()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .collect();
     let render_idx = rounds.iter().rposition(|e| e.phase == "rendered")?;
     let round = rounds[render_idx].round;
     // Anything the loop did AFTER that render makes the artifact history.
@@ -1515,10 +1516,10 @@ async fn attach(
     }
     let dir = session_dir(&slug);
     let tmp = dir.join("attach-upload.txt");
-    let attached = std::fs::write(&tmp, &form.text)
+    let attached = crate::fsio::write(&tmp, &form.text)
         .map_err(anyhow::Error::from)
         .and_then(|()| crate::cli::ledger_attach(&slug, &form.source, &tmp.to_string_lossy()));
-    let _ = std::fs::remove_file(&tmp);
+    let _ = crate::fsio::remove_file(&tmp);
     state.note_outcome(
         &slug,
         &match attached {
@@ -1557,7 +1558,7 @@ async fn driver_assess(
 fn loop_guidance(dir: &std::path::Path, action: &str) -> Result<String, String> {
     let corpus = crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
         .map_err(|e| format!("{action}: rules corpus failed to load: {e}"))?;
-    let meta = std::fs::read_to_string(dir.join("session.json"))
+    let meta = crate::fsio::read_to_string(dir.join("session.json"))
         .ok()
         .and_then(|t| serde_json::from_str::<SessionMeta>(&t).ok())
         .ok_or_else(|| format!("{action}: no session meta"))?;
@@ -1573,9 +1574,9 @@ fn loop_guidance(dir: &std::path::Path, action: &str) -> Result<String, String> 
 fn review_lint_warnings(
     dir: &std::path::Path,
 ) -> Vec<(crate::checks::linter::LintFinding, String)> {
-    std::fs::read_to_string(dir.join("base.wikitext"))
+    crate::fsio::read_to_string(dir.join("base.wikitext"))
         .ok()
-        .zip(std::fs::read_to_string(dir.join("proposed.wikitext")).ok())
+        .zip(crate::fsio::read_to_string(dir.join("proposed.wikitext")).ok())
         .and_then(|(base, proposed)| {
             crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
                 .ok()
@@ -1721,7 +1722,7 @@ fn rule_review_display(
     dir: &std::path::Path,
     current_round: Option<u32>,
 ) -> (std::collections::HashMap<String, String>, String) {
-    let file: Option<RuleReviewFile> = std::fs::read_to_string(dir.join("rule-review.json"))
+    let file: Option<RuleReviewFile> = crate::fsio::read_to_string(dir.join("rule-review.json"))
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok());
     let mut html = std::collections::HashMap::new();
@@ -1759,11 +1760,11 @@ async fn run_driver_assess(state: &Arc<ServeState>, slug: &str) -> String {
     let Ok(ledger) = Ledger::load(&dir.join("ledger.json")) else {
         return "driver assess: no ledger".into();
     };
-    let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
+    let Ok(base) = crate::fsio::read_to_string(dir.join("base.wikitext")) else {
         return "driver assess: no base wikitext".into();
     };
     let Ok(meta) = serde_json::from_str::<SessionMeta>(
-        &std::fs::read_to_string(dir.join("session.json")).unwrap_or_default(),
+        &crate::fsio::read_to_string(dir.join("session.json")).unwrap_or_default(),
     ) else {
         return "driver assess: no session meta".into();
     };
@@ -1898,7 +1899,7 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
     let Some(finding) = file.assessments.first() else {
         return "driver propose: no findings".into();
     };
-    let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
+    let Ok(base) = crate::fsio::read_to_string(dir.join("base.wikitext")) else {
         return "driver propose: no base wikitext".into();
     };
     // The named refs on the page (offer them to the model).
@@ -1957,7 +1958,7 @@ async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
                 &base,
                 &[(start, end, proposal.proposed_wikitext_block.clone(), false)],
             );
-            match std::fs::write(dir.join("proposed.wikitext"), proposed) {
+            match crate::fsio::write(dir.join("proposed.wikitext"), proposed) {
                 Ok(()) => format!(
                     "driver propose: block drafted ({}); render it, then review + publish",
                     proposal.edit_summary
@@ -2037,13 +2038,13 @@ fn slice_lines(lines: &[&str], s: usize, e: usize) -> Option<String> {
 #[allow(clippy::too_many_lines)]
 async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
     let dir = session_dir(slug);
-    let Ok(artifact) = std::fs::read_to_string(dir.join("review.html")) else {
+    let Ok(artifact) = crate::fsio::read_to_string(dir.join("review.html")) else {
         return "driver resolve: no review artifact — render first".into();
     };
-    let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
+    let Ok(base) = crate::fsio::read_to_string(dir.join("base.wikitext")) else {
         return "driver resolve: no base wikitext".into();
     };
-    let Ok(mut proposed) = std::fs::read_to_string(dir.join("proposed.wikitext")) else {
+    let Ok(mut proposed) = crate::fsio::read_to_string(dir.join("proposed.wikitext")) else {
         return "driver resolve: no proposed wikitext".into();
     };
     let mut queue = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
@@ -2103,7 +2104,7 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
     // Apply splices (one per group) and persist.
     if !outcome.splices.is_empty() {
         proposed = apply_splices(&proposed, &outcome.splices);
-        if let Err(e) = std::fs::write(dir.join("proposed.wikitext"), &proposed) {
+        if let Err(e) = crate::fsio::write(dir.join("proposed.wikitext"), &proposed) {
             return format!(
                 "driver resolve: comments resolved but the proposed.wikitext write failed: {e}"
             );
@@ -2120,12 +2121,10 @@ async fn run_driver_resolve(state: &Arc<ServeState>, slug: &str) -> String {
             detail: outcome.resolved_ids.clone(),
         };
         if let Ok(json) = serde_json::to_string(&entry)
-            && let Ok(mut file) = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(dir.join("rounds.jsonl"))
+            && crate::fsio::append_line(dir.join("rounds.jsonl"), &json).is_ok()
         {
-            let _ = writeln!(file, "{json}");
+            // Appended (the failure path is tolerated: the queue's own
+            // records carry the resolution).
         }
     }
 
@@ -2567,7 +2566,7 @@ async fn run_publish(state: &Arc<ServeState>, slug: &str, summary: &str) -> Stri
     // The gate's report belongs in the web client, not the server
     // terminal (B.6 operator catch). Run it first, visibly; publish_core
     // re-runs it identically as its own invariant.
-    let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
+    let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
     if proposed.trim().is_empty() {
         return "publish not started: proposed.wikitext is empty — stage an edit first \
                 (driver: draft proposal, or edit the file)"
@@ -2616,8 +2615,8 @@ fn gate_report(slug: &str) -> Option<String> {
     use crate::checks::gate::run_gate;
     let dir = session_dir(slug);
     let corpus = crate::rules::RulesCorpus::load(std::path::Path::new("rules")).ok()?;
-    let base = std::fs::read_to_string(dir.join("base.wikitext")).ok()?;
-    let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).ok()?;
+    let base = crate::fsio::read_to_string(dir.join("base.wikitext")).ok()?;
+    let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).ok()?;
     let findings = crate::session::AssessmentsFile::load(&dir.join("assessments.json")).ok()?;
     let ledger = Ledger::load(&dir.join("ledger.json")).ok()?;
     let verdict = run_gate(&GateInput {
@@ -2797,7 +2796,6 @@ pub async fn run(port: u16, tsnet: bool) -> anyhow::Result<()> {
 }
 
 use std::fmt::Write as _;
-use std::io::Write as _;
 
 #[cfg(test)]
 mod tests {

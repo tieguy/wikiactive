@@ -155,10 +155,10 @@ impl RulesCorpus {
         for entry in entries {
             let entry = entry.map_err(|e| format!("reading rules/cards entry: {e}"))?;
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("md") {
+            if path.extension().and_then(std::ffi::OsStr::to_str) == Some("md") {
                 let slug = path
                     .file_stem()
-                    .and_then(|s| s.to_str())
+                    .and_then(std::ffi::OsStr::to_str)
                     .ok_or("non-utf8 card filename")?
                     .to_string();
                 let body = std::fs::read_to_string(&path)

@@ -56,7 +56,7 @@ impl ShortcutIndex {
             }
             let page = path
                 .file_stem()
-                .and_then(|s| s.to_str())
+                .and_then(std::ffi::OsStr::to_str)
                 .unwrap_or_default()
                 .to_string();
             let Ok(text) = std::fs::read_to_string(&path) else {
