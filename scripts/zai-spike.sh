@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# B.0 — z.ai contract spike (plan-003).
+# B.0 — z.ai contract spike (plan-003; loop-mechanization Phase 1 renamed
+# the findings step to assess).
 #
 # Captures request/response fixtures for the two model judgment points
-# (findings authoring, proposal drafting) into fixtures/zai/, plus response
-# headers (rate-limit fields) and HTTP status. Run with the key in the
-# environment only — it is never written anywhere by this script
-# (only RESPONSE headers are saved; the Authorization header is request-side).
+# (assessment authoring, proposal drafting) into fixtures/zai/, plus
+# response headers (rate-limit fields) and HTTP status. Run with the key
+# in the environment only — it is never written anywhere by this script
+# (only RESPONSE headers are saved; the Authorization header is
+# request-side).
 #
 #   export ZAI_API_KEY=...
 #   ./scripts/zai-spike.sh
@@ -25,33 +27,33 @@ mkdir -p "$OUT"
 
 echo "endpoint: $BASE  model: $MODEL" | tee "$OUT/endpoint.txt"
 
-# --- findings-authoring-shaped request -------------------------------------
-cat > "$OUT/findings.request.json" <<'JSON'
+# --- assessment-authoring-shaped request ------------------------------------
+cat > "$OUT/assess.request.json" <<'JSON'
 {
   "model": "MODEL_PLACEHOLDER",
   "messages": [
-    {"role": "system", "content": "You author Wikipedia improvement findings. Given article context and fetched source text, output a JSON array of findings: {id, wikitext_anchor, rules, evidence, factual_note, proposed_fix, loop}. Every factual note must quote-anchor to the provided source text verbatim. Output JSON only."},
-    {"role": "user", "content": "Article: Sarah Kidder (en.wikipedia). Base wikitext (Personal life section): \"Born Sarah A. Clark in Ohio{{Citation needed|date=April 2019}}, Kidder married [[civil engineer]] [[John Flint Kidder]] in 1870.\"\n\nSource S2 (San Francisco Call obituary, 1901-04-11, operator-captured text): \"Mr. Ki3u«sr was married In ; 1874 ' to Miss S. lA; Clark, a native of Ohio.\"\n\nEntry loop: 2 (mine existing sources). Author findings for this section."}
+    {"role": "system", "content": "You author Wikipedia improvement assessments. Given article context and fetched source text, output a JSON array of assessments: {id (AS<number>), wikitext_anchor, rules, evidence, factual_note, proposed_fix, loop}. Every factual note must quote-anchor to the provided source text verbatim. Output JSON only."},
+    {"role": "user", "content": "Article: Sarah Kidder (en.wikipedia). Base wikitext (Personal life section): \"Born Sarah A. Clark in Ohio{{Citation needed|date=April 2019}}, Kidder married [[civil engineer]] [[John Flint Kidder]] in 1870.\"\n\nSource S2 (San Francisco Call obituary, 1901-04-11, operator-captured text): \"Mr. Ki3u«sr was married In ; 1874 ' to Miss S. lA; Clark, a native of Ohio.\"\n\nEntry loop: 2 (mine existing sources). Author assessments for this section."}
   ],
   "temperature": 0.2
 }
 JSON
-sed -i "s/MODEL_PLACEHOLDER/$MODEL/" "$OUT/findings.request.json"
+sed -i "s/MODEL_PLACEHOLDER/$MODEL/" "$OUT/assess.request.json"
 
 # --- proposal-drafting-shaped request ---------------------------------------
 cat > "$OUT/propose.request.json" <<'JSON'
 {
   "model": "MODEL_PLACEHOLDER",
   "messages": [
-    {"role": "system", "content": "You draft one scoped Wikipedia edit from an approved finding. Output JSON: {proposed_wikitext_block, edit_summary}. Change only what the finding scopes; reuse the article's existing sentence structure and citation style. Output JSON only."},
-    {"role": "user", "content": "Finding F3 (loop 2): restore the marriage year to 1874 cited to the existing sfcall ref; remove the Ohio {{Citation needed}} (same source); add an {{efn}} recording True West's 1870 with a {{notelist}}. Base wikitext line: \"Born Sarah A. Clark in Ohio{{Citation needed|date=April 2019}}, Kidder married [[civil engineer]] [[John Flint Kidder]] in 1870.<ref name=\\\"truewestmagazine\\\" />\". Available named refs: sfcall, truewestmagazine."}
+    {"role": "system", "content": "You draft one scoped Wikipedia edit from an approved assessment. Output JSON: {proposed_wikitext_block, edit_summary}. Change only what the assessment scopes; reuse the article's existing sentence structure and citation style. Output JSON only."},
+    {"role": "user", "content": "Assessment AS3 (loop 2): restore the marriage year to 1874 cited to the existing sfcall ref; remove the Ohio {{Citation needed}} (same source); add an {{efn}} recording True West's 1870 with a {{notelist}}. Base wikitext line: \"Born Sarah A. Clark in Ohio{{Citation needed|date=April 2019}}, Kidder married [[civil engineer]] [[John Flint Kidder]] in 1870.<ref name=\\\"truewestmagazine\\\" />\". Available named refs: sfcall, truewestmagazine."}
   ],
   "temperature": 0.2
 }
 JSON
 sed -i "s/MODEL_PLACEHOLDER/$MODEL/" "$OUT/propose.request.json"
 
-for name in findings propose; do
+for name in assess propose; do
   echo "--- $name ---"
   curl -sS -m 120 -A "$UA" \
     -D "$OUT/$name.response.headers" \

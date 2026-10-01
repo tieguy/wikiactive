@@ -1,4 +1,4 @@
-# z.ai contract fixtures (B.0 spike, 2026-09-29)
+# z.ai contract fixtures (B.0 spike, 2026-09-29; refreshed 2026-09-30)
 
 Captured live by `scripts/zai-spike.sh` (run with `ZAI_API_KEY` in the
 environment; the key appears nowhere in these files — only response
@@ -9,7 +9,7 @@ headers/bodies are saved, with `set-cookie` redacted).
 The operator's key is a **Coding-Plan key**:
 
 - `https://api.z.ai/api/coding/paas/v4/chat/completions` → **200**, real
-  completions (`findings.response.json`, `propose.response.json`).
+  completions (`assess.response.json`, `propose.response.json`).
 - `https://api.z.ai/api/paas/v4/chat/completions` (standard) → **429**
   `{"error":{"code":"1113","message":"Insufficient balance or no resource
   package. Please recharge."}}`
@@ -41,11 +41,14 @@ this operator exports `ZAI_BASE_URL=https://api.z.ai/api/coding/paas/v4`
 
 ## Files
 
-- `findings.request.json` / `propose.request.json` — the two judgment
-  points' request shapes (temperature 0.2; system+user messages).
-- `findings.response.json` — fenced-JSON findings output, `usage` 3071.
+- `assess.request.json` / `propose.request.json` — the two judgment
+  points' request shapes (temperature 0.2; system+user messages). The
+  assess pair was refreshed 2026-09-30 for the loop-mechanization rename
+  (findings → assessments, `AS<n>` ids); the capture shows the model
+  following the AS schema.
+- `assess.response.json` — the assessment step's output, `AS<n>` ids.
 - `propose.response.json` — raw-JSON proposal output, `reasoning_content`
-  populated, `content` parses after fence-strip.
+  populated.
 - `standard-endpoint.response.json` — the 1113 rejection.
 - `*.response.headers` — response headers (set-cookie redacted).
 - `endpoint.txt` — the base URL the successful capture used.

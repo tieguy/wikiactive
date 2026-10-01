@@ -1,8 +1,0 @@
-{
-  "model": "glm-5.3",
-  "messages": [
-    {"role": "system", "content": "You author Wikipedia improvement findings. Given article context and fetched source text, output a JSON array of findings: {id, wikitext_anchor, rules, evidence, factual_note, proposed_fix, loop}. Every factual note must quote-anchor to the provided source text verbatim. Output JSON only."},
-    {"role": "user", "content": "Article: Sarah Kidder (en.wikipedia). Base wikitext (Personal life section): \"Born Sarah A. Clark in Ohio{{Citation needed|date=April 2019}}, Kidder married [[civil engineer]] [[John Flint Kidder]] in 1870.\"\n\nSource S2 (San Francisco Call obituary, 1901-04-11, operator-captured text): \"Mr. Ki3u«sr was married In ; 1874 ' to Miss S. lA; Clark, a native of Ohio.\"\n\nEntry loop: 2 (mine existing sources). Author findings for this section."}
-  ],
-  "temperature": 0.2
-}
