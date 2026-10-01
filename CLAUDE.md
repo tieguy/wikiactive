@@ -18,10 +18,9 @@ changes and audited, never runtime reading. Read
 
 ## Working rules
 
-- **Load the `wikimedia-api` skill before writing code that calls a
-  Wikimedia host.** The User-Agent must identify the operator — it is
-  hardcoded once in `src/lib.rs::USER_AGENT` and asserted by tests; a fork
-  edits that constant (and `rules/house-rules.toml`), nowhere else.
+- The User-Agent is hardcoded once in `src/lib.rs::USER_AGENT` and
+  asserted by tests; a fork edits that constant (and
+  `rules/house-rules.toml`), nowhere else.
 - Etiquette is product-internalized (AC.13): UA, `maxlag=5`, `assert=user`,
   Retry-After backoff — codified in `docs/api-etiquette.md`, enforced in
   `src/wikipedia.rs` / `src/ledger/net.rs`, pinned by
@@ -33,6 +32,10 @@ changes and audited, never runtime reading. Read
   headers — keep them.
 - Toolchain: edition 2024, rust-version 1.96, `warnings=deny`,
   clippy pedantic denied. `cargo fmt` before every commit.
+- SonarQube gate: `sonar analyze secrets` over changed files before
+  committing; after push CI analyzes the branch — read `sonar list issues
+  -p tieguy_wikiactive --new-code --format toon` on the next gate pass.
+  BLOCKER/HIGH findings are must-fix before work counts as done.
 - License: GPL-3.0-only (SP42 copy-make it so; see LICENSE and the design
   plan's license note).
 - lavish-axi is pinned at 0.1.78 for the retired tty path (`wa render`/
