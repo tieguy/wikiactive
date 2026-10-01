@@ -220,7 +220,7 @@ fn write_ledger_with_sweep(dir: &Path, status: &str) {
 
 /// A swept session with an unresolved source blocks at `wa check` with a
 /// `SweepSourceUnresolved` reason naming source and status, grouped as
-/// anchor work; the operator's `wa sweep dispose` unblocks.
+/// anchor work; the operator's `wa fetch dispose` unblocks.
 #[test]
 fn sweep_unresolved_blocks_check_and_dispose_unblocks() {
     let dir = setup_session(
@@ -242,14 +242,14 @@ fn sweep_unresolved_blocks_check_and_dispose_unblocks() {
         "grouped as anchor work: {stdout}"
     );
     assert!(
-        stdout.contains("wa sweep dispose"),
+        stdout.contains("wa fetch dispose"),
         "the reason says how to resolve: {stdout}"
     );
 
     let out = wa_args(
         &dir,
         &[
-            "sweep",
+            "fetch",
             "dispose",
             "test-article",
             "--source",

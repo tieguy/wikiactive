@@ -140,11 +140,27 @@ pub enum Command {
         #[arg(long)]
         marker: String,
     },
-    /// Source sweep (plan-003 B.3): fetch-or-dispose every cited source
-    /// before textual analysis.
-    Sweep {
+    /// Fetch stage (renamed from sweep): inventory the base wikitext's
+    /// citation apparatus and batch-fetch in one invocation; sources the
+    /// fetch cannot resolve are closed by operator capture
+    /// (`wa ledger attach`) or a signed disposition.
+    #[command(subcommand_precedence_over_arg = true)]
+    Fetch {
+        /// Session slug (required unless a subcommand is given).
+        slug: Option<String>,
+        /// Offline/tests: parse this wikitext file instead of the
+        /// session's base (the inventory leg's fixture hook).
+        #[arg(long)]
+        wikitext: Option<PathBuf>,
         #[command(subcommand)]
-        cmd: SweepCmd,
+        cmd: Option<FetchCmd>,
+    },
+    /// Retired name (loop-mechanization Phase 1): the fetch stage. Always
+    /// fails with a pointer; never dispatches.
+    #[command(hide = true)]
+    Sweep {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _rest: Vec<String>,
     },
     /// Local web console (plan-003 B.4): session console, sweep manifest,
     /// publish confirmation. Loopback-only bind by default; `--tsnet`
@@ -181,22 +197,9 @@ pub enum SessionCmd {
 }
 
 #[derive(Subcommand)]
-pub enum SweepCmd {
-    /// Inventory the base wikitext's citation apparatus into ledger
-    /// candidates (pending). URL-less books/ISBNs are auto-dispositioned
-    /// `print: no web text`.
-    Inventory {
-        slug: String,
-        /// Offline/tests: parse this wikitext file instead of the
-        /// session's base.
-        #[arg(long)]
-        wikitext: Option<PathBuf>,
-    },
-    /// Batch fetch + classify pending sources (`fetched` / `needs_operator`
-    /// / `snapshot_available` / `no_text`). Dead links get a Wayback CDX check.
-    Fetch { slug: String },
+pub enum FetchCmd {
     /// Record an operator-signed disposition on a source (resolves the
-    /// sweep gate).
+    /// fetch gate).
     Dispose {
         slug: String,
         /// Source id (S3, …).
@@ -207,7 +210,7 @@ pub enum SweepCmd {
         #[arg(long)]
         disposition: String,
     },
-    /// Show the sweep manifest (per-source status + disposition).
+    /// Show the fetch manifest (per-source status + disposition).
     Status { slug: String },
 }
 
@@ -334,16 +337,16 @@ pub async fn run(cli: Cli) -> Result<()> {
             "`wa findings` is now `wa assess` — try `wa assess add <slug> <json|->` \
              (schema-validated admission) or `wa assess list <slug>`"
         ),
-        Command::Sweep { cmd } => match cmd {
-            SweepCmd::Inventory { slug, wikitext } => sweep_inventory(&slug, wikitext.as_deref()),
-            SweepCmd::Fetch { slug } => sweep_fetch(&slug).await,
-            SweepCmd::Dispose {
-                slug,
-                source,
-                disposition,
-            } => sweep_dispose(&slug, &source, &disposition),
-            SweepCmd::Status { slug } => sweep_status(&slug),
-        },
+        Command::Fetch {
+            slug,
+            wikitext,
+            cmd,
+        } => fetch_dispatch(slug, wikitext, cmd).await,
+        Command::Sweep { .. } => anyhow::bail!(
+            "`wa sweep` is now `wa fetch` — try `wa fetch <slug>` (inventory + fetch in one \
+             invocation), `wa fetch dispose <slug> --source S3 --disposition \"…\"`, or \
+             `wa fetch status <slug>`"
+        ),
         Command::Serve { port, tsnet } => crate::serve::run(port.unwrap_or(7427), tsnet).await,
         Command::Render {
             slug,
@@ -660,7 +663,10 @@ fn assess_list(slug: &str) -> Result<()> {
     Ok(())
 }
 
-fn sweep_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Result<()> {
+/// The fetch stage's inventory leg: register every cited source as a
+/// ledger candidate (URL-less books auto-dispositioned `print: no web
+/// text`). Called by `fetch_cmd`; the fetch leg follows immediately.
+fn fetch_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let wikitext = match wikitext_path {
         Some(p) => std::fs::read_to_string(p).with_context(|| format!("read {}", p.display()))?,
@@ -669,7 +675,7 @@ fn sweep_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Resul
     let candidates = crate::sweep::parse_citations(&wikitext);
     let mut ledger = Ledger::load(&paths.ledger())?;
     println!(
-        "sweep inventory: {} distinct cited sources",
+        "fetch inventory: {} distinct cited sources",
         candidates.len()
     );
     for c in &candidates {
@@ -703,12 +709,46 @@ fn sweep_inventory(slug: &str, wikitext_path: Option<&std::path::Path>) -> Resul
         );
     }
     ledger.save(&paths.ledger())?;
-    println!(
-        "next: `wa sweep fetch {slug}` (network) then resolve the rest by capture or disposition"
-    );
     Ok(())
 }
 
+/// Dispatch the fetch command: no subcommand ⇒ inventory-then-fetch on
+/// the parent slug; otherwise the management subcommands.
+async fn fetch_dispatch(
+    slug: Option<String>,
+    wikitext: Option<PathBuf>,
+    cmd: Option<FetchCmd>,
+) -> Result<()> {
+    match cmd {
+        None => {
+            let Some(slug) = slug else {
+                anyhow::bail!(
+                    "usage: wa fetch <slug> — inventory + fetch in one invocation; subcommands: \
+                     wa fetch dispose <slug> …, wa fetch status <slug>"
+                );
+            };
+            fetch_cmd(&slug, wikitext.as_deref()).await
+        }
+        Some(FetchCmd::Dispose {
+            slug,
+            source,
+            disposition,
+        }) => fetch_dispose(&slug, &source, &disposition),
+        Some(FetchCmd::Status { slug }) => fetch_status(&slug),
+    }
+}
+
+/// `wa fetch <slug>` — the fetch stage in one invocation: inventory the
+/// base wikitext's citation apparatus, then batch-fetch what the
+/// inventory left pending (the fetch leg is a no-op when everything
+/// resolved at registration).
+async fn fetch_cmd(slug: &str, wikitext: Option<&std::path::Path>) -> Result<()> {
+    fetch_inventory(slug, wikitext)?;
+    sweep_fetch(slug).await
+}
+
+/// The fetch stage's fetch leg: batch fetch + classify pending sources.
+/// Also the serve "Fetch pending sources" action's engine.
 pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let config = crate::sweep::SweepConfig::load(std::path::Path::new("rules/sweep.toml"))
@@ -731,10 +771,10 @@ pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
         .map(|s| s.id.clone())
         .collect();
     if pending.is_empty() {
-        println!("nothing pending — run `wa sweep inventory {slug}` first");
+        println!("no pending sources to fetch");
         return Ok(());
     }
-    println!("sweeping {} pending sources…", pending.len());
+    println!("fetching {} pending sources…", pending.len());
     for id in pending {
         let url = ledger
             .sources
@@ -754,11 +794,11 @@ pub(crate) async fn sweep_fetch(slug: &str) -> Result<()> {
         // Saved per source: an interrupted sweep keeps what it fetched.
         ledger.save(&paths.ledger())?;
     }
-    println!("manifest: `wa sweep status {slug}`");
+    println!("manifest: `wa fetch status {slug}`");
     Ok(())
 }
 
-fn sweep_dispose(slug: &str, source: &str, disposition: &str) -> Result<()> {
+fn fetch_dispose(slug: &str, source: &str, disposition: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let mut ledger = Ledger::load(&paths.ledger())?;
     ledger.set_disposition(source, disposition)?;
@@ -767,15 +807,15 @@ fn sweep_dispose(slug: &str, source: &str, disposition: &str) -> Result<()> {
     Ok(())
 }
 
-fn sweep_status(slug: &str) -> Result<()> {
+fn fetch_status(slug: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let ledger = Ledger::load(&paths.ledger())?;
     if !ledger.has_sweep_state() {
-        println!("no sweep state (run `wa sweep inventory {slug}`)");
+        println!("no fetch state (run `wa fetch {slug}`)");
         return Ok(());
     }
     let unresolved = ledger.sweep_unresolved().len();
-    println!("sweep manifest ({unresolved} unresolved):");
+    println!("fetch manifest ({unresolved} unresolved):");
     for s in &ledger.sources {
         let status = s.sweep_status.clone().unwrap_or_else(|| "—".into());
         let disp = s.disposition.clone().unwrap_or_else(|| "—".into());

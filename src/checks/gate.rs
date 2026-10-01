@@ -274,7 +274,7 @@ impl std::fmt::Display for GateReason {
             } => {
                 write!(
                     f,
-                    "sweep source {source_id} unresolved ({status}): {url} — fetch it, attach an operator capture (wa ledger attach), or record a disposition (wa sweep dispose)"
+                    "sweep source {source_id} unresolved ({status}): {url} — fetch it (wa fetch <slug>), attach an operator capture (wa ledger attach), or record a disposition (wa fetch dispose)"
                 )
             }
         }
