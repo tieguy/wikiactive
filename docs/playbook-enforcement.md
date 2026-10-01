@@ -67,3 +67,4 @@ surface (assess/fetch/audit/review).
 
 1. Earwig post-publish check as a command
 2. attribution-truthfulness aid (surface the cited shortcut's canonical text at publish confirmation — the judgment stays human)
+3. quote-extraction judgment point between fetch and assess (found in the 2026-10-01 Gouldner/Night Watch smoke: quote registration has no owner in the driver flow, so a fresh session's Assess can only return []; the Phase-6 defect candidates never reach the Assess prompt; and the assess context embeds full fetched text — 5.7 MB on The Night Watch. Shape: model proposes verbatim spans per source (bounded per-source calls), the tool verbatim-verifies and registers Q ids; assessments then work off small verified evidence. The evidence invariant is unchanged. Session artifacts: sessions/the-night-watch, sessions/alvin-gouldner)
