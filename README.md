@@ -125,7 +125,7 @@ edit), audit, **the in-app review artifact with block-anchored
 comments** (one form per changed block, one per evidence card; the queue
 lives at `sessions/<slug>/comments.jsonl`) with inline lint warnings and
 an on-demand **Check against the rules** pass (clause-by-clause model
-advice under the blocks — never a gate), **Apply
+advice under the blocks — never a gate), **Process
 comments** (the model revises the commented blocks and the applied/
 rejected/reply notes land in the queue), and publish confirmation as an
 explicit approve/decline action with the exact prompt shown. Nothing
@@ -282,7 +282,7 @@ shakedown session (a userspace page creation) published end-to-end
 in-app — artifact → block-anchored comments → on-artifact approval →
 disclosure-log upsert — and the operator's same-day UX verdicts shipped
 (comment forms under each changed block in plain language, a staleness
-guard across published / comments-applied / text-changed states with
+guard across published / comments-applied / text-changed / rejected states with
 forms suppressed and driver-resolve refused, an attention-first console,
 publish + approval blocks on the artifact). An unattended hardening pass
 (plan-005) then self-reviewed the comment UI on a realistic multi-block
@@ -292,7 +292,7 @@ round labels on re-render, tty wording leaking into the web confirmation,
 and raw OSC-8 escapes in the web log, and pinned multi-group splices,
 console ordering, and per-block form injection. Remaining before the
 tag: the operator's second live shakedown session (a real article
-through the full comment → apply → re-render cycle) and the tag itself.
+through the full comment → process → re-render cycle) and the tag itself.
 
 [lavish-axi]: https://www.npmjs.com/package/lavish-axi
 [Special:OAuthConsumerRegistration/propose]: https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration/propose

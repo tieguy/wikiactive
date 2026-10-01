@@ -67,7 +67,11 @@ assessed: the assess entry checks refuse a stale bundle. Owner: tool.
 ### Assess — `wa assess add <slug> -` / the serve Assess action (model)
 Guarantee: every admitted assessment is schema-valid, cites only ledger quotes
 that exist, rides a fresh analyze, and rides a resolved fetch stage; bypasses
-are explicit flags recorded in the round log. Assessments look backward at the
+are explicit flags recorded in the round log. When the fetch summary
+shows sources without fetched text, unverifiable claims are flagged
+("cannot verify from available sources"), never proposed for removal —
+absence in reachable evidence is not unsupportedness (ADR-0002's
+prompt-carried rule layer). Assessments look backward at the
 article (ADR-0003's two-layer split: the ledger is the evidence basis, the
 assessment the editorial judgment — implicitly typed via `rules[]`, tentative
 by construction with revisit triggers in ADR-0004). Owner: model drafts, tool
@@ -87,12 +91,16 @@ fork config (`[audit] llm_pass`). Owner: tool (gate), model (diagnosis
 only), operator (reads the artifact).
 
 ### Review — the human act
-Guarantee: comments anchor exactly (the form's hidden target is the block's
+Guarantee: both decisions are explicit — **Reject this edit** (beside
+Publish) restores the draft to the article text, records an `aborted`
+round entry, declines any parked publish confirmation, and stales the
+artifact under the rejected banner: the operator's "no" carries the same
+safety guarantees as the publish confirmation. Comments anchor exactly (the form's hidden target is the block's
 wikitext anchor from the artifact's embedded anchor table); the queue
 (`comments.jsonl`) is the durable record. Owner: operator. The word is the
 operator's.
 
-### Resolve — the serve Apply-comments action (model) or `wa comments resolve`
+### Resolve — the serve **Process comments** action (model) or `wa comments resolve`
 Guarantee: the open queue entries map through the model grouped by enclosing
 changed block, splice once per group, and write each group's
 applied/rejected/reply note back to the queue; the next audit starts the next
@@ -130,7 +138,7 @@ captures), **Draft** (**Assess**, then **Draft the edit** — both call the
 drafting model through the pinned prompts), **Audit** (the form: what changed
 this round + the LLM diagnosis toggle; the round is computed, rendering is a
 consequence), the in-app review artifact with block-anchored comments,
-**Apply comments**, and **Publish this edit** behind the explicit approval
+**Process comments**, and **Publish this edit** behind the explicit approval
 block. No auto-publish, the same gate at audit and publish, `BundledConsent`
 backs only the disclosure-log upsert. Credentials: `ZAI_API_KEY` in the env;
 endpoint/model in `rules/house-rules.toml [zai]`; audit default in `[audit]`.
