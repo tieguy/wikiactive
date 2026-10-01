@@ -24,8 +24,9 @@ Edition 2024, rust-version 1.96, `warnings=deny` + clippy pedantic.
 
 The default loop (`wa serve`) needs **no Node**: the review artifact and
 its block-anchored comment flow run inside the app. [lavish-axi] remains
-pinned for the legacy tty review path (`wa render` opens it, `wa poll`
-long-polls it):
+pinned as the recorded reference for the retired tty review path
+(`wa render`/`wa poll` are retired — `wa audit` renders the artifact;
+no command spawns lavish today):
 
 ```
 npx -y lavish-axi@0.1.78 --help
@@ -87,7 +88,7 @@ someone else's contact address is a bug.
 ```
 wa session init --article "User:LuisVilla/wikiactive/smoke" --entry-loop 1
 # (make proposed.wikitext a one-line page)
-wa render <slug> --round 1 --summary "smoke test" --no-open
+wa audit --no-llm <slug> --summary "smoke test"
 wa publish <slug> --summary "wikiactive smoke test"
 # then blank the page the same way
 ```
@@ -108,8 +109,7 @@ wa assess add <slug> - <<'JSON'
   "evidence":["Q1"],"factual_note":"…","proposed_fix":"…","loop":2}]
 JSON
 # edit sessions/<slug>/proposed.wikitext — ONE logical edit
-wa audit <slug>                        # deterministic gate preflight
-wa render <slug> --round 1 --summary "Fix ref-name formats"  # legacy tty path
+wa audit <slug> --summary "Fix ref-name formats"   # gate; green ⇒ artifact
 wa comments list <slug>                # the review comment queue (tty)
 wa comments add <slug> --target L3:C0-L3:C120 --text "tighten this"
 wa comments resolve <slug> --id K1 --note "applied by hand"

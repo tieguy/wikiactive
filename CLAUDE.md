@@ -33,7 +33,9 @@ behavior spec — paired with code changes and audited, not runtime reading. Rea
   clippy pedantic denied. `cargo fmt` before every commit.
 - License: GPL-3.0-only (SP42 copy-make it so; see LICENSE and the design
   plan's license note).
-- lavish-axi is pinned at 0.1.78 (`vendor/lavish-axi-0.1.78.tgz` is the
+- lavish-axi is pinned at 0.1.78 for the retired tty path (`wa render`/
+  `wa poll` are gone — audit renders; the pin and fixtures stay as the
+  recorded reference: `vendor/lavish-axi-0.1.78.tgz` is the
   normative reference for payload/TOON shapes; captured fixtures under
   `fixtures/lavish/`).
 - `sessions/` is gitignored (local state); `fixtures/` is committed.
@@ -53,9 +55,9 @@ wa analyze <slug>
 wa assess add <slug> -      # schema-validated assessment admission
 wa assess list <slug>
 wa ledger register|fetch|archive|attach|quote|claim ...
-wa audit <slug>             # deterministic gate preflight (no artifact)
-wa audit --llm <slug>       # model diagnosis pass (rule review)
-wa render <slug> --round 1 --summary "..."   # legacy tty path (Phase 1)
+wa audit <slug> [--llm|--no-llm] [--summary "…"]
+                             # gate; green ⇒ round artifact (render-on-pass);
+                             # LLM diagnosis default per rules/house-rules.toml [audit]
 wa comments list|add|resolve <slug> ...   # the review comment queue
 wa publish <slug> --summary "..."
 wa serve [--tsnet] [--port N]  # local web console (loopback default)
