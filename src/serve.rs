@@ -1403,17 +1403,8 @@ fn queue_html(slug: &str, dir: &std::path::Path) -> String {
         }
     };
     let mut html = String::new();
-    let open = queue.open().len();
-    if open > 0 {
-        let _ = writeln!(
-            html,
-            "<form method=post action=\"/sessions/{slug}/driver/resolve\" class=\"row\">\
-             <button>Apply {}</button></form>\
-             <p class=\"meta\">The drafting model revises each commented paragraph. Comments \
-             on sources stay open for you to resolve by hand.</p>",
-            plural(open, "open comment")
-        );
-    }
+    // revux.AC2: the section's control is Process comments (rendered by
+    // review_section beside this queue) — no second form here.
     html.push_str(&comment_cards(
         slug,
         queue.comments.iter(),

@@ -1896,6 +1896,25 @@ async fn driver_assess_unresolved_fetch_points_at_the_affordances() {
 async fn reject_restores_proposed_and_records_aborted() {
     let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
     let session = dir.join("sessions/test-article");
+    // An admitted assessment + an open comment: both must SURVIVE the
+    // reject (revux.AC1.3).
+    std::fs::write(
+        session.join("assessments.json"),
+        r#"{"assessments":[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C21","rules":["WP:V"],"evidence":[],"factual_note":"n.","proposed_fix":"f.","loop":2}]}"#,
+    )
+    .unwrap();
+    run_wa(
+        &dir,
+        &[
+            "comments",
+            "add",
+            "test-article",
+            "--target",
+            "L1:C0-L1:C21",
+            "--text",
+            "tighten this",
+        ],
+    );
     let (mut child, port) = spawn_serve(&dir, &[]);
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -1921,6 +1940,30 @@ async fn reject_restores_proposed_and_records_aborted() {
     let rounds = std::fs::read_to_string(session.join("rounds.jsonl")).unwrap();
     assert!(rounds.contains("\"phase\":\"aborted\""), "{rounds}");
     assert!(rounds.contains("rejected"), "{rounds}");
+    // AC1.1's outcome surfaces; AC1.3: the reject leaves the records
+    // alone (assessments and any comment queue survive for the next
+    // round).
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("edit rejected") && page.contains("out of date"),
+        "the outcome surfaces: {page}"
+    );
+    let assessments = std::fs::read_to_string(session.join("assessments.json")).unwrap();
+    assert!(
+        assessments.contains("AS1"),
+        "assessments untouched by the reject: {assessments}"
+    );
+    let queue_path = session.join("comments.jsonl");
+    let queue_after = std::fs::read_to_string(&queue_path).unwrap_or_default();
+    assert!(
+        queue_after.contains("tighten this"),
+        "the comment queue survives the reject: {queue_after}"
+    );
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }

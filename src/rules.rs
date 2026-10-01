@@ -259,7 +259,7 @@ pub fn cards_for_loop(loop_id: u8) -> Vec<String> {
 /// verbatim, then the triage-selected trigger cards (rule-enforcement
 /// item 3). ONE source for this text — the `wa analyze` bundle and the
 /// driver prompts embed the same bytes, so the model behind "Write
-/// findings" / "Draft the edit" / "Apply comments" sees exactly what
+/// assessments" / "Draft the edit" / "Process comments" sees exactly what
 /// analyze prints.
 ///
 /// # Errors

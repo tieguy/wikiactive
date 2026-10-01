@@ -36,7 +36,7 @@ surface (assess/fetch/audit/review).
 | audit report NEEDS ANCHOR vs HARD BLOCK grouping | ENFORCED | `wa audit` output (`format_reasons`) |
 | a green audit renders the artifact; blocked writes nothing | ENFORCED | `audit_flow` (render-on-pass; `RenderError::GateBlocked` semantics preserved); retired `wa render`/`wa poll` fail with pointers |
 | LLM diagnosis pass never blocks; default per fork config | ENFORCED | `wa audit --llm/--no-llm` + `[audit] llm_pass`; concerns cannot gate; unconfigured/unreachable endpoint degrades to a reported skip recorded as a `rule-review-failed` round entry with the artifact standing |
-| evidence-card comments resolve manually; driver never splices them | ENFORCED | `Comment::is_evidence()` (`src/comments.rs`) + the serve apply-comments skip (`src/serve.rs`) |
+| evidence-card comments resolve manually; driver never splices them | ENFORCED | `Comment::is_evidence()` (`src/comments.rs`) + the serve process-comments skip (`src/serve.rs`) |
 | edit summaries resolve their rule attributions | ENFORCED | `summary_rule_check` (`src/checks/summary_rules.rs`): every `MOS:`/`WP:`/… token must resolve against the offline-built `ShortcutIndex` from `rules/canonical/`; refused at `wa audit --summary` (no artifact) and at `publish_core` (no edit request — both surfaces) |
 | publish re-runs gate; non-empty summary; disclosure suffix appended | ENFORCED | publish |
 | publish requires interactive tty/app confirmation; model never self-publishes | ENFORCED | pinned by tests/serve.rs |
@@ -59,7 +59,7 @@ surface (assess/fetch/audit/review).
 | assessment admission is schema-validated (batch-atomic) | ENFORCED | `Assessment::validate` + `AssessmentsFile::parse_validated` (`src/session.rs`); a rejected batch saves nothing; ids are `AS<n>` |
 | assessments are implicitly typed via `rules[]` | DESCRIPTIVE | no code branches on a "type" (ADR-0004; revisit triggers recorded there) |
 | the model is called at exactly the three judgment points (+ the diagnosis rider) | ENFORCED | the only call sites are `src/driver/steps.rs` (`assess`, `draft_proposal`, `resolve_comments`, `review_draft`), each through a pinned prompt |
-| resolve splices revised blocks once per group and records the note | ENFORCED | serve apply-comments (grouped splice + applied/rejected/reply notes persisted to `comments.jsonl`; tests/serve.rs) |
+| resolve splices revised blocks once per group and records the note | ENFORCED | serve process-comments (grouped splice + applied/rejected/reply notes persisted to `comments.jsonl`; tests/serve.rs) |
 | review comments anchor exactly to the artifact's blocks | ENFORCED | the embedded anchor table (`src/render.rs`) + comment targets (`base:`-prefixed / plain / `ledger:Qn`); tests/serve.rs |
 | retired command names fail with pointers, never dispatch | ENFORCED | hidden variants: `wa findings`/`wa sweep`/`wa check`/`wa review`/`wa render`/`wa poll` (tests/assess_cli, fetch_cli, audit_cli) |
 | reject at review: restore to base, `aborted` entry, parked confirmations declined, rejected banner | ENFORCED | `POST /sessions/<slug>/reject` (src/serve.rs) + `StaleKind::Rejected`; the publish→park→reject→approve race is pinned end-to-end (tests/serve.rs) |
