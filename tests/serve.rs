@@ -2277,9 +2277,15 @@ async fn process_comments_control_is_labeled_and_placed() {
         .text()
         .await
         .unwrap();
+    let comments_h3 = session_page
+        .find("Comments</h3>")
+        .unwrap_or_else(|| panic!("comments section present: {session_page}"));
+    let process_on_session = session_page
+        .find(">Process comments</button>")
+        .unwrap_or_else(|| panic!("process control on the session page: {session_page}"));
     assert!(
-        session_page.contains(">Process comments</button>"),
-        "process control on the session page: {session_page}"
+        process_on_session > comments_h3,
+        "the control sits inside the Comments section"
     );
     let resolve_forms = session_page
         .matches("action=\"/sessions/test-article/driver/resolve\"")
