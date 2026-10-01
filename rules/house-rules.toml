@@ -14,6 +14,15 @@ base_url = "https://api.z.ai/api/coding/paas/v4"
 # disclosure entries as the drafting model).
 model = "glm-5.3"
 
+[audit]
+# Whether `wa audit` runs the LLM diagnosis pass when the invocation
+# passes neither --llm nor --no-llm (loop-mechanization Phase 2). One
+# paid model call per audit round; it NEVER blocks the deterministic
+# outcome — an unreachable or unconfigured endpoint degrades to a
+# reported skip with the artifact still produced. A fork that wants the
+# pass off by default flips this to false.
+llm_pass = true
+
 [disclosure]
 # Appended to every published edit summary. Format checked by tests/publish.rs.
 suffix = "LLM-Disclosure: [[User:LuisVilla/wikiactive]]"

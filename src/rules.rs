@@ -25,6 +25,11 @@ pub struct HouseRules {
     /// Model driver endpoint config (`[zai]` in house-rules.toml).
     #[serde(default)]
     pub zai: Option<ZaiRules>,
+    /// Audit defaults (loop-mechanization Phase 2): `[audit]` in
+    /// house-rules.toml — whether `wa audit` runs the LLM diagnosis pass
+    /// when the run does not pass `--llm`/`--no-llm`.
+    #[serde(default)]
+    pub audit: AuditRules,
     #[serde(default)]
     pub citevar: Option<serde_json::Value>,
     pub user_agent: UserAgentRules,
@@ -42,6 +47,30 @@ pub struct ZaiRules {
     /// Model id at the three judgment points.
     #[serde(default)]
     pub model: Option<String>,
+}
+
+/// `[audit]` in `rules/house-rules.toml` — defaults for `wa audit`
+/// (loop-mechanization Phase 2). A fork flips `llm_pass` to turn the
+/// paid diagnosis pass off by default; `--llm`/`--no-llm` override per
+/// run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+pub struct AuditRules {
+    /// Run the LLM diagnosis pass when the run passes neither flag.
+    #[serde(default = "default_true")]
+    pub llm_pass: bool,
+}
+
+impl Default for AuditRules {
+    fn default() -> Self {
+        Self {
+            llm_pass: default_true(),
+        }
+    }
+}
+
+/// Serde default helper: `true`.
+fn default_true() -> bool {
+    true
 }
 
 /// `[operator]` in `rules/house-rules.toml` — the on-wiki operator
@@ -362,10 +391,34 @@ pub fn build_context_bundle(
 
 #[cfg(test)]
 mod tests {
-    use super::{RulesCorpus, build_context_bundle, cards_for_loop};
+    use super::{AuditRules, HouseRules, RulesCorpus, build_context_bundle, cards_for_loop};
 
     fn corpus() -> RulesCorpus {
         RulesCorpus::load(std::path::Path::new("rules")).expect("repo corpus loads")
+    }
+
+    /// loopmech.AC8.1 — the audit LLM-pass default is fork config:
+    /// the repo ships it ON; the section is optional and defaults ON;
+    /// an explicit false flips it.
+    #[test]
+    fn audit_llm_pass_default_is_fork_config() {
+        // The shipped fork config has it on.
+        let c = corpus();
+        assert!(c.house_rules.audit.llm_pass, "repo default is on");
+
+        // Section absent entirely => on (the shipped file minus [audit]).
+        let raw = std::fs::read_to_string("rules/house-rules.toml").unwrap();
+        let without_audit = raw
+            .lines()
+            .filter(|l| !l.contains("llm_pass") && !l.trim().starts_with("[audit]"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let minimal: HouseRules = toml::from_str(&without_audit).expect("parses without [audit]");
+        assert!(minimal.audit.llm_pass);
+
+        // Explicit false => off.
+        let off: AuditRules = toml::from_str("llm_pass = false").unwrap();
+        assert!(!off.llm_pass);
     }
 
     #[test]
