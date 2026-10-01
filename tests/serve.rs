@@ -2268,6 +2268,30 @@ async fn process_comments_control_is_labeled_and_placed() {
         process_idx < publish_idx,
         "immediately above the publish section"
     );
+
+    // AC2.2's session-page half: the Comments section carries the
+    // Process comments control, and it is the ONLY resolve control.
+    let session_page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        session_page.contains(">Process comments</button>"),
+        "process control on the session page: {session_page}"
+    );
+    let resolve_forms = session_page
+        .matches("action=\"/sessions/test-article/driver/resolve\"")
+        .count();
+    assert_eq!(
+        resolve_forms, 1,
+        "exactly one resolve control on the session page: {session_page}"
+    );
+    assert!(
+        !session_page.contains("Apply "),
+        "no legacy Apply wording: {session_page}"
+    );
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -379,7 +379,7 @@ fn console_status(
             Some(ArtifactState::Current { round }) if open > 0 => (
                 format!("Review open, round {round}"),
                 true,
-                format!("{} to apply", plural(open, "open comment")),
+                format!("{} to process", plural(open, "open comment")),
                 "current+comments",
             ),
             Some(ArtifactState::Current { round }) => (
@@ -1384,9 +1384,10 @@ fn comment_cards<'a>(
     html
 }
 
-/// The session page's comment queue: the apply action when anything is
-/// open, then every comment (open first) with where it points. Commenting
-/// itself happens on the review page, under the text.
+/// The session page's comment queue: every comment (open first) with
+/// where it points — the section's control (Process comments) renders
+/// beside it in `review_section`. Commenting itself happens on the review
+/// page, under the text.
 fn queue_html(slug: &str, dir: &std::path::Path) -> String {
     let queue = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
         Ok(queue) if queue.comments.is_empty() => {
