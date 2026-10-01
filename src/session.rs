@@ -238,9 +238,353 @@ fn is_numbered_id(id: &str, prefix: &str) -> bool {
         .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
+/// Operator overrides for the assess entry checks (loop-mechanization
+/// Phase 3): the two refusals with an explicit way past. Unknown quote
+/// ids have no bypass.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct EntryChecks {
+    /// Proceed past a stale `context.md` (`--allow-stale-analyze`).
+    pub allow_stale_analyze: bool,
+    /// Proceed past unresolved fetch sources
+    /// (`--allow-unresolved-fetch`).
+    pub allow_unresolved_fetch: bool,
+}
+
+/// Why an assess batch was refused at entry (loop-mechanization Phase 3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EntryRefusal {
+    /// Evidence cites quote ids the ledger does not have. No bypass:
+    /// register the quotes or fix the batch.
+    UnknownQuote { ids: Vec<String> },
+    /// `context.md` (the analyze bundle) predates this iteration's state
+    /// — older than `proposed.wikitext`'s last modification or the
+    /// newest round-advancing event. Bypass: `--allow-stale-analyze`.
+    StaleAnalyze { older_than: String },
+    /// A fetched source is still unresolved (no text, no disposition).
+    /// Bypass: `--allow-unresolved-fetch`.
+    UnresolvedFetch { sources: Vec<(String, String)> },
+}
+
+impl std::fmt::Display for EntryRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnknownQuote { ids } => write!(
+                f,
+                "evidence cites quote id(s) not in the ledger: {} — register the quotes \
+                 (wa ledger quote) or fix the batch",
+                ids.join(", ")
+            ),
+            Self::StaleAnalyze { older_than } => write!(
+                f,
+                "context.md (the analyze bundle) is stale — {older_than}; run \
+                 `wa analyze <slug>` and re-submit (or pass --allow-stale-analyze \
+                 to proceed anyway)"
+            ),
+            Self::UnresolvedFetch { sources } => write!(
+                f,
+                "unresolved fetch source(s): {} — fetch (wa fetch <slug>), attach an \
+                 operator capture (wa ledger attach), or record a disposition \
+                 (wa fetch dispose) (or pass --allow-unresolved-fetch to proceed anyway)",
+                sources
+                    .iter()
+                    .map(|(id, status)| format!("{id} ({status})"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
+}
+
+/// The assess entry checks both admission paths run (CLI `wa assess add`
+/// and the serve Assess save): evidence must exist in the ledger, the
+/// analyze bundle must be fresh for this iteration, and every fetched
+/// source must be resolved. Any refusal ⇒ the batch saves nothing.
+///
+/// Freshness mirrors the `artifact_state` staleness pattern:
+/// `context.md` must be newer than `proposed.wikitext`'s mtime and newer
+/// than the newest `rendered`/`published`/`comments-resolved` round
+/// entry (no advancing entries yet ⇒ only the proposed comparison).
+///
+/// # Errors
+/// Every refusal at once (so the operator can fix in one pass).
+pub fn assess_entry_checks(
+    dir: &std::path::Path,
+    ledger: &crate::ledger::Ledger,
+    evidence: &[String],
+    opts: EntryChecks,
+) -> Result<(), Vec<EntryRefusal>> {
+    let mut refusals = Vec::new();
+
+    let unknown: Vec<String> = evidence
+        .iter()
+        .filter(|qid| ledger.quote(qid).is_none())
+        .cloned()
+        .collect();
+    if !unknown.is_empty() {
+        refusals.push(EntryRefusal::UnknownQuote { ids: unknown });
+    }
+
+    if !opts.allow_stale_analyze
+        && let Some(older_than) = analyze_staleness(dir)
+    {
+        refusals.push(EntryRefusal::StaleAnalyze { older_than });
+    }
+
+    if !opts.allow_unresolved_fetch && ledger.has_sweep_state() {
+        let unresolved: Vec<(String, String)> = ledger
+            .sweep_unresolved()
+            .into_iter()
+            .map(|(s, status)| (s.id.clone(), status.to_string()))
+            .collect();
+        if !unresolved.is_empty() {
+            refusals.push(EntryRefusal::UnresolvedFetch {
+                sources: unresolved,
+            });
+        }
+    }
+
+    if refusals.is_empty() {
+        Ok(())
+    } else {
+        Err(refusals)
+    }
+}
+
+/// The stale relation, if any: what `context.md` is older than.
+fn analyze_staleness(dir: &std::path::Path) -> Option<String> {
+    let ctx_mtime = std::fs::metadata(dir.join("context.md"))
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .map_or_else(
+            || Some("missing".to_string()),
+            |t| {
+                let ctx = t;
+                if let Ok(prop) =
+                    std::fs::metadata(dir.join("proposed.wikitext")).and_then(|m| m.modified())
+                    && ctx <= prop
+                {
+                    return Some("older than proposed.wikitext's last modification".into());
+                }
+                // The newest round-advancing event (rendered, published,
+                // comments-resolved): the analysis must postdate it.
+                let newest = std::fs::read_to_string(dir.join("rounds.jsonl"))
+                    .ok()
+                    .map(|text| {
+                        text.lines()
+                            .filter_map(|l| serde_json::from_str::<RoundEntry>(l).ok())
+                            .filter(|e| {
+                                matches!(
+                                    e.phase.as_str(),
+                                    "rendered" | "published" | "comments-resolved"
+                                )
+                            })
+                            .filter_map(|e| {
+                                chrono::DateTime::parse_from_rfc3339(&e.timestamp)
+                                    .ok()
+                                    .map(|ts| (ts, e))
+                            })
+                            .max_by_key(|(ts, _)| *ts)
+                    })
+                    .flatten();
+                if let Some((ts, e)) = newest
+                    && chrono::DateTime::<chrono::Utc>::from(ctx) <= ts
+                {
+                    return Some(format!(
+                        "older than the newest round-advancing event ({} round {})",
+                        e.phase, e.round
+                    ));
+                }
+                None
+            },
+        );
+    ctx_mtime
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Assessment, AssessmentsFile};
+    use super::{Assessment, AssessmentsFile, EntryChecks, EntryRefusal, assess_entry_checks};
+
+    fn tmp_dir(tag: &str) -> std::path::PathBuf {
+        static NEXT_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let dir =
+            std::env::temp_dir().join(format!("wa-entry-checks-{tag}-{id}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn ledger_with_quote() -> crate::ledger::Ledger {
+        let mut ledger = crate::ledger::Ledger::default();
+        let sid = ledger.register_source("https://example.com/s", "2026-09-30", None);
+        ledger
+            .attach_fetched_text(&sid, "the quoted words live here")
+            .unwrap();
+        ledger.add_quote(&sid, "quoted words").unwrap();
+        ledger
+    }
+
+    /// Write files with strictly increasing mtimes (ns resolution).
+    fn write_seq(dir: &std::path::Path, files: &[&str]) {
+        for f in files {
+            std::fs::write(dir.join(f), "content\n").unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(3));
+        }
+    }
+
+    fn round_entry(phase: &str, timestamp: &str) -> String {
+        format!(
+            r#"{{"round":1,"timestamp":"{timestamp}","summary":"s","phase":"{phase}","detail":[]}}"#
+        )
+    }
+
+    /// loopmech.AC1.1 — evidence ids absent from the ledger are named.
+    #[test]
+    fn unknown_quote_ids_are_named() {
+        let dir = tmp_dir("q");
+        write_seq(&dir, &["proposed.wikitext", "context.md"]);
+        let ledger = ledger_with_quote();
+        let err = assess_entry_checks(
+            &dir,
+            &ledger,
+            &["Q1".into(), "Q9".into()],
+            EntryChecks::default(),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(&err[0], EntryRefusal::UnknownQuote { ids } if ids == &vec!["Q9".to_string()]),
+            "{err:?}"
+        );
+        assert!(err[0].to_string().contains("Q9"));
+    }
+
+    /// loopmech.AC1.3 — all-known evidence with a fresh bundle passes.
+    #[test]
+    fn known_evidence_fresh_bundle_passes() {
+        let dir = tmp_dir("ok");
+        write_seq(&dir, &["proposed.wikitext", "context.md"]);
+        let ledger = ledger_with_quote();
+        assert!(assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).is_ok());
+    }
+
+    /// loopmech.AC2.4 — first iteration: freshness compares only against
+    /// proposed.wikitext (no round-advancing entries yet).
+    #[test]
+    fn first_iteration_compares_only_against_proposed() {
+        let dir = tmp_dir("first");
+        // No rounds.jsonl at all: newer context passes…
+        write_seq(&dir, &["proposed.wikitext", "context.md"]);
+        let ledger = ledger_with_quote();
+        assert!(assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).is_ok());
+        // …an older context is stale by the proposed relation.
+        let dir2 = tmp_dir("first2");
+        write_seq(&dir2, &["context.md", "proposed.wikitext"]);
+        let err = assess_entry_checks(&dir2, &ledger, &["Q1".into()], EntryChecks::default())
+            .unwrap_err();
+        assert!(
+            matches!(&err[0], EntryRefusal::StaleAnalyze { older_than } if older_than
+                .contains("proposed.wikitext")),
+            "{err:?}"
+        );
+    }
+
+    /// loopmech.AC2.1 — older than the newest round-advancing event is
+    /// stale, and the message names the relation + prescribes analyze.
+    #[test]
+    fn older_than_advancing_event_is_stale() {
+        let dir = tmp_dir("adv");
+        write_seq(&dir, &["proposed.wikitext", "context.md"]);
+        // A rendered entry timestamped NOW: the context written just
+        // before is older (entry timestamps truncate to the second, so
+        // step clearly past the write).
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        std::fs::write(
+            dir.join("rounds.jsonl"),
+            round_entry("rendered", &crate::comments::now_iso()),
+        )
+        .unwrap();
+        let ledger = ledger_with_quote();
+        let err =
+            assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).unwrap_err();
+        let msg = err[0].to_string();
+        assert!(
+            msg.contains("round-advancing event (rendered round 1)"),
+            "{msg}"
+        );
+        assert!(msg.contains("wa analyze"), "{msg}");
+    }
+
+    /// loopmech.AC2.2 — re-running analyze (a newer context.md) makes the
+    /// identical evidence fresh again.
+    #[test]
+    fn re_analyze_makes_it_fresh() {
+        let dir = tmp_dir("re");
+        write_seq(&dir, &["proposed.wikitext", "context.md"]);
+        // The advancing entry postdates the context (timestamps truncate
+        // to seconds, so step clearly past the write).
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        std::fs::write(
+            dir.join("rounds.jsonl"),
+            round_entry("comments-resolved", &crate::comments::now_iso()),
+        )
+        .unwrap();
+        let ledger = ledger_with_quote();
+        assert!(
+            assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).is_err()
+        );
+        // wa analyze rewrites context.md — newer than everything.
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        write_seq(&dir, &["context.md"]);
+        assert!(assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).is_ok());
+    }
+
+    /// loopmech.AC2.5 / AC3.2 — the bypass flags proceed past their
+    /// guards.
+    #[test]
+    fn bypass_flags_proceed() {
+        let dir = tmp_dir("bypass");
+        write_seq(&dir, &["context.md", "proposed.wikitext"]);
+        let ledger = ledger_with_quote();
+        let opts = EntryChecks {
+            allow_stale_analyze: true,
+            allow_unresolved_fetch: true,
+        };
+        assert!(assess_entry_checks(&dir, &ledger, &["Q1".into()], opts).is_ok());
+    }
+
+    /// loopmech.AC3.1 / AC3.5 — unresolved fetch sources are listed with
+    /// their statuses; sessions without sweep state are unaffected.
+    #[test]
+    fn unresolved_fetch_listed_and_no_sweep_state_unaffected() {
+        let dir = tmp_dir("fetch");
+        write_seq(&dir, &["proposed.wikitext", "context.md"]);
+
+        // No sweep state: sources exist, none carry sweep_status — clean.
+        let mut ledger = crate::ledger::Ledger::default();
+        let sid = ledger.register_source("https://example.com/s", "2026-09-30", None);
+        ledger.attach_fetched_text(&sid, "text").unwrap();
+        ledger.add_quote(&sid, "text").unwrap();
+        assert!(assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).is_ok());
+
+        // Sweep state with an unresolved source: named with its status
+        // (no evidence offered, so only the fetch guard fires).
+        let mut swept = crate::ledger::Ledger::default();
+        swept.register_sweep_source("https://example.com/paywalled", None);
+        let err = assess_entry_checks(&dir, &swept, &[], EntryChecks::default()).unwrap_err();
+        let msg = err[0].to_string();
+        assert!(msg.contains("S1 (pending)"), "{msg}");
+        assert!(msg.contains("--allow-unresolved-fetch"), "{msg}");
+    }
+
+    /// A missing context.md is stale with the missing relation named.
+    #[test]
+    fn missing_context_is_stale() {
+        let dir = tmp_dir("missing");
+        write_seq(&dir, &["proposed.wikitext"]);
+        let ledger = ledger_with_quote();
+        let err =
+            assess_entry_checks(&dir, &ledger, &["Q1".into()], EntryChecks::default()).unwrap_err();
+        assert!(err[0].to_string().contains("missing"), "{err:?}");
+    }
 
     fn valid_finding() -> Assessment {
         Assessment {
