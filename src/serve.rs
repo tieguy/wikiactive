@@ -746,8 +746,25 @@ fn review_section(slug: &str, dir: &std::path::Path) -> String {
          <button>Audit</button></form>",
         if llm_default { " checked" } else { "" }
     );
+    // revux.AC1.3: the reject control under the Audit form, only when an
+    // edit is staged (nothing staged has nothing to reject).
+    let staged = (|| {
+        let base = crate::fsio::read_to_string(dir.join("base.wikitext")).ok()?;
+        let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).ok()?;
+        Some(base != proposed)
+    })()
+    .unwrap_or(false);
+    if staged {
+        html.push_str(&reject_form(slug, false));
+    }
     html.push_str("<h3>Comments</h3>\n");
     html.push_str(&queue_html(slug, dir));
+    // revux.AC2.2: the process control with the queue it acts on.
+    let queue =
+        crate::comments::CommentQueue::load(&dir.join("comments.jsonl")).unwrap_or_default();
+    if !queue.open().is_empty() {
+        html.push_str(&process_comments_form(slug, false));
+    }
     html
 }
 
@@ -764,6 +781,32 @@ fn publish_section(slug: &str, meta: &SessionMeta) -> String {
     }
     let _ = writeln!(html, "{}", publish_form(slug, false, false));
     html
+}
+
+/// The operator's explicit "no" (revux.AC1.3): restores the draft to
+/// the article text, records the rejection, publishes nothing.
+fn reject_form(slug: &str, from_review: bool) -> String {
+    format!(
+        "<form method=post action=\"/sessions/{slug}/reject{}\" class=\"row\">\
+         <button>Reject this edit</button></form>\
+         <p class=\"meta\">Saying no: the draft is restored to the article text and \
+         nothing is published; the assessments and comments stay for the next round.</p>\n",
+        if from_review { "?from=review" } else { "" }
+    )
+}
+
+/// The resolve control (revux.AC2): honest about what it does — the
+/// drafting model revises each commented block and may decline with
+/// reasons.
+fn process_comments_form(slug: &str, from_review: bool) -> String {
+    format!(
+        "<div class=\"wa-publish-actions row\">\
+         <form method=post action=\"/sessions/{slug}/driver/resolve{}\">\
+         <button class=\"primary\">Process comments</button></form>\
+         <p class=\"meta\">The drafting model revises each commented block; it may \
+         decline with reasons and replies. You review the next round.</p></div>\n",
+        if from_review { "?from=review" } else { "" }
+    )
 }
 
 /// The publish form and what pressing it does.
@@ -783,7 +826,7 @@ fn publish_form(slug: &str, from_review: bool, primary: bool) -> String {
 /// GET /sessions/{slug}/review — the review artifact, served in-app with
 /// the comment UI and — when the review is live — the publish action and
 /// any pending publish approval injected, so the whole review workflow
-/// (read → comment → apply → re-render → publish → approve) happens on
+/// (read → comment → process → audit → publish → approve) happens on
 /// THIS page, not a hop away (operator shakedown catches: the footer
 /// pointed at an "approve" that lived on a different page under a
 /// different name, greyed-out as metadata).
@@ -1121,7 +1164,7 @@ fn stale_banner(slug: &str, round: u32, kind: StaleKind) -> String {
 }
 
 /// Serve-time injection of the review UI into the artifact: breadcrumbs,
-/// a status bar with the apply-comments action, each changed block's and
+/// a status bar with the open-comment count, each changed block's and
 /// evidence card's comment thread DIRECTLY beneath it (the block itself
 /// is the context), the publish section, and the current stylesheet. The
 /// on-disk artifact stays pristine (self-contained, structurally
@@ -1180,7 +1223,7 @@ fn inject_comment_ui(
         // Warnings that no block's anchor range covers still surface, in
         // the warn palette under the status bar.
         head.push_str(&lint_warning_bar(&bar_warnings));
-        head.push_str(&comments_bar(slug, queue.open().len()));
+        head.push_str(&comments_bar(queue.open().len()));
 
         // The diagnosis-pass status line (rule-enforcement item 5): the
         // pass itself is the Audit action's LLM toggle — no standalone
@@ -1197,7 +1240,7 @@ fn inject_comment_ui(
         let open_count = queue.open().len();
         let publish_html = if pendings.is_empty() {
             format!(
-                "<section class=\"wa-publish\" id=\"wa-publish\"><h2>Publish</h2>{}{}{}</section>\n",
+                "<section class=\"wa-publish\" id=\"wa-publish\"><h2>Publish</h2>{}{}{}{}</section>\n",
                 if notice == Some("publish") {
                     notice_html(outcome)
                 } else {
@@ -1211,11 +1254,24 @@ fn inject_comment_ui(
                         plural(open_count, "comment")
                     )
                 },
-                publish_form(slug, true, open_count == 0)
+                publish_form(slug, true, open_count == 0),
+                reject_form(slug, true)
             )
         } else {
             pendings.iter().map(|p| approval_html(p, true)).collect()
         };
+        // revux.AC2.2: the process control sits at the end of the diff,
+        // immediately above the publish section (where the operator
+        // lands after commenting), not in the top bar.
+        let publish_html = format!(
+            "{}{}",
+            if queue.open().is_empty() {
+                String::new()
+            } else {
+                process_comments_form(slug, true)
+            },
+            publish_html
+        );
         if let Some(i) = out.rfind("</main>") {
             out.insert_str(i, &publish_html);
         }
@@ -1696,7 +1752,7 @@ pub(crate) fn rule_review_blocks(
 
 /// The status bar for the comment queue on a live review: what applying
 /// does, or the empty-queue pointer to the Comment controls.
-fn comments_bar(slug: &str, open_count: usize) -> String {
+fn comments_bar(open_count: usize) -> String {
     use std::fmt::Write as _;
     let mut head = String::new();
     if open_count == 0 {
@@ -1708,11 +1764,9 @@ fn comments_bar(slug: &str, open_count: usize) -> String {
     } else {
         let _ = writeln!(
             head,
-            "<div class=\"wa-bar\"><span><strong>{}.</strong> Applying them has the \
-             drafting model revise each commented paragraph; you then render the next \
-             round. Comments on sources stay open for you to resolve by hand.</span>\
-             <form method=post action=\"/sessions/{slug}/driver/resolve?from=review\">\
-             <button class=\"primary\">Apply comments</button></form></div>",
+            "<div class=\"wa-bar\"><span><strong>{}.</strong> Processing them has the \
+             drafting model revise each commented paragraph; you then audit the next \
+             round. Comments on sources stay open for you to resolve by hand.</span></div>",
             plural(open_count, "open comment")
         );
     }

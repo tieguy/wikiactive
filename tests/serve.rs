@@ -2114,3 +2114,117 @@ async fn publish_refuses_when_nothing_is_staged() {
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// revux.AC1.3 — the Reject control renders where the publish decision
+/// lives: inside the review page's publish section and under the session
+/// page's Audit form.
+#[tokio::test]
+async fn reject_control_renders_beside_publish() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    audit_offline(&client, port, &dir).await;
+    let review = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let reject_idx = review
+        .find("Reject this edit")
+        .unwrap_or_else(|| panic!("reject control on the review page: {review}"));
+    let publish_idx = review
+        .find("id=\"wa-publish\"")
+        .unwrap_or_else(|| panic!("publish section present: {review}"));
+    assert!(
+        reject_idx > publish_idx,
+        "the control sits inside the publish section"
+    );
+    assert!(review.contains("/sessions/test-article/reject"), "{review}");
+
+    let session_page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let audit_idx = session_page
+        .find(">Audit</button>")
+        .unwrap_or_else(|| panic!("audit form present: {session_page}"));
+    let reject_idx = session_page
+        .find("Reject this edit")
+        .unwrap_or_else(|| panic!("reject control on the session page: {session_page}"));
+    assert!(reject_idx > audit_idx, "under the Audit form");
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// revux.AC2.1 + AC2.2 — the comments control says what it does
+/// (Process comments; the model may decline with reasons) and sits at
+/// the end of the diff, above the publish section — not in the top bar.
+#[tokio::test]
+async fn process_comments_control_is_labeled_and_placed() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    // One open comment so the queue is live.
+    run_wa(
+        &dir,
+        &[
+            "comments",
+            "add",
+            "test-article",
+            "--target",
+            "L1:C0-L1:C21",
+            "--text",
+            "tighten this",
+        ],
+    );
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    audit_offline(&client, port, &dir).await;
+    let review = reqwest::get(format!("{}/sessions/test-article/review", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(review.contains(">Process comments</button>"), "{review}");
+    assert!(
+        review.contains("may decline with reasons"),
+        "the control states the model can decline: {review}"
+    );
+    assert!(!review.contains("Apply comments"), "{review}");
+    // Not in the top status bar: the first wa-bar carries no form.
+    let bar_start = review.find("wa-bar").expect("status bar");
+    let bar_end = review[bar_start..]
+        .find("</div>")
+        .map(|i| bar_start + i)
+        .unwrap();
+    let bar = &review[bar_start..bar_end];
+    assert!(
+        !bar.contains("<form"),
+        "the top bar carries no button: {bar}"
+    );
+    // Placed at the end of the diff: after the comment threads, before
+    // the publish section (search the body only — the appended
+    // stylesheet also mentions the class).
+    let main_end = review.find("</main>").expect("main closes");
+    let body = &review[..main_end];
+    let process_idx = body
+        .find(">Process comments</button>")
+        .expect("process control");
+    let publish_idx = body.find("id=\"wa-publish\"").expect("publish section");
+    let last_comment_idx = body.rfind("wa-comment").unwrap_or(0);
+    assert!(process_idx > last_comment_idx, "after the comment threads");
+    assert!(
+        process_idx < publish_idx,
+        "immediately above the publish section"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
