@@ -108,45 +108,20 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
             continue;
         }
         // Table header: `key[n]{cols}:` — the line ends with ':'.
-        if line.ends_with(':') {
-            if let Some(key) = table_key(line) {
+        if line.ends_with(':')
+            && let Some(key) = table_key(line)
+        {
+            *pos += 1;
+            let start = *pos;
+            while *pos < lines.len() && lines[*pos].0 > indent {
                 *pos += 1;
-                let start = *pos;
-                while *pos < lines.len() && lines[*pos].0 > indent {
-                    *pos += 1;
-                }
-                let deeper = &lines[start..*pos];
-                if deeper.is_empty() {
-                    out.push((key, Toon::List(Vec::new())));
-                    continue;
-                }
-                // Observed row shapes (fixtures/lavish/poll-feedback-real.toon):
-                //  (a) `- key: value` list items — one object per `- ` start,
-                //      fields on the following deeper lines;
-                //  (b) bare `key: value` lines — a single object;
-                //  (c) plain scalars — string table rows.
-                if deeper.iter().any(|(_, l)| l.starts_with("- ")) {
-                    *pos = start;
-                    let items = parse_list_items(lines, pos, indent);
-                    out.push((key, Toon::List(items)));
-                } else if deeper
-                    .iter()
-                    .any(|(_, l)| l.contains(": ") || (l.ends_with(':') && table_key(l).is_none()))
-                {
-                    let mut p = start;
-                    let child_indent = deeper[0].0;
-                    let children = parse_block(lines, &mut p, child_indent);
-                    out.push((key, Toon::List(vec![Toon::Map(children)])));
-                } else {
-                    let rows = deeper
-                        .iter()
-                        .map(|(_, l)| Toon::Str(strip_quotes(l)))
-                        .collect();
-                    out.push((key, Toon::List(rows)));
-                }
-                continue;
             }
-            // Nested map: `key:`
+            let deeper = &lines[start..*pos];
+            out.push((key, parse_table_rows(lines, deeper, start, pos, indent)));
+            continue;
+        }
+        // `key:` — a nested map (ends with ':' but is not a table key).
+        if line.ends_with(':') {
             let key = strip_count(line[..line.len() - 1].trim());
             *pos += 1;
             let child_indent = lines
@@ -184,6 +159,45 @@ fn parse_block(lines: &[(usize, String)], pos: &mut usize, indent: usize) -> Vec
 /// Parse `- key: value` list items (one [`Toon::Map`] per item) under a table
 /// header at `header_indent`. Item fields continue on deeper lines until the
 /// next `- ` at the item indent or a dedent to the header level.
+/// One table's rows under a `key[n]{cols}:` header (the `deeper` slice is
+/// the lines beneath it, all strictly more indented than `indent`).
+/// Observed row shapes (fixtures/lavish/poll-feedback-real.toon):
+///  (a) `- key: value` list items — one object per `- ` start,
+///      fields on the following deeper lines;
+///  (b) bare `key: value` lines — a single object;
+///  (c) plain scalars — string table rows.
+fn parse_table_rows(
+    lines: &[(usize, String)],
+    deeper: &[(usize, String)],
+    start: usize,
+    pos: &mut usize,
+    indent: usize,
+) -> Toon {
+    if deeper.is_empty() {
+        return Toon::List(Vec::new());
+    }
+    if deeper.iter().any(|(_, l)| l.starts_with("- ")) {
+        *pos = start;
+        let items = parse_list_items(lines, pos, indent);
+        return Toon::List(items);
+    }
+    let object_rows = deeper
+        .iter()
+        .any(|(_, l)| l.contains(": ") || (l.ends_with(':') && table_key(l).is_none()));
+    if object_rows {
+        let mut p = start;
+        let child_indent = deeper[0].0;
+        let children = parse_block(lines, &mut p, child_indent);
+        return Toon::List(vec![Toon::Map(children)]);
+    }
+    Toon::List(
+        deeper
+            .iter()
+            .map(|(_, l)| Toon::Str(strip_quotes(l)))
+            .collect(),
+    )
+}
+
 fn parse_list_items(lines: &[(usize, String)], pos: &mut usize, header_indent: usize) -> Vec<Toon> {
     let mut items = Vec::new();
     while *pos < lines.len() {

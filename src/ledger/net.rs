@@ -255,8 +255,7 @@ impl SourceFetcher {
 #[must_use]
 pub fn html_to_text(html: &str) -> String {
     let mut out = String::with_capacity(html.len() / 2);
-    let mut in_skip = false;
-    let mut skip_depth = 0usize;
+    let mut skip = SkipState::default();
     let mut tag = String::new();
     let mut in_tag = false;
     for ch in html.chars() {
@@ -272,44 +271,87 @@ pub fn html_to_text(html: &str) -> String {
                 let lower = tag.to_lowercase();
                 let closing = lower.starts_with('/');
                 let name = lower.trim_start_matches('/');
-                if in_skip {
-                    if closing && (name == "script" || name == "style") {
-                        skip_depth = skip_depth.saturating_sub(1);
-                        if skip_depth == 0 {
-                            in_skip = false;
-                        }
-                    } else if !closing && (name == "script" || name == "style") {
-                        skip_depth += 1;
-                    }
-                } else if name == "script" || name == "style" {
-                    in_skip = true;
-                    skip_depth = 1;
-                }
+                skip.on_tag(closing, name);
                 // Block-ish boundaries become word separators.
-                if !in_skip
-                    && ((closing
-                        && matches!(
-                            name,
-                            "p" | "div" | "li" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
-                        ))
-                        || name == "br"
-                        || (closing && matches!(name, "tr" | "td" | "ul" | "ol" | "table")))
-                {
+                if !skip.active() && is_word_boundary(closing, name) {
                     out.push('\n');
                 }
             }
             (true, other) => tag.push(other),
             (false, other) => {
-                if !in_skip {
+                if !skip.active() {
                     out.push(other);
                 }
             }
         }
     }
-    // Collapse whitespace runs but keep single newlines as separators.
-    let mut collapsed = String::with_capacity(out.len());
+    collapse_whitespace(&out)
+}
+
+/// Script/style elision: a depth-tracked skip region between the opening
+/// and closing of the same ignorable element.
+#[derive(Default)]
+struct SkipState {
+    in_skip: bool,
+    depth: usize,
+}
+
+impl SkipState {
+    /// Track one parsed tag (lowercased name, leading `/` stripped, with
+    /// whether it closes). Opening an ignorable element while skipping
+    /// nests; closing unwinds.
+    fn on_tag(&mut self, closing: bool, name: &str) {
+        let ignorable = name == "script" || name == "style";
+        if !ignorable {
+            return;
+        }
+        if self.in_skip {
+            if closing {
+                self.depth = self.depth.saturating_sub(1);
+                if self.depth == 0 {
+                    self.in_skip = false;
+                }
+            } else {
+                self.depth += 1;
+            }
+        } else if !closing {
+            self.in_skip = true;
+            self.depth = 1;
+        }
+    }
+
+    fn active(&self) -> bool {
+        self.in_skip
+    }
+}
+
+/// Whether a just-closed tag boundary reads as a word separator.
+fn is_word_boundary(closing: bool, name: &str) -> bool {
+    name == "br"
+        || (closing
+            && matches!(
+                name,
+                "p" | "div"
+                    | "li"
+                    | "h1"
+                    | "h2"
+                    | "h3"
+                    | "h4"
+                    | "h5"
+                    | "h6"
+                    | "tr"
+                    | "td"
+                    | "ul"
+                    | "ol"
+                    | "table"
+            ))
+}
+
+/// Collapse whitespace runs but keep single newlines as separators.
+fn collapse_whitespace(text: &str) -> String {
+    let mut collapsed = String::with_capacity(text.len());
     let mut last_space = false;
-    for ch in out.chars() {
+    for ch in text.chars() {
         if ch == '\n' {
             if !last_space {
                 collapsed.push('\n');
