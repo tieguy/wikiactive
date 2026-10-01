@@ -25,7 +25,8 @@ changes and audited, never runtime reading. Read
   Retry-After backoff — codified in `docs/api-etiquette.md`, enforced in
   `src/wikipedia.rs` / `src/ledger/net.rs`, pinned by
   `tests/integrations.rs`. No runtime dependency on any external skill
-  file.
+  file. Any new direct-to-WMF network call that bypasses the shared client
+  is a Critical review finding.
 - **Never edit from model memory**: every content change goes through the
   ledger (register → fetch → quote → claim) and the gate (`src/checks/
   gate.rs`). The quote-anchor locator is ported from SP42 with provenance
