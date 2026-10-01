@@ -1729,6 +1729,86 @@ async fn driver_assess_refuses_stale_analyze_with_the_cli_message() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// loopmech.AC2.3 + phase-3 "done when" — BOTH entry surfaces refuse the
+/// SAME fixture batch with the SAME refusal text (they share
+/// `assess_entry_checks`); the identical sentence is asserted on both.
+#[tokio::test]
+async fn both_assess_surfaces_refuse_the_same_batch_identically() {
+    let dir = setup_session(true);
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("ledger.json"),
+        r#"{"schema_version":1,"sources":[
+            {"id":"S1","url":"https://example.com/s","access_date":"2026-09-29","sweep_status":"fetched","fetched_text":"The tower was built in stages."}],
+           "quotes":[{"id":"Q1","source_id":"S1","text":"The tower was built in stages.","located_at":0}],
+           "claims":[]}"#,
+    )
+    .unwrap();
+    // Stale: proposed rewritten AFTER the analyze bundle.
+    std::thread::sleep(std::time::Duration::from_millis(4));
+    std::fs::write(session.join("proposed.wikitext"), "The tower is ancient.\n").unwrap();
+    let batch = r#"[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C19","rules":["WP:V"],"evidence":["Q1"],"factual_note":"n.","proposed_fix":"f.","loop":2}]"#;
+    let refusal = "context.md (the analyze bundle) is stale — older than proposed.wikitext's last modification";
+
+    // Surface 1: the serve Assess action.
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content": batch}}]
+        }));
+    })
+    .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains(refusal), "serve refusal verbatim: {page}");
+    let _ = child.kill();
+    let _ = child.wait();
+
+    // Surface 2: the CLI, the SAME batch on the SAME fixture.
+    let batch_path = dir.join("batch.json");
+    std::fs::write(&batch_path, batch).unwrap();
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_wa"))
+        .current_dir(&dir)
+        .args([
+            "assess",
+            "add",
+            "test-article",
+            batch_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains(refusal), "CLI refusal identical: {stderr}");
+    let persisted = std::fs::read_to_string(session.join("assessments.json")).unwrap();
+    assert_eq!(
+        persisted, r#"{"assessments":[]}"#,
+        "nothing saved by either surface"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// loopmech.AC3.4 — an unresolved fetch source refuses at the serve
 /// Assess path and the message points at the on-page affordances.
 #[tokio::test]

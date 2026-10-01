@@ -1815,7 +1815,12 @@ async fn run_driver_assess(state: &Arc<ServeState>, slug: &str) -> String {
                 .iter()
                 .flat_map(|a| a.evidence.iter().cloned())
                 .collect();
-            let ledger = Ledger::load(&dir.join("ledger.json")).unwrap_or_default();
+            let ledger = match Ledger::load(&dir.join("ledger.json")) {
+                Ok(l) => l,
+                // An unreadable ledger surfaces (never a silent empty
+                // default — that would look like "no quotes exist").
+                Err(e) => return format!("driver assess: ledger unreadable: {e}"),
+            };
             match crate::session::assess_entry_checks(
                 &dir,
                 &ledger,
