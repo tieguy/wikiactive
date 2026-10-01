@@ -554,3 +554,25 @@ fn retired_render_and_poll_fail_with_pointers() {
     }
     assert!(!dir.join("sessions/test-article/review.html").exists());
 }
+
+/// loopmech.AC4.4 — the claim-sequencing reason groups under NEEDS
+/// ANCHOR in `wa audit`'s report, naming the claim id and prose.
+#[test]
+fn claim_not_staged_groups_under_needs_anchor_in_audit_output() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    std::fs::write(
+        dir.join("sessions/test-article/ledger.json"),
+        r#"{"schema_version":1,"sources":[{"id":"S1","url":"https://example.com/s","access_date":"2026-09-30","fetched_text":"The keep was rebuilt in stone."}],"quotes":[{"id":"Q1","source_id":"S1","text":"The keep was rebuilt in stone.","located_at":0}],"claims":[{"id":"C1","prose":"The keep was rebuilt in stone.","quote_ids":["Q1"]}]}"#,
+    )
+    .unwrap();
+    let out = wa(&dir);
+    assert!(!out.status.success());
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("NEEDS ANCHOR"), "{stdout}");
+    assert!(stdout.contains("prose staged nowhere"), "{stdout}");
+    assert!(stdout.contains("C1"), "{stdout}");
+}

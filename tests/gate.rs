@@ -184,3 +184,85 @@ fn claims_without_resolvable_quotes_block() {
         Some(GateReason::ClaimQuoteUnresolved { .. })
     ));
 }
+
+// -------------------------------------- loop-mechanization AC4 claim staging
+
+/// loopmech.AC4.1 — a claim whose prose appears in NEITHER base nor
+/// proposed wikitext is a distinct NEEDS ANCHOR reason naming the claim
+/// id and its prose.
+#[test]
+fn claim_staged_nowhere_fires_claim_not_staged() {
+    let mut ledger = ledger_with_source();
+    let qid = ledger.add_quote("S1", "real fetched source text").unwrap();
+    ledger
+        .add_claim("The keep was rebuilt in stone.", vec![qid])
+        .unwrap();
+    let verdict = run_gate(&GateInput {
+        ledger: &ledger,
+        assessments: &[],
+        base_wikitext: "The tower is old.\n",
+        proposed_wikitext: "The tower is ancient.\n",
+        linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
+    });
+    assert!(verdict.blocked, "unstaged claim blocks: {verdict:?}");
+    match verdict.reasons.first() {
+        Some(GateReason::ClaimNotStaged {
+            claim_id, prose, ..
+        }) => {
+            assert_eq!(claim_id, "C1");
+            assert!(prose.contains("The keep was rebuilt in stone."), "{prose}");
+        }
+        other => panic!("the new reason fires first: {other:?}"),
+    }
+    // It is anchor work by disposition (groups under NEEDS ANCHOR).
+    assert_eq!(
+        verdict.reasons[0].disposition(),
+        wikiloop::checks::gate::Disposition::NeedsAnchor
+    );
+}
+
+/// loopmech.AC4.2 — inherited prose (base only) does NOT fire the new
+/// reason: the existing inherited skip keeps the gate green.
+#[test]
+fn inherited_claim_does_not_fire_claim_not_staged() {
+    let mut ledger = ledger_with_source();
+    let qid = ledger.add_quote("S1", "real fetched source text").unwrap();
+    ledger.add_claim("The tower is old.", vec![qid]).unwrap();
+    let verdict = run_gate(&GateInput {
+        ledger: &ledger,
+        assessments: &[],
+        base_wikitext: "The tower is old.\n",
+        proposed_wikitext: "The tower is ancient.\n",
+        linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
+    });
+    assert!(!verdict.blocked, "inherited claim stays green: {verdict:?}");
+}
+
+/// loopmech.AC4.3 — staged prose (proposed only) does NOT fire the new
+/// reason (the existing quote/paraphrase checks apply instead).
+#[test]
+fn staged_claim_does_not_fire_claim_not_staged() {
+    let mut ledger = ledger_with_source();
+    let qid = ledger.add_quote("S1", "real fetched source text").unwrap();
+    ledger
+        .add_claim("The tower is ancient.", vec![qid])
+        .unwrap();
+    let verdict = run_gate(&GateInput {
+        ledger: &ledger,
+        assessments: &[],
+        base_wikitext: "The tower is old.\n",
+        proposed_wikitext: "The tower is ancient.\n",
+        linter_config: &linter(),
+        paraphrase_config: &wikiloop::checks::paraphrase::ParaphraseConfig::default(),
+    });
+    let fired = verdict
+        .reasons
+        .iter()
+        .any(|r| matches!(r, GateReason::ClaimNotStaged { .. }));
+    assert!(
+        !fired,
+        "staged claim does not fire the new reason: {verdict:?}"
+    );
+}

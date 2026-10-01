@@ -69,6 +69,15 @@ pub enum GateReason {
         quote_id: String,
         span: Option<String>,
     },
+    /// Claim sequencing (loop-mechanization Phase 4): the claim's prose
+    /// is staged nowhere — neither in the base wikitext (pre-existing
+    /// article text) nor in the proposal (the edit stages it). A claim
+    /// must ride the edit or describe text that already exists.
+    ClaimNotStaged {
+        claim_id: String,
+        prose: String,
+        span: Option<String>,
+    },
     ClaimParaphraseTooClose {
         claim_id: String,
         detail: String,
@@ -105,6 +114,7 @@ impl GateReason {
             | Self::SourceNotFetched { .. }
             | Self::ClaimWithoutQuotes { .. }
             | Self::ClaimQuoteUnresolved { .. }
+            | Self::ClaimNotStaged { .. }
             | Self::SweepSourceUnresolved { .. } => Disposition::NeedsAnchor,
             Self::QuoteDoesNotLocate { .. }
             | Self::ClaimParaphraseTooClose { .. }
@@ -123,6 +133,7 @@ impl GateReason {
             | Self::SourceNotFetched { span, .. }
             | Self::ClaimWithoutQuotes { span, .. }
             | Self::ClaimQuoteUnresolved { span, .. }
+            | Self::ClaimNotStaged { span, .. }
             | Self::ClaimParaphraseTooClose { span, .. }
             | Self::ClaimParaphraseNoSupport { span, .. }
             | Self::LinterError { span, .. } => span.as_deref(),
@@ -215,6 +226,16 @@ impl std::fmt::Display for GateReason {
                 write!(
                     f,
                     "claim {claim_id}: quote {quote_id} is not in the ledger, or its source has no fetched text"
+                )
+            }
+            Self::ClaimNotStaged {
+                claim_id, prose, ..
+            } => {
+                write!(
+                    f,
+                    "claim {claim_id}: prose staged nowhere — neither in base nor proposed \
+                     wikitext: \"{prose}\" (claims ride the edit, or cite text the article \
+                     already carries)"
                 )
             }
             Self::UnknownQuoteId {
@@ -390,6 +411,11 @@ fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
+    let proposed_norm = input
+        .proposed_wikitext
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
     for claim in &input.ledger.claims {
         // Scope: the gate assesses DRAFTED prose. A claim whose prose
         // already exists in the base wikitext is pre-existing article text
@@ -398,6 +424,18 @@ fn paraphrase_reasons(input: &GateInput, reasons: &mut Vec<GateReason>) {
         // hedging; the plain sentence just needs its ref).
         let claim_norm = claim.prose.split_whitespace().collect::<Vec<_>>().join(" ");
         if base_norm.contains(&claim_norm) {
+            continue;
+        }
+        // Claim sequencing (loop-mechanization Phase 4): a claim whose
+        // prose is staged NOWHERE — not inherited, not in the proposal —
+        // is a registration without an edit. Anchor work: stage the prose
+        // or drop the claim.
+        if !proposed_norm.contains(&claim_norm) {
+            reasons.push(GateReason::ClaimNotStaged {
+                claim_id: claim.id.clone(),
+                prose: claim.prose.clone(),
+                span: None,
+            });
             continue;
         }
         let span = crate::render::locate_block_anchor(input.proposed_wikitext, &claim.prose);
@@ -520,7 +558,7 @@ mod tests {
             ledger: &ledger,
             assessments: &findings,
             base_wikitext: "Old text.",
-            proposed_wikitext: "By 1986 Japanese readers had bought three million copies.",
+            proposed_wikitext: "By 1986 Japanese readers had bought three million copies of the 1942 edition.",
             linter_config: &cfg,
             paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
@@ -702,7 +740,8 @@ mod tests {
             ledger: &ledger,
             assessments: &[],
             base_wikitext: "",
-            proposed_wikitext: "text",
+            proposed_wikitext: "Temple Fielding's travel guide sold millions of copies and fictionalized his \
+                 own itineraries for comic effect.",
             linter_config: &cfg,
             paraphrase_config: &crate::checks::paraphrase::ParaphraseConfig::default(),
         });
