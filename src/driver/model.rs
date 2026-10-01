@@ -1,6 +1,6 @@
 //! z.ai (GLM) chat client — the Phase-B model driver's transport.
 //!
-//! One client for the three judgment points (findings authoring, proposal
+//! One client for the three judgment points (assessment authoring, proposal
 //! drafting, comment resolution): OpenAI-compatible, non-streaming chat
 //! completions over the shared etiquette client (reqwest/rustls,
 //! identifying UA, guarded redirects), bearer auth from the environment.
@@ -387,24 +387,24 @@ mod tests {
         .unwrap_or_else(|e| panic!("fixture {path}: {e}"))
     }
 
-    /// B.0 wire pin: the findings capture (fenced JSON content, separate
-    /// reasoning field, usage totals).
+    /// B.0 wire pin: the assess capture (raw JSON content this time —
+    /// both forms are observed live; the parser takes either; the
+    /// fence-stripping path is pinned by unit tests), separate reasoning
+    /// field, usage totals. Refreshed 2026-09-30 for the AS schema: the
+    /// capture's first id is AS1.
     #[test]
-    fn parses_live_findings_fixture() {
-        let resp = parse_chat_response(&fixture("findings.response.json")).expect("parses");
+    fn parses_live_assess_fixture() {
+        let resp = parse_chat_response(&fixture("assess.response.json")).expect("parses");
         assert!(
-            resp.content.starts_with("```json"),
-            "fenced content observed live"
+            !resp.content.starts_with("```"),
+            "raw (unfenced) content observed live this capture"
         );
         assert!(resp.reasoning.is_some(), "reasoning_content observed live");
-        assert_eq!(resp.total_tokens, Some(3071));
-        let stripped = strip_code_fence(&resp.content);
+        assert_eq!(resp.total_tokens, Some(9942));
         let parsed: serde_json::Value =
-            serde_json::from_str(stripped).expect("fence-stripped content is JSON");
-        assert!(
-            parsed.as_array().is_some(),
-            "findings output is a JSON array"
-        );
+            serde_json::from_str(resp.content.trim()).expect("content is JSON");
+        let arr = parsed.as_array().expect("assess output is a JSON array");
+        assert_eq!(arr[0]["id"], "AS1", "the capture follows the AS schema");
     }
 
     /// B.0 wire pin: the propose capture (raw JSON content).
