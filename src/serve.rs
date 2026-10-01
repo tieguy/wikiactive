@@ -669,43 +669,44 @@ fn sources_section(slug: &str, ledger: &Ledger) -> String {
     html
 }
 
-/// The model-drafting step: how many findings exist, whether an edit is
+/// The model-drafting step: how many assessments exist, whether an edit is
 /// staged, and the two judgment-point actions.
 fn draft_section(slug: &str, dir: &std::path::Path) -> String {
-    let findings = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
+    let assessments = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
         .map_or(0, |f| f.assessments.len());
     let base = std::fs::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
     let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
     let staged = !proposed.trim().is_empty() && proposed != base;
     format!(
         "<h2>Draft</h2>\n<p>{} {}</p>\n<div class=\"row\">\
-         <form method=post action=\"/sessions/{slug}/driver/findings\">\
-         <button>Write findings</button></form>\
+         <form method=post action=\"/sessions/{slug}/driver/assess\">\
+         <button>Assess</button></form>\
          <form method=post action=\"/sessions/{slug}/driver/propose\">\
          <button{}>Draft the edit</button></form></div>\n\
-         <p class=\"meta\">Both call the drafting model. A finding is kept only if it quotes a \
-         fetched source, and the draft is checked when you render the review.{}</p>\n",
-        if findings == 0 {
-            "No findings yet.".to_string()
+         <p class=\"meta\">Both call the drafting model. An assessment is kept only if it \
+         quotes a fetched source, and the draft is audited before you see it.{}</p>\n",
+        if assessments == 0 {
+            "No assessments yet.".to_string()
         } else {
-            format!("{}.", plural(findings, "finding"))
+            format!("{}.", plural(assessments, "assessment"))
         },
         if staged {
             "An edit is staged."
         } else {
             "No edit is staged yet."
         },
-        if findings == 0 { " disabled" } else { "" },
-        if findings == 0 {
-            " Drafting the edit needs at least one finding."
+        if assessments == 0 { " disabled" } else { "" },
+        if assessments == 0 {
+            " Drafting the edit needs at least one assessment."
         } else {
             ""
         },
     )
 }
 
-/// The review step: where the review stands, the render form (round
-/// prefilled with the one that makes sense next), and the comment queue.
+/// The review step: where the review stands, the audit form (round
+/// prefilled with the one that makes sense next, the LLM diagnosis
+/// toggle), and the comment queue.
 fn review_section(slug: &str, dir: &std::path::Path) -> String {
     let state = artifact_state(dir);
     let mut html = String::from("<h2>Review</h2>\n");
@@ -730,12 +731,13 @@ fn review_section(slug: &str, dir: &std::path::Path) -> String {
     }
     let _ = writeln!(
         html,
-        "<form method=post action=\"/sessions/{slug}/render\" class=\"row\">\
+        "<form method=post action=\"/sessions/{slug}/audit\" class=\"row\">\
          <label class=\"field\">Round<input name=round type=number min=1 value={} \
          style=\"width:5rem\"></label>\
          <label class=\"field grow\">What changed this round\
          <input name=summary placeholder=\"e.g. corrected the marriage date\"></label>\
-         <button>Render review</button></form>",
+         <label class=\"field\"><input type=checkbox name=llm> LLM diagnosis</label>\
+         <button>Audit</button></form>",
         next_round(state.as_ref())
     );
     html.push_str("<h3>Comments</h3>\n");
@@ -1156,13 +1158,12 @@ fn inject_comment_ui(
         head.push_str(&lint_warning_bar(&bar_warnings));
         head.push_str(&comments_bar(slug, queue.open().len()));
 
-        // The rule check (rule-enforcement item 5): on demand — a paid
-        // model call the operator triggers; advice beside the diff.
+        // The diagnosis-pass status line (rule-enforcement item 5): the
+        // pass itself is the Audit action's LLM toggle — no standalone
+        // button anymore.
         let _ = writeln!(
             head,
-            "<div class=\"wa-bar\"><span><strong>Rules:</strong> {rule_check_line}</span>\
-             <form method=post action=\"/sessions/{slug}/driver/rule-review?from=review\">\
-             <button>Check against the rules</button></form></div>"
+            "<div class=\"wa-bar\"><span><strong>Rules:</strong> {rule_check_line}</span></div>"
         );
 
         // The publish leg lives HERE: a pending approval, if one exists,
@@ -1527,18 +1528,18 @@ struct PublishForm {
     summary: String,
 }
 
-/// POST /sessions/{slug}/driver/findings — judgment point 1: the model
-/// authors findings from the swept ledger; output goes through the SAME
-/// schema-validated admission as `wa findings add` (the step validates
+/// POST /sessions/{slug}/driver/assess — judgment point 1: the model
+/// authors assessments from the fetched ledger; output goes through the
+/// SAME schema-validated admission as `wa assess add` (the step validates
 /// before this handler appends).
-async fn driver_findings(
+async fn driver_assess(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
 ) -> axum::response::Response {
     if !known_session(&slug) {
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
-    let outcome = run_driver_findings(&state, &slug).await;
+    let outcome = run_driver_assess(&state, &slug).await;
     state.note_outcome(&slug, &outcome);
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
@@ -1546,7 +1547,7 @@ async fn driver_findings(
 /// The rules guidance for a session's entry loop (rule-enforcement item
 /// 3), built BEFORE any model call: a corpus missing a triage-selected
 /// card fails the action without burning a paid call. `action` names the
-/// caller in the error ("driver findings", …).
+/// caller in the error ("driver assess", …).
 fn loop_guidance(dir: &std::path::Path, action: &str) -> Result<String, String> {
     let corpus = crate::rules::RulesCorpus::load(std::path::Path::new("rules"))
         .map_err(|e| format!("{action}: rules corpus failed to load: {e}"))?;
@@ -1771,20 +1772,6 @@ async fn run_rule_review(state: &Arc<ServeState>, slug: &str) -> String {
     }
 }
 
-/// POST /sessions/{slug}/driver/rule-review — the "Check against the
-/// rules" button (on demand; a paid model call, never auto-run).
-async fn driver_rule_review(
-    State(state): State<Arc<ServeState>>,
-    Path(slug): Path<String>,
-) -> axum::response::Response {
-    if !known_session(&slug) {
-        return axum::http::StatusCode::NOT_FOUND.into_response();
-    }
-    let outcome = run_rule_review(&state, &slug).await;
-    state.note_outcome(&slug, &outcome);
-    Redirect::to(&format!("/sessions/{slug}/review")).into_response()
-}
-
 /// The status bar for the comment queue on a live review: what applying
 /// does, or the empty-queue pointer to the Comment controls.
 fn comments_bar(slug: &str, open_count: usize) -> String {
@@ -1861,24 +1848,24 @@ fn rule_review_display(
     (html, line)
 }
 
-async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
+async fn run_driver_assess(state: &Arc<ServeState>, slug: &str) -> String {
     use crate::driver::steps::AssessContext;
     use crate::driver::steps::SourceDigest;
     let dir = session_dir(slug);
     let Ok(ledger) = Ledger::load(&dir.join("ledger.json")) else {
-        return "driver findings: no ledger".into();
+        return "driver assess: no ledger".into();
     };
     let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
-        return "driver findings: no base wikitext".into();
+        return "driver assess: no base wikitext".into();
     };
     let Ok(meta) = serde_json::from_str::<SessionMeta>(
         &std::fs::read_to_string(dir.join("session.json")).unwrap_or_default(),
     ) else {
-        return "driver findings: no session meta".into();
+        return "driver assess: no session meta".into();
     };
     // Rules guidance BEFORE the model call (rule-enforcement item 3): a
     // corpus missing a card fails the action, not the paid call.
-    let guidance = match loop_guidance(&dir, "driver findings") {
+    let guidance = match loop_guidance(&dir, "driver assess") {
         Ok(g) => g,
         Err(e) => return e,
     };
@@ -1912,7 +1899,7 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
     };
     let zai = match state.zai_client() {
         Ok(z) => z,
-        Err(e) => return format!("driver findings: {e}"),
+        Err(e) => return format!("driver assess: {e}"),
     };
     match crate::driver::steps::assess(&zai, &ctx).await {
         Ok(findings) => {
@@ -1927,16 +1914,16 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
                 file.assessments.push(f);
             }
             match file.save(&path) {
-                Ok(()) => format!("driver findings: {} in the session", file.assessments.len()),
-                Err(e) => format!("driver findings: save failed: {e}"),
+                Ok(()) => format!("driver assess: {} in the session", file.assessments.len()),
+                Err(e) => format!("driver assess: save failed: {e}"),
             }
         }
-        Err(e) => format!("driver findings: {e}"),
+        Err(e) => format!("driver assess: {e}"),
     }
 }
 
 /// POST /sessions/{slug}/driver/propose — judgment point 2: draft the
-/// scoped edit for the session's first finding and write
+/// scoped edit for the session's first assessment and write
 /// `proposed.wikitext` (the gate runs at render/publish as always).
 async fn driver_propose(
     State(state): State<Arc<ServeState>>,
@@ -2514,9 +2501,13 @@ fn apply_splices(proposed: &str, splices: &[(usize, usize, String, bool)]) -> St
 }
 
 #[derive(serde::Deserialize)]
-struct RenderForm {
+struct AuditForm {
     round: u32,
     summary: String,
+    /// The LLM diagnosis toggle: present ("on") when checked — the rule
+    /// review pass runs after the render, in this same request.
+    #[serde(default)]
+    llm: Option<String>,
     /// Offline/test hooks: fixture Parsoid HTML paths, passed through to
     /// `render_cmd`'s existing `--html-base`/`--html-proposed` flags (an
     /// empty value means live Parsoid).
@@ -2526,15 +2517,16 @@ struct RenderForm {
     html_proposed: Option<String>,
 }
 
-/// POST /sessions/{slug}/render — gate + render the artifact, then show
-/// it (or show why the gate refused). The web
-/// path never opens or probes lavish (`Via::Web`): the review surface is
-/// the in-app artifact + the comment forms (plan-004).
-async fn render(
+/// POST /sessions/{slug}/audit — gate + render the artifact, then show
+/// it (or show why the gate refused); with the LLM toggle set, the model
+/// diagnosis pass runs against the fresh artifact in the same request.
+/// The web path never opens or probes lavish (`Via::Web`): the review
+/// surface is the in-app artifact + the comment forms (plan-004).
+async fn audit(
     State(state): State<Arc<ServeState>>,
     Path(slug): Path<String>,
     axum::extract::Query(q): Params,
-    Form(form): Form<RenderForm>,
+    Form(form): Form<AuditForm>,
 ) -> axum::response::Response {
     if !known_session(&slug) {
         return axum::http::StatusCode::NOT_FOUND.into_response();
@@ -2561,11 +2553,18 @@ async fn render(
     // reasons shown.
     match rendered {
         Ok(()) => {
-            state.note_outcome(&slug, &format!("rendered round {}", form.round));
+            // The LLM diagnosis toggle (rule-enforcement item 5): run the
+            // pass against the artifact this request just produced.
+            let mut outcome = format!("rendered round {}", form.round);
+            if form.llm.as_deref().is_some_and(|v| !v.is_empty()) {
+                let review = run_rule_review(&state, &slug).await;
+                outcome = format!("{outcome}; {review}");
+            }
+            state.note_outcome(&slug, &outcome);
             Redirect::to(&format!("/sessions/{slug}/review")).into_response()
         }
         Err(e) => {
-            state.note_outcome(&slug, &format!("render failed: {e}"));
+            state.note_outcome(&slug, &format!("audit failed: {e}"));
             back_to(&slug, &q, Some("top")).into_response()
         }
     }
@@ -2770,16 +2769,12 @@ pub fn router(state: Arc<ServeState>) -> Router {
         .route("/sessions/{slug}/sweep-dispose", post(sweep_dispose))
         .route("/sessions/{slug}/sweep-fetch", post(sweep_fetch_route))
         .route("/sessions/{slug}/attach", post(attach))
-        .route("/sessions/{slug}/driver/findings", post(driver_findings))
+        .route("/sessions/{slug}/driver/assess", post(driver_assess))
         .route("/sessions/{slug}/driver/propose", post(driver_propose))
         .route("/sessions/{slug}/driver/resolve", post(driver_resolve))
-        .route(
-            "/sessions/{slug}/driver/rule-review",
-            post(driver_rule_review),
-        )
         .route("/sessions/{slug}/comments", post(comments_add))
         .route("/sessions/{slug}/comments/resolve", post(comments_resolve))
-        .route("/sessions/{slug}/render", post(render))
+        .route("/sessions/{slug}/audit", post(audit))
         .route("/sessions/{slug}/publish", post(publish))
         .route("/confirmations", get(confirmations))
         .route("/confirmations/{id}", post(confirm))

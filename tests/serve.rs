@@ -420,7 +420,7 @@ async fn declined_confirmation_never_edits() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The driver judgment point through the app: `POST driver/findings`
+/// The driver judgment point through the app: `POST driver/assess`
 /// calls the (mocked) model, and the validated finding lands in the
 /// session's assessments.json via the same admission as `wa findings add`.
 #[tokio::test]
@@ -457,7 +457,7 @@ async fn driver_findings_endpoint_runs_the_model_and_admits_findings() {
 
     let resp = client
         .post(format!(
-            "{}/sessions/test-article/driver/findings",
+            "{}/sessions/test-article/driver/assess",
             base_url(port)
         ))
         .send()
@@ -510,12 +510,12 @@ fn anchor_table(dir: &Path) -> Vec<(String, String)> {
         .collect()
 }
 
-/// POST the render route with the offline fixture paths (the serve-side
-/// form fields `html_base`/`html_proposed`, passed through to
-/// `render_cmd`).
-async fn render_offline(client: &reqwest::Client, port: u16, dir: &Path) {
+/// POST the audit route with the offline fixture paths (the serve-side
+/// form fields `html_base`/`html_proposed`, passed through to the render
+/// pipeline) and NO LLM toggle.
+async fn audit_offline(client: &reqwest::Client, port: u16, dir: &Path) {
     let resp = client
-        .post(format!("{}/sessions/test-article/render", base_url(port)))
+        .post(format!("{}/sessions/test-article/audit", base_url(port)))
         .form(&[
             ("round", "1"),
             ("summary", "test round"),
@@ -550,7 +550,7 @@ async fn lint_warnings_show_on_the_review_page_without_blocking() {
         .build()
         .unwrap();
 
-    render_offline(&client, port, &dir).await;
+    audit_offline(&client, port, &dir).await;
     assert!(
         dir.join("sessions/test-article/review.html").exists(),
         "warn findings do not block the render"
@@ -575,13 +575,14 @@ async fn lint_warnings_show_on_the_review_page_without_blocking() {
     let _ = child.wait();
 }
 
-/// Rule-enforcement item 5: the "Check against the rules" button runs
-/// the model once, stores the concerns with the round, and they render
-/// under the block they name — while the `rule-reviewed` round entry
-/// leaves the artifact CURRENT (only published / comments-resolved /
-/// text changes stale it; pinned here).
+/// loopmech.AC6.4 — the Audit action's LLM diagnosis toggle: one POST
+/// renders the artifact AND runs the diagnosis pass against it, stores
+/// the concerns with the round, and they render under the block they
+/// name — while the `rule-reviewed` round entry leaves the artifact
+/// CURRENT (only published / comments-resolved / text changes stale it;
+/// pinned here).
 #[tokio::test]
-async fn rule_review_button_records_and_shows_concerns_without_staling() {
+async fn audit_llm_toggle_renders_and_diagnoses_without_staling() {
     // The base carries a line the proposal deletes: pure-deletion blocks
     // are skipped by the step (review finding 3 — their spans cannot
     // validate), so the pass must still complete.
@@ -608,17 +609,31 @@ async fn rule_review_button_records_and_shows_concerns_without_staling() {
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
-    render_offline(&client, port, &dir).await;
 
+    // ONE request: render + the LLM diagnosis pass (the toggle).
     let resp = client
-        .post(format!(
-            "{}/sessions/test-article/driver/rule-review",
-            base_url(port)
-        ))
+        .post(format!("{}/sessions/test-article/audit", base_url(port)))
+        .form(&[
+            ("round", "1"),
+            ("summary", "test round"),
+            (
+                "html_base",
+                dir.join("base.html").to_string_lossy().as_ref(),
+            ),
+            (
+                "html_proposed",
+                dir.join("proposed.html").to_string_lossy().as_ref(),
+            ),
+            ("llm", "on"),
+        ])
         .send()
         .await
         .unwrap();
-    assert_eq!(resp.status().as_u16(), 303, "back to the review");
+    assert_eq!(resp.status().as_u16(), 303, "to the fresh review");
+    assert!(
+        dir.join("sessions/test-article/review.html").exists(),
+        "the artifact rendered in the same request"
+    );
 
     // Stored with the CURRENT round, concern only.
     let file: serde_json::Value =
@@ -679,7 +694,7 @@ async fn missing_card_fails_the_handler_without_a_model_call() {
 
     let resp = client
         .post(format!(
-            "{}/sessions/test-article/driver/findings",
+            "{}/sessions/test-article/driver/assess",
             base_url(port)
         ))
         .send()
@@ -715,7 +730,7 @@ async fn rule_review_result_from_an_earlier_round_is_labelled() {
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
-    render_offline(&client, port, &dir).await;
+    audit_offline(&client, port, &dir).await;
     std::fs::write(
         session.join("rule-review.json"),
         r#"{"round":0,"timestamp":"2026-09-30T00:00:00Z","concerns":[{"clause":"A3","span":"widely considered","note":"stale advice","element_id":"wa-1"}]}"#,
@@ -737,8 +752,12 @@ async fn rule_review_result_from_an_earlier_round_is_labelled() {
         "stale concerns are not rendered as current: {page}"
     );
     assert!(
-        page.contains("Check against the rules"),
-        "the button is still offered: {page}"
+        page.contains("wa-bar"),
+        "the rules status line still renders: {page}"
+    );
+    assert!(
+        !page.contains("/driver/rule-review"),
+        "no standalone rule-review control anymore: {page}"
     );
     let _ = child.kill();
     let _ = child.wait();
@@ -762,7 +781,7 @@ async fn in_app_review_flow_renders_comments_and_resolves_without_lavish() {
         .build()
         .unwrap();
 
-    render_offline(&client, port, &dir).await;
+    audit_offline(&client, port, &dir).await;
     assert!(
         dir.join("sessions/test-article/review.html").exists(),
         "artifact written"
@@ -1061,7 +1080,7 @@ async fn driver_resolve_merges_pair_sides_into_one_call_and_splices_both_groups(
         .build()
         .unwrap();
 
-    render_offline(&client, port, &dir).await;
+    audit_offline(&client, port, &dir).await;
     let table = anchor_table(&dir);
     // base:L1 = the pure deletion (moat); base:L3 = the pair's old side;
     // the plain L2 anchor = the pair's new side.
@@ -1239,7 +1258,7 @@ async fn driver_resolve_splices_three_groups_in_one_pass() {
         .build()
         .unwrap();
 
-    render_offline(&client, port, &dir).await;
+    audit_offline(&client, port, &dir).await;
     let table = anchor_table(&dir);
     let anchor_of = |line_prefix: &str| {
         table
@@ -1331,7 +1350,7 @@ async fn misaligned_deletion_group_surfaces_error_and_stays_open() {
         .build()
         .unwrap();
 
-    render_offline(&client, port, &dir).await;
+    audit_offline(&client, port, &dir).await;
     let table = anchor_table(&dir);
     let deletion_anchor = table
         .iter()
@@ -1411,5 +1430,100 @@ async fn misaligned_deletion_group_surfaces_error_and_stays_open() {
     );
 
     let _ = child.kill();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ------------------------------------- loop-mechanization Phase 1 (AC6.4)
+
+/// The session page offers the renamed controls (Assess, Audit) and the
+/// audit form carries the LLM diagnosis toggle.
+#[tokio::test]
+async fn session_page_shows_assess_and_audit_controls() {
+    let dir = setup_session(true);
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(page.contains(">Assess</button>"), "Assess control: {page}");
+    assert!(
+        page.contains("/sessions/test-article/driver/assess"),
+        "assess action: {page}"
+    );
+    assert!(page.contains(">Audit</button>"), "Audit control: {page}");
+    assert!(
+        page.contains("/sessions/test-article/audit"),
+        "audit action: {page}"
+    );
+    assert!(
+        page.contains("name=llm") && page.contains("LLM diagnosis"),
+        "the LLM toggle rides the audit form: {page}"
+    );
+    assert!(
+        !page.contains("Write findings") && !page.contains("Render review"),
+        "retired labels are gone: {page}"
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The audit form WITHOUT the toggle renders the artifact and never
+/// calls the model (no rule-review.json).
+#[tokio::test]
+async fn audit_without_the_toggle_makes_no_model_call() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let session = dir.join("sessions/test-article");
+    // A mock that fails the test if hit: the pass is off.
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/chat/completions");
+        then.status(500);
+    })
+    .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    audit_offline(&client, port, &dir).await;
+    assert!(session.join("review.html").exists(), "artifact written");
+    assert!(
+        !session.join("rule-review.json").exists(),
+        "no diagnosis pass without the toggle"
+    );
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The retired serve routes are gone: render, driver/findings, and the
+/// standalone rule-review control all 404.
+#[tokio::test]
+async fn retired_serve_routes_are_gone() {
+    let dir = setup_review_session("The tower is old.\n", "The tower is ancient.\n");
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    for path in [
+        "/sessions/test-article/render",
+        "/sessions/test-article/driver/findings",
+        "/sessions/test-article/driver/rule-review",
+    ] {
+        let resp = client
+            .post(format!("{}{path}", base_url(port)))
+            .form(&[("round", "1"), ("summary", "x")])
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status().as_u16(), 404, "{path} must be gone");
+    }
+    let _ = child.kill();
+    let _ = child.wait();
     let _ = std::fs::remove_dir_all(&dir);
 }
