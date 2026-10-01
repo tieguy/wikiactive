@@ -59,7 +59,7 @@ struct PendingConfirm {
 #[derive(Default)]
 pub struct ServeState {
     confirmations: Mutex<HashMap<String, PendingConfirm>>,
-    outcomes: Mutex<HashMap<String, String>>,
+    outcomes: Mutex<HashMap<String, (String, String)>>,
     /// Per-slug completed-run counter: the publish POST waits for the
     /// pending confirmation OR the next outcome before responding, so the
     /// page the operator lands on always shows what happened.
@@ -133,11 +133,14 @@ impl ServeState {
         }
     }
 
-    fn note_outcome(&self, slug: &str, outcome: &str) {
+    /// Record an action's outcome WITH the section it belongs to — the
+    /// feedback renders where the operator acted (sources / draft /
+    /// review / publish), not always at the top.
+    fn note_outcome_at(&self, slug: &str, section: &str, outcome: &str) {
         self.outcomes
             .lock()
             .expect("outcomes")
-            .insert(slug.to_string(), outcome.to_string());
+            .insert(slug.to_string(), (section.to_string(), outcome.to_string()));
         let mut runs = self.runs.lock().expect("runs");
         *runs.entry(slug.to_string()).or_default() += 1;
         // Persist too: a failed publish's error must be diagnosable from
@@ -155,7 +158,7 @@ impl ServeState {
     }
 
     /// The last action's outcome for a session ("" when none).
-    fn outcome(&self, slug: &str) -> String {
+    fn outcome_at(&self, slug: &str) -> (String, String) {
         self.outcomes
             .lock()
             .expect("outcomes")
@@ -454,7 +457,8 @@ async fn console(State(state): State<Arc<ServeState>>) -> Html<String> {
     } else {
         body.push_str("<ul class=\"sessions\">\n");
         for row in rows {
-            let outcome = state.outcome(&row.slug);
+            let (section, outcome) = state.outcome_at(&row.slug);
+            let _ = section;
             let last = outcome.lines().next().unwrap_or_default();
             let last: String = if last.chars().count() > 120 {
                 last.chars().take(120).chain(['…']).collect()
@@ -518,19 +522,131 @@ async fn session_page(
         esc(&slug),
         meta.entry_loop
     );
-    page.push_str(&notice_html(&state.outcome(&slug)));
+    // Workflow position: the stage strip answers "where are we" at a
+    // glance; outcomes render in the section that owns the action.
+    let ledger = Ledger::load(&dir.join("ledger.json")).unwrap_or_default();
+    page.push_str(&stage_strip(&dir, &ledger));
+    let (outcome_section, outcome_text) = state.outcome_at(&slug);
+    let notice_for = |want: &str| {
+        if outcome_section == want {
+            notice_html(&outcome_text)
+        } else {
+            String::new()
+        }
+    };
+    if outcome_section == "top" {
+        page.push_str(&notice_html(&outcome_text));
+    }
     for pending in state.pending_for(&slug) {
         page.push_str(&approval_html(&pending, false));
     }
-    if let Ok(ledger) = Ledger::load(&dir.join("ledger.json"))
-        && ledger.has_sweep_state()
-    {
-        page.push_str(&sources_section(&slug, &ledger));
+    if ledger.has_sweep_state() {
+        page.push_str(&sources_section(&slug, &ledger, &notice_for("sources")));
     }
-    page.push_str(&draft_section(&slug, &dir));
-    page.push_str(&review_section(&slug, &dir));
-    page.push_str(&publish_section(&slug, &meta));
+    page.push_str(&draft_section(&slug, &dir, &notice_for("draft")));
+    page.push_str(&review_section(&slug, &dir, &notice_for("review")));
+    page.push_str(&publish_section(&slug, &meta, &notice_for("publish")));
     Html(crate::ui::page(&meta.article, &[("Sessions", "/")], &page))
+}
+
+/// The workflow-position strip: fetch → analyze → assess → draft →
+/// audit → review → publish, each chip anchored to its section, state
+/// computed from the session on disk. Exactly one chip is "next" — the
+/// first stage that still has work — so the page answers "where are we"
+/// at a glance.
+fn stage_strip(dir: &std::path::Path, ledger: &Ledger) -> String {
+    use std::fmt::Write as _;
+    let unresolved = if ledger.has_sweep_state() {
+        ledger.sweep_unresolved().len()
+    } else {
+        0
+    };
+    let assessments = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
+        .map_or(0, |f| f.assessments.len());
+    let base = crate::fsio::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
+    let proposed = crate::fsio::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
+    let staged = !proposed.trim().is_empty() && proposed != base;
+    let analyze_fresh =
+        crate::session::analyze_staleness(dir).is_none() && dir.join("context.md").exists();
+    let artifact = artifact_state(dir);
+    let audit_current = matches!(artifact, Some(ArtifactState::Current { .. }));
+    let published = serde_json::from_str::<SessionMeta>(
+        &crate::fsio::read_to_string(dir.join("session.json")).unwrap_or_default(),
+    )
+    .ok()
+    .and_then(|m| m.last_published_diff_url)
+    .is_some();
+
+    // (label, anchor, done, note)
+    let chips: Vec<(&str, &str, bool, String)> = vec![
+        (
+            "Fetch",
+            "#sources",
+            unresolved == 0,
+            if unresolved > 0 {
+                format!("{unresolved} unresolved")
+            } else {
+                String::new()
+            },
+        ),
+        ("Analyze", "#draft", analyze_fresh, String::new()),
+        (
+            "Assess",
+            "#draft",
+            assessments > 0,
+            if assessments > 0 {
+                format!("{assessments} admitted")
+            } else {
+                String::new()
+            },
+        ),
+        ("Draft", "#draft", staged, String::new()),
+        ("Audit", "#review", audit_current, String::new()),
+    ];
+    let next_idx = chips.iter().position(|s| !s.2);
+    let mut html = String::from("<nav class=\"wa-stages\">\n");
+    for (n, (label, anchor, done, note)) in chips.iter().enumerate() {
+        let class = if Some(n) == next_idx {
+            "wa-next"
+        } else if *done {
+            "wa-done"
+        } else {
+            "wa-todo"
+        };
+        let _ = write!(
+            html,
+            "<a class=\"wa-stage {class}\" href=\"{anchor}\">{label}</a>{}",
+            if note.is_empty() {
+                String::new()
+            } else {
+                format!("<span class=\"wa-note\">{note}</span>")
+            }
+        );
+    }
+    // Review + Publish are operator stages: shown, never "next".
+    let open_comments = crate::comments::CommentQueue::load(&dir.join("comments.jsonl"))
+        .map_or(0, |q| q.open().len());
+    let _ = write!(
+        html,
+        "<a class=\"wa-stage {}\" href=\"#review\">Review</a>{}",
+        if open_comments > 0 {
+            "wa-attention"
+        } else {
+            "wa-done"
+        },
+        if open_comments > 0 {
+            format!("<span class=\"wa-note\">{open_comments} open</span>")
+        } else {
+            String::new()
+        }
+    );
+    let _ = write!(
+        html,
+        "<a class=\"wa-stage {}\" href=\"#publish\">Publish</a>",
+        if published { "wa-done" } else { "wa-todo" }
+    );
+    html.push_str("</nav>\n");
+    html
 }
 
 /// A source's sweep state in plain words.
@@ -596,7 +712,7 @@ fn source_row(slug: &str, s: &crate::ledger::SourceEntry, needs: bool) -> String
 
 /// The source sweep: per-source status, the disposition form for every
 /// source that still needs one, the batch fetch, and operator capture.
-fn sources_section(slug: &str, ledger: &Ledger) -> String {
+fn sources_section(slug: &str, ledger: &Ledger, notice: &str) -> String {
     use crate::sweep::status;
     let unresolved: Vec<&str> = ledger
         .sweep_unresolved()
@@ -604,7 +720,7 @@ fn sources_section(slug: &str, ledger: &Ledger) -> String {
         .map(|(s, _)| s.id.as_str())
         .collect();
     let total = ledger.sources.len();
-    let mut html = String::from("<h2>Sources</h2>\n");
+    let mut html = format!("<h2 id=\"sources\">Sources</h2>\n{notice}");
     if unresolved.is_empty() {
         let _ = writeln!(
             html,
@@ -671,7 +787,7 @@ fn sources_section(slug: &str, ledger: &Ledger) -> String {
 
 /// The model-drafting step: how many assessments exist, whether an edit is
 /// staged, and the two judgment-point actions.
-fn draft_section(slug: &str, dir: &std::path::Path) -> String {
+fn draft_section(slug: &str, dir: &std::path::Path, notice: &str) -> String {
     let queue = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
         .map_or(Vec::new(), |f| f.assessments);
     let assessments = queue.len();
@@ -698,7 +814,7 @@ fn draft_section(slug: &str, dir: &std::path::Path) -> String {
         format!("{list}</ol>\n")
     };
     format!(
-        "<h2>Draft</h2>\n<p>{} {}</p>\n{queue_html}<div class=\"row\">\
+        "<h2 id=\"draft\">Draft</h2>\n{notice}<p>{} {}</p>\n{queue_html}<div class=\"row\">\
          <form method=post action=\"/sessions/{slug}/analyze\">\
          <button>Analyze</button></form>\
          <form method=post action=\"/sessions/{slug}/driver/assess\">\
@@ -729,9 +845,9 @@ fn draft_section(slug: &str, dir: &std::path::Path) -> String {
 /// The review step: where the review stands, the audit form (round
 /// prefilled with the one that makes sense next, the LLM diagnosis
 /// toggle), and the comment queue.
-fn review_section(slug: &str, dir: &std::path::Path) -> String {
+fn review_section(slug: &str, dir: &std::path::Path, notice: &str) -> String {
     let state = artifact_state(dir);
-    let mut html = String::from("<h2>Review</h2>\n");
+    let mut html = format!("<h2 id=\"review\">Review</h2>\n{notice}");
     match &state {
         Some(ArtifactState::Current { round }) => {
             let _ = writeln!(
@@ -792,8 +908,8 @@ fn review_section(slug: &str, dir: &std::path::Path) -> String {
 
 /// The publish step on the session page (the review page carries its own
 /// copy, next to the evidence).
-fn publish_section(slug: &str, meta: &SessionMeta) -> String {
-    let mut html = String::from("<h2>Publish</h2>\n");
+fn publish_section(slug: &str, meta: &SessionMeta, notice: &str) -> String {
+    let mut html = format!("<h2 id=\"publish\">Publish</h2>\n{notice}");
     if let Some(last) = &meta.last_published_diff_url {
         let _ = writeln!(
             html,
@@ -867,7 +983,7 @@ async fn review_artifact(
             &html,
             &state.pending_for(&slug),
             q.get("notice").map(String::as_str),
-            &state.outcome(&slug),
+            &state.outcome_at(&slug).1,
         ))
         .into_response(),
         None => (
@@ -1461,7 +1577,7 @@ async fn comments_add(
     }
     let dir = session_dir(&slug);
     if form.text.trim().is_empty() {
-        state.note_outcome(&slug, "comment failed: it was empty");
+        state.note_outcome_at(&slug, "review", "comment failed: it was empty");
         return back_to(&slug, &q, Some("top")).into_response();
     }
     let added = match crate::comments::CommentQueue::load(&dir.join("comments.jsonl")) {
@@ -1474,17 +1590,25 @@ async fn comments_add(
             );
             match queue.append(&dir.join("comments.jsonl"), comment) {
                 Ok(id) => {
-                    state.note_outcome(&slug, &format!("comment {id} added"));
+                    state.note_outcome_at(&slug, "review", &format!("comment {id} added"));
                     true
                 }
                 Err(e) => {
-                    state.note_outcome(&slug, &format!("comment queue write failed: {e}"));
+                    state.note_outcome_at(
+                        &slug,
+                        "review",
+                        &format!("comment queue write failed: {e}"),
+                    );
                     false
                 }
             }
         }
         Err(e) => {
-            state.note_outcome(&slug, &format!("comment queue failed to load: {e}"));
+            state.note_outcome_at(
+                &slug,
+                "review",
+                &format!("comment queue failed to load: {e}"),
+            );
             false
         }
     };
@@ -1518,7 +1642,7 @@ async fn comments_resolve(
         },
         Err(e) => (false, format!("comment queue failed to load: {e}")),
     };
-    state.note_outcome(&slug, &outcome);
+    state.note_outcome_at(&slug, "review", &outcome);
     back_to(&slug, &q, (!resolved).then_some("top")).into_response()
 }
 
@@ -1542,8 +1666,9 @@ async fn sweep_dispose(
     let disposition = form.disposition.trim();
     if disposition.is_empty() {
         // An empty disposition would resolve the sweep gate with no reason.
-        state.note_outcome(
+        state.note_outcome_at(
             &slug,
+            "sources",
             &format!(
                 "disposition for {} failed: say why the text cannot be had",
                 form.source
@@ -1555,8 +1680,9 @@ async fn sweep_dispose(
         ledger.set_disposition(&form.source, disposition)?;
         ledger.save(&dir.join("ledger.json"))
     });
-    state.note_outcome(
+    state.note_outcome_at(
         &slug,
+        "sources",
         &match saved {
             Ok(()) => format!("disposition signed for {}: {disposition}", form.source),
             Err(e) => format!("disposition for {} failed: {e}", form.source),
@@ -1574,8 +1700,9 @@ async fn sweep_fetch_route(
     if !known_session(&slug) {
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
-    state.note_outcome(
+    state.note_outcome_at(
         &slug,
+        "sources",
         &match crate::cli::sweep_fetch(&slug).await {
             Ok(()) => "source fetch finished; statuses are in the table below".to_string(),
             Err(e) => format!("source fetch failed: {e}"),
@@ -1607,8 +1734,9 @@ async fn attach(
         .map_err(anyhow::Error::from)
         .and_then(|()| crate::cli::ledger_attach(&slug, &form.source, &tmp.to_string_lossy()));
     let _ = crate::fsio::remove_file(&tmp);
-    state.note_outcome(
+    state.note_outcome_at(
         &slug,
+        "sources",
         &match attached {
             Ok(()) => format!("text attached to {}", form.source),
             Err(e) => format!("attaching text to {} failed: {e}", form.source),
@@ -1634,7 +1762,7 @@ async fn driver_assess(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let outcome = run_driver_assess(&state, &slug).await;
-    state.note_outcome(&slug, &outcome);
+    state.note_outcome_at(&slug, "draft", &outcome);
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
@@ -1990,7 +2118,7 @@ async fn driver_propose(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let outcome = run_driver_propose(&state, &slug).await;
-    state.note_outcome(&slug, &outcome);
+    state.note_outcome_at(&slug, "draft", &outcome);
     Redirect::to(&format!("/sessions/{slug}")).into_response()
 }
 
@@ -2087,7 +2215,7 @@ async fn driver_resolve(
         return axum::http::StatusCode::NOT_FOUND.into_response();
     }
     let outcome = run_driver_resolve(&state, &slug).await;
-    state.note_outcome(&slug, &outcome);
+    state.note_outcome_at(&slug, "draft", &outcome);
     back_to(&slug, &q, Some("top")).into_response()
 }
 
@@ -2611,7 +2739,7 @@ async fn audit(
             // Plan-004 AC.1: the web path prints the in-app artifact path
             // and never touches lavish state.
             println!("review: /sessions/{slug}/review (in-app)");
-            state.note_outcome(&slug, "audit complete — the review is ready");
+            state.note_outcome_at(&slug, "review", "audit complete — the review is ready");
             Redirect::to(&format!("/sessions/{slug}/review")).into_response()
         }
         Err(e) => {
@@ -2619,7 +2747,7 @@ async fn audit(
             // outcome (the flow already printed it to stdout).
             let report = gate_report(&slug)
                 .map_or_else(|| e.to_string(), |r| format!("audit blocked:\n{r}"));
-            state.note_outcome(&slug, &report);
+            state.note_outcome_at(&slug, "review", &report);
             back_to(&slug, &q, Some("top")).into_response()
         }
     }
@@ -2640,7 +2768,7 @@ async fn analyze_action(
         Ok(()) => "analyze: context bundle refreshed — assess away".to_string(),
         Err(e) => format!("analyze failed: {e}"),
     };
-    state.note_outcome(&slug, &outcome);
+    state.note_outcome_at(&slug, "publish", &outcome);
     back_to(&slug, &q, Some("top")).into_response()
 }
 
@@ -2697,7 +2825,7 @@ async fn reject(
         (Ok(_), Ok(_)) => "nothing staged to reject".to_string(),
         _ => "reject failed: session files unreadable".to_string(),
     };
-    state.note_outcome(&slug, &outcome);
+    state.note_outcome_at(&slug, "publish", &outcome);
     back_to(&slug, &q, Some("top")).into_response()
 }
 
@@ -2724,7 +2852,7 @@ async fn publish(
     let summary = form.summary;
     tokio::spawn(async move {
         let outcome = run_publish(&state_for_task, &slug_for_task, &summary).await;
-        state_for_task.note_outcome(&slug_for_task, &outcome);
+        state_for_task.note_outcome_at(&slug_for_task, "publish", &outcome);
     });
     // B.6 operator catch ("doesn't seem to allow me to confirm"): the
     // pending confirmation registers a beat after the redirect — land on

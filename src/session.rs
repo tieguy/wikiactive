@@ -351,7 +351,7 @@ pub fn assess_entry_checks(
 }
 
 /// The stale relation, if any: what `context.md` is older than.
-fn analyze_staleness(dir: &std::path::Path) -> Option<String> {
+pub(crate) fn analyze_staleness(dir: &std::path::Path) -> Option<String> {
     // A missing analyze bundle is stale by absence.
     let ctx = match std::fs::metadata(dir.join("context.md")) {
         Ok(m) => m.modified().ok()?,

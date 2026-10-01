@@ -150,3 +150,13 @@ td.needs { font-weight: 700; }
 .wa-publish, .approval { background: var(--sheet); border: 1px solid var(--line); padding: 1rem 1.25rem .5rem; margin: 1.5rem 0; }
 .approval { border: 2px solid var(--action); }
 .wa-publish h2, .approval h2 { margin-top: 0; }
+
+/* Workflow-position strip (session page): fetch → analyze → assess →
+   draft → audit → review → publish. Done chips dim, the NEXT chip is
+   the accent, notes carry live counts. */
+.wa-stages { display: flex; flex-wrap: wrap; gap: .35rem; align-items: baseline; margin: .75rem 0 1.25rem; }
+.wa-stage { font-size: .85rem; padding: .15rem .55rem; border-radius: 999px; text-decoration: none; border: 1px solid var(--line); color: var(--subtle); }
+.wa-stage.wa-done { color: var(--subtle); border-color: var(--line); }
+.wa-stage.wa-next { color: #fff; background: var(--action); border-color: var(--action); font-weight: 600; }
+.wa-stage.wa-attention { border-color: var(--action); color: var(--action); }
+.wa-note { font-size: .75rem; color: var(--subtle); margin-left: .2rem; }

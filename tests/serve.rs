@@ -2483,3 +2483,128 @@ async fn draft_section_lists_the_assessment_queue() {
     reap_child(&mut child);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// --------------------------------------------- workflow-position UI pass
+
+/// The session page carries a stage strip (fetch → analyze → assess →
+/// draft → audit → review → publish) anchored to the sections, with the
+/// NEXT stage highlighted from real session state.
+#[tokio::test]
+async fn stage_strip_marks_where_we_are() {
+    let dir = setup_session(true); // fetch resolved, fresh bundle, no assessments
+    let (mut child, port) = spawn_serve(&dir, &[]);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(
+        page.contains("class=\"wa-stages\""),
+        "the strip renders: {page}"
+    );
+    for stage in [
+        "Fetch", "Analyze", "Assess", "Draft", "Audit", "Review", "Publish",
+    ] {
+        assert!(
+            page.contains(&format!("{stage}</a>")) || page.contains(&format!(">{stage}<")),
+            "{stage} chip: {page}"
+        );
+    }
+    // Anchored to the sections.
+    assert!(
+        page.contains("#draft") && page.contains("#review"),
+        "{page}"
+    );
+    // Fresh session, fetch resolved, bundle fresh, no assessments:
+    // ASSESS is the next stage.
+    let strip = &page[page.find("class=\"wa-stages\"").unwrap()..][..900];
+    assert!(
+        strip.contains("wa-next") && strip.matches("wa-next").count() == 1,
+        "exactly one next chip: {strip}"
+    );
+    let next_at = strip.find("wa-next").unwrap();
+    assert!(
+        strip[next_at..].contains("Assess"),
+        "Assess is next on a fresh session: {strip}"
+    );
+
+    // With assessments admitted and an edit staged, DRAFT has moved on:
+    // the next chip is no longer Assess.
+    let session = dir.join("sessions/test-article");
+    std::fs::write(
+        session.join("assessments.json"),
+        r#"{"assessments":[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C21","rules":["WP:V"],"evidence":["Q1"],"factual_note":"n.","proposed_fix":"f.","loop":2}]}"#,
+    )
+    .unwrap();
+    std::fs::write(session.join("proposed.wikitext"), "The tower is ancient.\n").unwrap();
+    mtime_gap();
+    std::fs::write(session.join("context.md"), "fresh\n").unwrap();
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let strip = &page[page.find("class=\"wa-stages\"").unwrap()..][..900];
+    let next_at = strip.find("wa-next").unwrap();
+    assert!(
+        strip[next_at..].contains("Audit"),
+        "Audit is next once an edit is staged: {strip}"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Action feedback lands WHERE YOU ACTED: an Assess outcome renders in
+/// the Draft section, not at the top of the page.
+#[tokio::test]
+async fn assess_outcome_lands_in_the_draft_section() {
+    let dir = setup_session(true);
+    let zai = MockServer::start_async().await;
+    zai.mock_async(|when, then| {
+        when.method(httpmock::Method::POST)
+            .path("/chat/completions");
+        then.status(200).json_body(serde_json::json!({
+            "choices": [{"finish_reason": "stop", "index": 0,
+                "message": {"role": "assistant", "content": "[]"}}]
+        }));
+    })
+    .await;
+    let (mut child, port) = spawn_serve(&dir, &[("WIKIACTIVE_SERVE_TEST_ZAI", &zai.url(""))]);
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+    let resp = client
+        .post(format!(
+            "{}/sessions/test-article/driver/assess",
+            base_url(port)
+        ))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status().as_u16(), 303);
+    let page = reqwest::get(format!("{}/sessions/test-article", base_url(port)))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let draft_at = page.find(r#"id="draft""#).expect("draft section id");
+    let review_at = page.find(r#"id="review""#).expect("review section id");
+    let outcome_at = page
+        .find("driver assess")
+        .unwrap_or_else(|| panic!("the assess outcome renders: {page}"));
+    assert!(
+        outcome_at > draft_at && outcome_at < review_at,
+        "the outcome sits inside the Draft section: {page}"
+    );
+    let head = &page[..draft_at];
+    assert!(
+        !head.contains("driver assess"),
+        "not at the top of the page: {head}"
+    );
+    reap_child(&mut child);
+    let _ = std::fs::remove_dir_all(&dir);
+}
