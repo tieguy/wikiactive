@@ -12,7 +12,7 @@ use std::fmt::Write as _;
 use crate::checks::linter::LinterConfig;
 use crate::ledger::net::RspSeedRow;
 use crate::ledger::net::load_rsp_seed;
-use crate::session::Finding;
+use crate::session::Assessment;
 
 /// Parsed house rules (`rules/house-rules.toml`).
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -289,7 +289,7 @@ pub fn guidance_clauses(corpus: &RulesCorpus, loop_id: u8) -> Vec<String> {
 pub fn build_context_bundle(
     corpus: &RulesCorpus,
     article: &ArticleState,
-    findings: &[Finding],
+    assessments: &[Assessment],
     ledger: &crate::ledger::Ledger,
 ) -> Result<ContextBundle, String> {
     // The rules guidance is shared verbatim with the driver prompts
@@ -317,20 +317,20 @@ pub fn build_context_bundle(
     text.push_str("## Session summary\n\n");
     let _ = write!(
         text,
-        "- ledger sources: {}\n- ledger quotes: {}\n- ledger claims: {}\n- findings: {}\n",
+        "- ledger sources: {}\n- ledger quotes: {}\n- ledger claims: {}\n- assessments: {}\n",
         ledger.sources.len(),
         ledger.quotes.len(),
         ledger.claims.len(),
-        findings.len()
+        assessments.len()
     );
-    for finding in findings {
+    for assessment in assessments {
         let _ = writeln!(
             text,
             "- {} [{}] loop {} — {}",
-            finding.id,
-            finding.rules.join(","),
-            finding.loop_id,
-            finding.factual_note
+            assessment.id,
+            assessment.rules.join(","),
+            assessment.loop_id,
+            assessment.factual_note
         );
     }
     // Sweep manifest (plan-003 B.3): informational in the bundle — the
@@ -339,7 +339,7 @@ pub fn build_context_bundle(
         let unresolved = ledger.sweep_unresolved();
         let _ = write!(
             text,
-            "\n## Source sweep manifest\n\n- warning: {} unresolved source(s) — the gate blocks render/publish until each is fetched, captured, or dispositioned (`wa sweep fetch` / `wa ledger attach` / `wa sweep dispose`)\n",
+            "\n## Source sweep manifest\n\n- warning: {} unresolved source(s) — the gate blocks render/publish until each is fetched, captured, or dispositioned (`wa fetch <slug>` / `wa ledger attach` / `wa fetch dispose`)\n",
             unresolved.len()
         );
         for s in &ledger.sources {

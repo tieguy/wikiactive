@@ -1,26 +1,26 @@
-//! Session state types: the finding model and the session directory layout.
+//! Session state types: the assessment model and the session directory layout.
 //!
 //! A session directory (`sessions/<article-slug>/`) holds:
 //! - `ledger.json`      — the source ledger ([`crate::ledger::Ledger`])
-//! - `findings.json`    — the findings file ([`FindingsFile`])
+//! - `assessments.json` — the assessments file ([`AssessmentsFile`])
 //! - `proposed.wikitext` — the current proposed article text
 //! - `review.html`      — the regenerated-in-place review artifact
 //! - `rounds.jsonl`     — append-only round log (one JSON object per round)
 //! - `comments.jsonl`   — the review comment queue (plan-004;
 //!   [`crate::comments::CommentQueue`])
 //!
-//! Finding field ownership (plan): the model authors `id`, `rules[]`,
+//! Assessment field ownership (plan): the model authors `id`, `rules[]`,
 //! `evidence` (ledger quote ids), `factual_note`, `proposed_fix`, and a draft
 //! `wikitext_anchor`; the pipeline back-fills `rendered_span_id` at render
-//! time and verifies/resolves anchors at poll time. Findings enter via
-//! `wa findings add --json`, schema-validated.
+//! time and verifies/resolves anchors at poll time. Assessments enter via
+//! `wa assess add`, schema-validated.
 
 use serde::{Deserialize, Serialize};
 
-/// One finding: a rule-grounded observation with evidence and a fix.
+/// One assessment: a rule-grounded observation with evidence and a fix.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Finding {
-    /// Stable finding id, e.g. `F1` (model-authored, unique in session).
+pub struct Assessment {
+    /// Stable assessment id, e.g. `AS1` (model-authored, unique in session).
     pub id: String,
     /// Draft wikitext anchor, e.g. `L12:C0-L14:C120` (model-authored; the
     /// pipeline verifies it against the proposed wikitext at render time).
@@ -36,13 +36,13 @@ pub struct Finding {
     pub factual_note: String,
     /// The specific proposed fix (one logical edit).
     pub proposed_fix: String,
-    /// Which loop of the ladder owns this finding (1–5).
+    /// Which loop of the session owns this assessment (1–5).
     #[serde(rename = "loop")]
     pub loop_id: u8,
 }
 
-impl Finding {
-    /// Validate a finding for admission (`wa findings add --json`).
+impl Assessment {
+    /// Validate an assessment for admission (`wa assess add`).
     ///
     /// # Errors
     /// Returns a human-readable list of everything wrong (all problems at
@@ -52,8 +52,8 @@ impl Finding {
         if self.id.is_empty() {
             problems.push("id must be non-empty".into());
         }
-        if !is_numbered_id(&self.id, 'F') {
-            problems.push("id must match F<number>".into());
+        if !is_numbered_id(&self.id, "AS") {
+            problems.push("id must match AS<number>".into());
         }
         if self.wikitext_anchor.is_empty() {
             problems.push("wikitext_anchor must be non-empty (draft L..C..-L..C.. is fine)".into());
@@ -65,7 +65,7 @@ impl Finding {
             problems.push("evidence[] must cite at least one ledger quote id".into());
         }
         for qid in &self.evidence {
-            if !is_numbered_id(qid, 'Q') {
+            if !is_numbered_id(qid, "Q") {
                 problems.push(format!(
                     "evidence entry {qid:?} is not a ledger quote id (Q<number>)"
                 ));
@@ -88,28 +88,32 @@ impl Finding {
     }
 }
 
-/// The findings file (`findings.json`).
+/// The assessments file (`assessments.json`).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct FindingsFile {
-    pub findings: Vec<Finding>,
+pub struct AssessmentsFile {
+    pub assessments: Vec<Assessment>,
 }
 
-impl FindingsFile {
-    /// Parse and validate every finding.
+impl AssessmentsFile {
+    /// Parse and validate every assessment.
     ///
     /// # Errors
-    /// Malformed JSON, or any finding failing [`Finding::validate`] (with all
-    /// problems reported).
+    /// Malformed JSON, or any assessment failing [`Assessment::validate`]
+    /// (with all problems reported).
     pub fn parse_validated(text: &str) -> Result<Self, String> {
         let file: Self =
-            serde_json::from_str(text).map_err(|e| format!("findings.json malformed: {e}"))?;
+            serde_json::from_str(text).map_err(|e| format!("assessments.json malformed: {e}"))?;
         let mut seen = std::collections::HashSet::new();
-        for finding in &file.findings {
-            if !seen.insert(finding.id.clone()) {
-                return Err(format!("duplicate finding id {}", finding.id));
+        for assessment in &file.assessments {
+            if !seen.insert(assessment.id.clone()) {
+                return Err(format!("duplicate assessment id {}", assessment.id));
             }
-            finding.validate().map_err(|problems| {
-                format!("finding {} invalid: {}", finding.id, problems.join("; "))
+            assessment.validate().map_err(|problems| {
+                format!(
+                    "assessment {} invalid: {}",
+                    assessment.id,
+                    problems.join("; ")
+                )
             })?;
         }
         Ok(file)
@@ -156,8 +160,8 @@ impl SessionPaths {
         self.dir.join("ledger.json")
     }
     #[must_use]
-    pub fn findings(&self) -> std::path::PathBuf {
-        self.dir.join("findings.json")
+    pub fn assessments(&self) -> std::path::PathBuf {
+        self.dir.join("assessments.json")
     }
     #[must_use]
     pub fn proposed(&self) -> std::path::PathBuf {
@@ -227,20 +231,20 @@ pub struct RoundEntry {
     pub detail: Vec<String>,
 }
 
-/// `<prefix><digits>` exactly (`F3`, `Q12`): digits only after the prefix,
+/// `<prefix><digits>` exactly (`AS3`, `Q12`): digits only after the prefix,
 /// so `Q+1` — which integer parsing would accept — is not an id.
-fn is_numbered_id(id: &str, prefix: char) -> bool {
+fn is_numbered_id(id: &str, prefix: &str) -> bool {
     id.strip_prefix(prefix)
         .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Finding, FindingsFile};
+    use super::{Assessment, AssessmentsFile};
 
-    fn valid_finding() -> Finding {
-        Finding {
-            id: "F1".into(),
+    fn valid_finding() -> Assessment {
+        Assessment {
+            id: "AS1".into(),
             wikitext_anchor: "L3:C0-L3:C120".into(),
             rendered_span_id: None,
             rules: vec!["WP:V".into()],
@@ -280,18 +284,52 @@ mod tests {
     }
 
     #[test]
+    fn assessment_id_must_be_as_prefixed() {
+        // loopmech.AC6.1: ids are AS<n> (the F<n> shape is the retired
+        // findings vocabulary).
+        let mut a = valid_finding();
+        a.id = "AS1".into();
+        assert!(a.validate().is_ok(), "AS1 is the id shape");
+        a.id = "F1".into();
+        let problems = a.validate().unwrap_err();
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.contains("id must match AS<number>")),
+            "{problems:?}"
+        );
+        a.id = "AS+1".into();
+        assert!(a.validate().is_err(), "digits only after the prefix");
+        a.id = "AS".into();
+        assert!(a.validate().is_err(), "bare prefix is not an id");
+    }
+
+    #[test]
     fn findings_file_rejects_malformed_and_duplicates() {
-        assert!(FindingsFile::parse_validated("{not json").is_err());
+        assert!(AssessmentsFile::parse_validated("{not json").is_err());
         let one = serde_json::to_string(&valid_finding()).unwrap();
         let two = one.clone();
-        let file = format!("{{\"findings\":[{one},{two}]}}");
-        let err = FindingsFile::parse_validated(&file).unwrap_err();
+        let file = format!("{{\"assessments\":[{one},{two}]}}");
+        let err = AssessmentsFile::parse_validated(&file).unwrap_err();
         assert!(err.contains("duplicate"), "{err}");
     }
 
     #[test]
-    fn finding_json_field_is_loop() {
+    fn assessment_json_field_is_loop() {
         let json = serde_json::to_string(&valid_finding()).unwrap();
         assert!(json.contains("\"loop\":2"), "{json}");
+    }
+
+    #[test]
+    fn file_shape_is_assessments_array() {
+        // loopmech.AC6.1: the on-disk shape is {"assessments":[…]}.
+        let one = serde_json::to_string(&valid_finding()).unwrap();
+        let file = AssessmentsFile::parse_validated(&format!("{{\"assessments\":[{one}]}}"))
+            .expect("new shape parses");
+        assert_eq!(file.assessments.len(), 1);
+        assert!(
+            AssessmentsFile::parse_validated(&format!("{{\"findings\":[{one}]}}")).is_err(),
+            "old findings.json shape is a documented break, not a fallback"
+        );
     }
 }

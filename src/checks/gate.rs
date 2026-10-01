@@ -18,7 +18,7 @@ use crate::checks::linter::LinterConfig;
 use crate::checks::paraphrase;
 use crate::checks::quote_anchor::locate_quote;
 use crate::ledger::Ledger;
-use crate::session::Finding;
+use crate::session::Assessment;
 
 /// What clearing a blocked reason requires (MVP-2 A.2.1): ledger/evidence
 /// wiring vs revising the drafted text itself.
@@ -37,23 +37,23 @@ pub enum Disposition {
 /// line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GateReason {
-    FindingWithoutEvidence {
-        finding_id: String,
+    AssessmentWithoutEvidence {
+        assessment_id: String,
         span: Option<String>,
     },
     UnknownQuoteId {
-        finding_id: String,
+        assessment_id: String,
         quote_id: String,
         span: Option<String>,
     },
     QuoteDoesNotLocate {
-        finding_id: String,
+        assessment_id: String,
         quote_id: String,
         source_id: String,
         span: Option<String>,
     },
     SourceNotFetched {
-        finding_id: String,
+        assessment_id: String,
         source_id: String,
         span: Option<String>,
     },
@@ -100,7 +100,7 @@ impl GateReason {
     #[must_use]
     pub fn disposition(&self) -> Disposition {
         match self {
-            Self::FindingWithoutEvidence { .. }
+            Self::AssessmentWithoutEvidence { .. }
             | Self::UnknownQuoteId { .. }
             | Self::SourceNotFetched { .. }
             | Self::ClaimWithoutQuotes { .. }
@@ -117,7 +117,7 @@ impl GateReason {
     #[must_use]
     pub fn span(&self) -> Option<&str> {
         match self {
-            Self::FindingWithoutEvidence { span, .. }
+            Self::AssessmentWithoutEvidence { span, .. }
             | Self::UnknownQuoteId { span, .. }
             | Self::QuoteDoesNotLocate { span, .. }
             | Self::SourceNotFetched { span, .. }
@@ -197,10 +197,10 @@ fn span_note(r: &GateReason) -> String {
 impl std::fmt::Display for GateReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::FindingWithoutEvidence { finding_id, .. } => {
+            Self::AssessmentWithoutEvidence { assessment_id, .. } => {
                 write!(
                     f,
-                    "finding {finding_id}: no evidence quotes (findings never reach the diff unanchored)"
+                    "finding {assessment_id}: no evidence quotes (findings never reach the diff unanchored)"
                 )
             }
             Self::ClaimWithoutQuotes { claim_id, .. } => {
@@ -218,34 +218,34 @@ impl std::fmt::Display for GateReason {
                 )
             }
             Self::UnknownQuoteId {
-                finding_id,
+                assessment_id,
                 quote_id,
                 ..
             } => {
                 write!(
                     f,
-                    "finding {finding_id}: evidence quote {quote_id} not in ledger"
+                    "finding {assessment_id}: evidence quote {quote_id} not in ledger"
                 )
             }
             Self::QuoteDoesNotLocate {
-                finding_id,
+                assessment_id,
                 quote_id,
                 source_id,
                 ..
             } => {
                 write!(
                     f,
-                    "finding {finding_id}: quote {quote_id} does not re-locate in fetched text of source {source_id}"
+                    "finding {assessment_id}: quote {quote_id} does not re-locate in fetched text of source {source_id}"
                 )
             }
             Self::SourceNotFetched {
-                finding_id,
+                assessment_id,
                 source_id,
                 ..
             } => {
                 write!(
                     f,
-                    "finding {finding_id}: source {source_id} has no fetched text"
+                    "finding {assessment_id}: source {source_id} has no fetched text"
                 )
             }
             Self::ClaimParaphraseTooClose {
@@ -292,7 +292,7 @@ pub struct GateVerdict {
 /// paraphrase configs.
 pub struct GateInput<'a> {
     pub ledger: &'a Ledger,
-    pub findings: &'a [Finding],
+    pub assessments: &'a [Assessment],
     pub base_wikitext: &'a str,
     pub proposed_wikitext: &'a str,
     pub linter_config: &'a LinterConfig,
@@ -307,11 +307,11 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
 
     // 1. Evidence verification: findings must be anchored and quotes must
     //    re-locate in the fetched bytes.
-    for finding in input.findings {
+    for finding in input.assessments {
         let span = Some(finding.wikitext_anchor.clone());
         if finding.evidence.is_empty() {
-            reasons.push(GateReason::FindingWithoutEvidence {
-                finding_id: finding.id.clone(),
+            reasons.push(GateReason::AssessmentWithoutEvidence {
+                assessment_id: finding.id.clone(),
                 span: span.clone(),
             });
             continue;
@@ -319,7 +319,7 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
         for quote_id in &finding.evidence {
             let Some(quote) = input.ledger.quote(quote_id) else {
                 reasons.push(GateReason::UnknownQuoteId {
-                    finding_id: finding.id.clone(),
+                    assessment_id: finding.id.clone(),
                     quote_id: quote_id.clone(),
                     span: span.clone(),
                 });
@@ -327,14 +327,14 @@ pub fn run_gate(input: &GateInput) -> GateVerdict {
             };
             match input.ledger.source_text(&quote.source_id) {
                 None => reasons.push(GateReason::SourceNotFetched {
-                    finding_id: finding.id.clone(),
+                    assessment_id: finding.id.clone(),
                     source_id: quote.source_id.clone(),
                     span: span.clone(),
                 }),
                 Some(text) => {
                     if locate_quote(&quote.text, text).is_none() {
                         reasons.push(GateReason::QuoteDoesNotLocate {
-                            finding_id: finding.id.clone(),
+                            assessment_id: finding.id.clone(),
                             quote_id: quote_id.clone(),
                             source_id: quote.source_id.clone(),
                             span: span.clone(),
@@ -476,7 +476,7 @@ mod tests {
     use super::{GateInput, GateReason, run_gate};
     use crate::checks::linter::LinterConfig;
     use crate::ledger::Ledger;
-    use crate::session::Finding;
+    use crate::session::Assessment;
 
     const SOURCE_TEXT: &str = "Temple Fielding's travel guides sold millions of copies and \
                                fictionalized his own itineraries for comic effect. The 1942 \
@@ -490,9 +490,9 @@ mod tests {
         (ledger, cfg)
     }
 
-    fn finding(evidence: Vec<String>) -> Finding {
-        Finding {
-            id: "F1".into(),
+    fn finding(evidence: Vec<String>) -> Assessment {
+        Assessment {
+            id: "AS1".into(),
             wikitext_anchor: "L1:C0-L1:C50".into(),
             rendered_span_id: None,
             rules: vec!["WP:V".into()],
@@ -518,7 +518,7 @@ mod tests {
         let findings = vec![finding(vec![ledger.quotes[0].id.clone()])];
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &findings,
+            assessments: &findings,
             base_wikitext: "Old text.",
             proposed_wikitext: "By 1986 Japanese readers had bought three million copies.",
             linter_config: &cfg,
@@ -537,7 +537,7 @@ mod tests {
         let findings = vec![finding(vec![qid])];
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &findings,
+            assessments: &findings,
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
@@ -555,7 +555,7 @@ mod tests {
         let (ledger, cfg) = setup();
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[finding(vec!["Q99".into()])],
+            assessments: &[finding(vec!["Q99".into()])],
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
@@ -569,7 +569,7 @@ mod tests {
 
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[finding(vec![])],
+            assessments: &[finding(vec![])],
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
@@ -577,7 +577,7 @@ mod tests {
         });
         assert!(matches!(
             verdict.reasons[0],
-            GateReason::FindingWithoutEvidence { .. }
+            GateReason::AssessmentWithoutEvidence { .. }
         ));
     }
 
@@ -587,7 +587,7 @@ mod tests {
         let (ledger, cfg) = setup();
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[finding(vec![])],
+            assessments: &[finding(vec![])],
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
@@ -597,7 +597,7 @@ mod tests {
         // Re-run (publish side) yields the same verdict.
         let again = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[finding(vec![])],
+            assessments: &[finding(vec![])],
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,
@@ -612,7 +612,7 @@ mod tests {
         // Proposed introduces an unspaced heading (whole-page error, new).
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[],
+            assessments: &[],
             base_wikitext: "",
             proposed_wikitext: "==Life==\nHe was born.",
             linter_config: &cfg,
@@ -631,7 +631,7 @@ mod tests {
         f.wikitext_anchor = "L7:C0-L7:C40".into();
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[f],
+            assessments: &[f],
             base_wikitext: "",
             proposed_wikitext: "==Life==\ntext",
             linter_config: &cfg,
@@ -675,7 +675,7 @@ mod tests {
         let base = "Temple Fielding's travel guides sold millions of copies.\n";
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[],
+            assessments: &[],
             base_wikitext: base,
             proposed_wikitext: "text",
             linter_config: &cfg,
@@ -700,7 +700,7 @@ mod tests {
             .unwrap();
         let verdict = run_gate(&GateInput {
             ledger: &ledger,
-            findings: &[],
+            assessments: &[],
             base_wikitext: "",
             proposed_wikitext: "text",
             linter_config: &cfg,

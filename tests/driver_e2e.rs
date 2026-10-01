@@ -16,9 +16,9 @@ use httpmock::MockServer;
 use wikiloop::checks::gate::GateInput;
 use wikiloop::checks::gate::run_gate;
 use wikiloop::driver::model::ZaiClient;
-use wikiloop::driver::steps::FindingsContext;
+use wikiloop::driver::steps::AssessContext;
 use wikiloop::driver::steps::SourceDigest;
-use wikiloop::driver::steps::author_findings;
+use wikiloop::driver::steps::assess;
 use wikiloop::driver::steps::draft_proposal;
 use wikiloop::ledger::Ledger;
 use wikiloop::rules::RulesCorpus;
@@ -109,7 +109,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     // The z.ai model: findings then proposal (fixture-shaped completions).
     let model = MockServer::start_async().await;
     let findings_completion = r#"```json
-[{"id":"F1","wikitext_anchor":"L1:C0-L1:C19","rules":["WP:V"],
+[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C19","rules":["WP:V"],
   "evidence":["Q1"],
   "factual_note":"The fetched history supports the age claim.",
   "proposed_fix":"Cite the tower's age to the fetched history.","loop":2}]
@@ -118,7 +118,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
                 .path("/chat/completions")
-                .body_includes("You author Wikipedia improvement findings");
+                .body_includes("You author Wikipedia improvement assessments");
             then.status(200).json_body(completion(findings_completion));
         })
         .await;
@@ -239,7 +239,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     // Rules guidance (rule-enforcement item 3): tier-1 + loop-2 cards.
     let corpus = RulesCorpus::load(Path::new("rules")).unwrap();
     let guidance = wikiloop::rules::guidance_for_loop(&corpus, 2).unwrap();
-    let ctx = FindingsContext {
+    let ctx = AssessContext {
         article: "E2E Article".into(),
         base_wikitext: base.clone(),
         sources: vec![SourceDigest {
@@ -250,25 +250,32 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
         }],
         quote_ids: vec![qid.clone()],
         entry_loop: 2,
-        max_findings: 3,
+        max_assessments: 3,
         guidance: guidance.clone(),
     };
-    let findings = author_findings(&zai, &ctx)
+    let assessments = assess(&zai, &ctx)
         .await
-        .expect("model findings validate");
-    assert_eq!(findings.len(), 1);
-    assert_eq!(findings[0].evidence, vec![qid.clone()]);
+        .expect("model assessments validate");
+    assert_eq!(assessments.len(), 1);
+    assert_eq!(assessments[0].evidence, vec![qid.clone()]);
 
     // Persist findings exactly like `wa findings add` (schema-validated).
-    let file = wikiloop::session::FindingsFile {
-        findings: findings.clone(),
+    let file = wikiloop::session::AssessmentsFile {
+        assessments: assessments.clone(),
     };
-    file.save(&session.join("findings.json")).unwrap();
+    file.save(&session.join("assessments.json")).unwrap();
 
     // ---- Judgment point 2: the scoped proposal. ----
-    let proposal = draft_proposal(&zai, &findings[0], &[], "The tower is old.", &[], &guidance)
-        .await
-        .expect("proposal");
+    let proposal = draft_proposal(
+        &zai,
+        &assessments[0],
+        &[],
+        "The tower is old.",
+        &[],
+        &guidance,
+    )
+    .await
+    .expect("proposal");
     let proposed = base.replace(
         "The tower is old.",
         proposal.proposed_wikitext_block.trim_end(),
@@ -279,7 +286,7 @@ async fn full_offline_driver_session_completes_and_cannot_publish_unconfirmed() 
     let corpus = RulesCorpus::load(Path::new("rules")).unwrap();
     let verdict = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &findings,
+        assessments: &assessments,
         base_wikitext: &base,
         proposed_wikitext: &proposed,
         linter_config: &corpus.linter,

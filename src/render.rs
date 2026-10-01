@@ -24,7 +24,7 @@ use crate::checks::gate::GateInput;
 use crate::checks::gate::GateVerdict;
 use crate::checks::linter::LinterConfig;
 use crate::ledger::Ledger;
-use crate::session::Finding;
+use crate::session::Assessment;
 
 /// One revisions-registry entry (lavish `data-lavish-revisions` shape:
 /// `{id,label,timestamp,summary}`, oldest first; the browser legend lists at
@@ -61,7 +61,7 @@ pub struct RenderInput<'a> {
     pub base_html: &'a str,
     /// Parsoid HTML of the proposed wikitext.
     pub proposed_html: &'a str,
-    pub findings: &'a [Finding],
+    pub assessments: &'a [Assessment],
     pub ledger: &'a Ledger,
     pub linter_config: &'a LinterConfig,
     /// Paraphrase-gate thresholds (`rules/paraphrase.toml`, MVP-2 A.2.3).
@@ -77,7 +77,7 @@ pub struct RenderOutput {
     pub artifact_html: String,
     pub anchor_table: Vec<AnchorEntry>,
     /// Findings with `rendered_span_id` back-filled.
-    pub updated_findings: Vec<Finding>,
+    pub updated_assessments: Vec<Assessment>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -98,7 +98,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     // 1. Mandatory pre-flight (AC.11).
     let verdict = crate::checks::gate::run_gate(&GateInput {
         ledger: input.ledger,
-        findings: input.findings,
+        assessments: input.assessments,
         base_wikitext: input.base_wikitext,
         proposed_wikitext: input.proposed_wikitext,
         linter_config: input.linter_config,
@@ -269,8 +269,8 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     // 5. Evidence rail: one card per finding (gate guarantees quotes
     //    resolve into the ledger).
     let mut evidence_html = String::new();
-    let mut updated_findings = input.findings.to_vec();
-    for (idx, finding) in input.findings.iter().enumerate() {
+    let mut updated_assessments = input.assessments.to_vec();
+    for (idx, finding) in input.assessments.iter().enumerate() {
         let ev_id = format!("ev-{}", idx + 1);
         let primary_quote_id = finding.evidence[0].clone();
         evidence_html.push_str(&evidence_card(&ev_id, finding, input.ledger));
@@ -278,12 +278,12 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
             element_id: ev_id.clone(),
             wikitext_anchor: format!("ledger:{primary_quote_id}"),
         });
-        updated_findings[idx].rendered_span_id = Some(ev_id);
+        updated_assessments[idx].rendered_span_id = Some(ev_id);
     }
-    if input.findings.is_empty() {
+    if input.assessments.is_empty() {
         evidence_html.push_str("<p class=\"meta\">This edit cites no new evidence.</p>\n");
     }
-    evidence_html.push_str(&consulted_html(input.findings, input.ledger));
+    evidence_html.push_str(&consulted_html(input.assessments, input.ledger));
     if diff_html.is_empty() {
         diff_html.push_str(
             "<p class=\"meta\">The proposed text is identical to the current article.</p>\n",
@@ -313,7 +313,7 @@ pub fn render(input: &RenderInput) -> Result<RenderOutput, RenderError> {
     Ok(RenderOutput {
         artifact_html: artifact,
         anchor_table,
-        updated_findings,
+        updated_assessments,
     })
 }
 
@@ -797,7 +797,7 @@ fn next_line_anchor(wikitext: &str, prop_idx: usize) -> String {
 /// element ids and data-wiki-anchor attributes — never in visible text
 /// (operator L2 round-3 catch: "Q1/F1/S1/locator-verified are internal
 /// jargon").
-fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
+fn evidence_card(ev_id: &str, finding: &Assessment, ledger: &Ledger) -> String {
     let mut quotes_html = String::new();
     for qid in &finding.evidence {
         let Some(quote) = ledger.quote(qid) else {
@@ -874,8 +874,8 @@ fn evidence_card(ev_id: &str, finding: &Finding, ledger: &Ledger) -> String {
 /// a link and fetch status — the reviewer must be able to chase
 /// paywalled/403 sources from the UI (operator round-6 catch: "not enough
 /// detail to google them, no link to the 403").
-fn consulted_html(findings: &[Finding], ledger: &Ledger) -> String {
-    let quoted: Vec<&str> = findings
+fn consulted_html(assessments: &[Assessment], ledger: &Ledger) -> String {
+    let quoted: Vec<&str> = assessments
         .iter()
         .flat_map(|f| f.evidence.iter())
         .filter_map(|qid| ledger.quote(qid).map(|q| q.source_id.as_str()))
@@ -1357,7 +1357,7 @@ mod tests {
         base_html: &'a str,
         prop_html: &'a str,
         ledger: &'a crate::ledger::Ledger,
-        findings: &'a [crate::session::Finding],
+        assessments: &'a [crate::session::Assessment],
     ) -> RenderInput<'a> {
         RenderInput {
             article: "Test article".into(),
@@ -1366,7 +1366,7 @@ mod tests {
             proposed_wikitext: proposed,
             base_html,
             proposed_html: prop_html,
-            findings,
+            assessments,
             ledger,
             linter_config: &LINTER,
             paraphrase_config: &PARA,
@@ -1707,8 +1707,8 @@ mod tests {
             .attach_fetched_text(&sid, "The tower was completed in 1937 and painted red.")
             .unwrap();
         let qid = ledger.add_quote(&sid, "completed in 1937").unwrap();
-        let finding = crate::session::Finding {
-            id: "F1".into(),
+        let finding = crate::session::Assessment {
+            id: "AS1".into(),
             wikitext_anchor: "L4:C0-L4:C40".into(),
             rendered_span_id: None,
             rules: vec!["WP:V".into()],
@@ -1748,7 +1748,7 @@ mod tests {
         );
         assert!(out.artifact_html.contains("Relevant guidance: <a href"));
         assert_eq!(
-            out.updated_findings[0].rendered_span_id.as_deref(),
+            out.updated_assessments[0].rendered_span_id.as_deref(),
             Some("ev-1")
         );
     }

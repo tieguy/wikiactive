@@ -1,4 +1,4 @@
-//! CLI wiring: `wa` — session init / analyze / findings / render / poll /
+//! CLI wiring: `wa` — session init / analyze / assess / render / poll /
 //! publish / ledger / lint.
 
 use std::io::Read as _;
@@ -22,7 +22,7 @@ use crate::render::render;
 use crate::rules::ArticleState;
 use crate::rules::RulesCorpus;
 use crate::rules::build_context_bundle;
-use crate::session::FindingsFile;
+use crate::session::AssessmentsFile;
 use crate::session::RoundEntry;
 use crate::session::SessionMeta;
 use crate::session::SessionPaths;
@@ -58,10 +58,17 @@ pub enum Command {
         #[arg(long)]
         prior_base: Option<PathBuf>,
     },
-    /// Findings authoring (schema-validated).
-    Findings {
+    /// Assessment authoring (schema-validated).
+    Assess {
         #[command(subcommand)]
-        cmd: FindingsCmd,
+        cmd: AssessCmd,
+    },
+    /// Retired name (loop-mechanization Phase 1): assessments. Always
+    /// fails with a pointer; never dispatches.
+    #[command(hide = true)]
+    Findings {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _rest: Vec<String>,
     },
     /// Gate + render the review artifact (writes review.html).
     Render {
@@ -238,15 +245,15 @@ pub enum CommentsCmd {
 }
 
 #[derive(Subcommand)]
-pub enum FindingsCmd {
-    /// Append findings from a JSON file (array of findings) or '-' for stdin.
+pub enum AssessCmd {
+    /// Append assessments from a JSON file (array of assessments) or '-' for stdin.
     Add {
         slug: String,
-        /// Path to JSON ('-' = stdin). Content: a finding object or an
-        /// array of findings.
+        /// Path to JSON ('-' = stdin). Content: an assessment object or an
+        /// array of assessments.
         json: String,
     },
-    /// List findings.
+    /// List assessments.
     List { slug: String },
 }
 
@@ -319,10 +326,14 @@ pub async fn run(cli: Cli) -> Result<()> {
             SessionCmd::Show { slug } => session_show(&slug),
         },
         Command::Analyze { slug, prior_base } => analyze(&slug, prior_base),
-        Command::Findings { cmd } => match cmd {
-            FindingsCmd::Add { slug, json } => findings_add(&slug, &json),
-            FindingsCmd::List { slug } => findings_list(&slug),
+        Command::Assess { cmd } => match cmd {
+            AssessCmd::Add { slug, json } => assess_add(&slug, &json),
+            AssessCmd::List { slug } => assess_list(&slug),
         },
+        Command::Findings { .. } => anyhow::bail!(
+            "`wa findings` is now `wa assess` — try `wa assess add <slug> <json|->` \
+             (schema-validated admission) or `wa assess list <slug>`"
+        ),
         Command::Sweep { cmd } => match cmd {
             SweepCmd::Inventory { slug, wikitext } => sweep_inventory(&slug, wikitext.as_deref()),
             SweepCmd::Fetch { slug } => sweep_fetch(&slug).await,
@@ -403,12 +414,12 @@ async fn session_init(
     anyhow::ensure!((1..=5).contains(&entry_loop), "entry_loop must be 1-5");
     let slug = slugify(article);
     let paths = SessionPaths::new(&slug);
-    // Init writes a fresh ledger, findings and proposed text: on an
+    // Init writes a fresh ledger, assessments and proposed text: on an
     // existing session that would erase the work in it.
     anyhow::ensure!(
         !paths.meta().exists(),
-        "session sessions/{slug} already exists — init would erase its ledger, findings and \
-         draft; remove the directory first to start over"
+        "session sessions/{slug} already exists — init would erase its ledger, assessments \
+         and draft; remove the directory first to start over"
     );
     std::fs::create_dir_all(&paths.dir).context("create session dir")?;
 
@@ -479,8 +490,8 @@ async fn session_init(
     std::fs::write(paths.base(), &wikitext)?;
     std::fs::write(paths.proposed(), &wikitext)?;
     Ledger::default().save(&paths.ledger())?;
-    FindingsFile::default()
-        .save(&paths.findings())
+    AssessmentsFile::default()
+        .save(&paths.assessments())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     println!(
         "session initialized: sessions/{slug} (base revid {revid}, entry loop L{entry_loop}{drift_note})"
@@ -546,7 +557,8 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
     })?;
     let base_wikitext = std::fs::read_to_string(paths.base())
         .with_context(|| format!("sessions/{slug}/base.wikitext missing"))?;
-    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let assessments =
+        AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
     // Drift context (MVP-2 A.2.2): explicit --prior-base wins; otherwise a
     // session initialized with --review-since-user diffs against the
@@ -576,63 +588,67 @@ fn analyze(slug: &str, prior_base: Option<PathBuf>) -> Result<()> {
         entry_loop: meta.entry_loop,
         prior_session_diff,
     };
-    let bundle = build_context_bundle(&corpus, &article, &findings.findings, &ledger)
+    let bundle = build_context_bundle(&corpus, &article, &assessments.assessments, &ledger)
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     std::fs::write(paths.dir.join("context.md"), &bundle.text)?;
     println!("{}", bundle.text);
     Ok(())
 }
 
-fn findings_add(slug: &str, json_source: &str) -> Result<()> {
+fn assess_add(slug: &str, json_source: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
     let raw = if json_source == "-" {
         let mut buf = String::new();
         std::io::stdin().read_to_string(&mut buf)?;
         buf
     } else {
-        std::fs::read_to_string(json_source).context("read findings json")?
+        std::fs::read_to_string(json_source).context("read assessments json")?
     };
     let trimmed = raw.trim();
     // Accept a single object or an array.
-    let incoming: Vec<crate::session::Finding> = if trimmed.starts_with('[') {
-        serde_json::from_str(trimmed).context("parse findings array")?
+    let incoming: Vec<crate::session::Assessment> = if trimmed.starts_with('[') {
+        serde_json::from_str(trimmed).context("parse assessments array")?
     } else {
-        vec![serde_json::from_str(trimmed).context("parse finding object")?]
+        vec![serde_json::from_str(trimmed).context("parse assessment object")?]
     };
-    // Schema-validate every finding (all problems at once).
-    for finding in &incoming {
-        finding.validate().map_err(|problems| {
-            anyhow::anyhow!("finding {} invalid: {}", finding.id, problems.join("; "))
+    // Schema-validate every assessment (all problems at once).
+    for assessment in &incoming {
+        assessment.validate().map_err(|problems| {
+            anyhow::anyhow!(
+                "assessment {} invalid: {}",
+                assessment.id,
+                problems.join("; ")
+            )
         })?;
     }
-    let mut file = if paths.findings().exists() {
-        FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?
+    let mut file = if paths.assessments().exists() {
+        AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?
     } else {
-        FindingsFile::default()
+        AssessmentsFile::default()
     };
     let mut accepted = Vec::new();
-    for finding in incoming {
+    for assessment in incoming {
         anyhow::ensure!(
-            !file.findings.iter().any(|f| f.id == finding.id),
-            "duplicate finding id {}",
-            finding.id
+            !file.assessments.iter().any(|a| a.id == assessment.id),
+            "duplicate assessment id {}",
+            assessment.id
         );
-        accepted.push(finding.id.clone());
-        file.findings.push(finding);
+        accepted.push(assessment.id.clone());
+        file.assessments.push(assessment);
     }
-    file.save(&paths.findings())
+    file.save(&paths.assessments())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     // Announce only what is now on disk (a rejected batch saves nothing).
     for id in accepted {
-        println!("accepted finding {id}");
+        println!("accepted assessment {id}");
     }
     Ok(())
 }
 
-fn findings_list(slug: &str) -> Result<()> {
+fn assess_list(slug: &str) -> Result<()> {
     let (paths, _) = load_session(slug)?;
-    let file = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
-    for f in &file.findings {
+    let file = AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    for f in &file.assessments {
         println!(
             "{} [{}] loop {} — {}",
             f.id,
@@ -807,7 +823,8 @@ pub async fn render_cmd(
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
     let base_wikitext = std::fs::read_to_string(paths.base())?;
     let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
-    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let assessments =
+        AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
 
     // HTML sides: offline fixtures when provided; otherwise live Parsoid.
@@ -841,7 +858,7 @@ pub async fn render_cmd(
         proposed_wikitext: &proposed_wikitext,
         base_html: &base_html,
         proposed_html: &proposed_html,
-        findings: &findings.findings,
+        assessments: &assessments.assessments,
         ledger: &ledger,
         linter_config: &corpus.linter,
         paraphrase_config: &corpus.paraphrase,
@@ -851,10 +868,10 @@ pub async fn render_cmd(
 
     std::fs::write(paths.review_html(), &output.artifact_html)?;
     // Back-filled rendered_span_ids persist.
-    let mut updated = findings;
-    updated.findings = output.updated_findings;
+    let mut updated = assessments;
+    updated.assessments = output.updated_assessments;
     updated
-        .save(&paths.findings())
+        .save(&paths.assessments())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
     let entry = RoundEntry {
         round,
@@ -914,24 +931,25 @@ fn read_registry(review_html: &std::path::Path) -> Vec<crate::render::RevisionEn
 }
 
 /// Archive the session's findings to `findings-archive.jsonl` (one line per
-/// finding, annotated with the published diff url) and reset `findings.json`
+/// finding, annotated with the published diff url) and reset `assessments.json`
 /// for the next edit.
-fn archive_findings(paths: &SessionPaths, diff_url: &str) -> Result<()> {
-    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
-    if !findings.findings.is_empty() {
+fn archive_assessments(paths: &SessionPaths, diff_url: &str) -> Result<()> {
+    let assessments =
+        AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    if !assessments.assessments.is_empty() {
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
-            .open(paths.dir.join("findings-archive.jsonl"))
-            .context("open findings archive")?;
-        for f in &findings.findings {
+            .open(paths.dir.join("assessments-archive.jsonl"))
+            .context("open assessments archive")?;
+        for f in &assessments.assessments {
             let mut archived = serde_json::to_value(f)?;
             archived["published_diff"] = serde_json::Value::String(diff_url.to_string());
             writeln!(file, "{archived}")?;
         }
     }
-    FindingsFile::default()
-        .save(&paths.findings())
+    AssessmentsFile::default()
+        .save(&paths.assessments())
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
@@ -1117,13 +1135,14 @@ pub async fn publish_core(
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
     let base_wikitext = std::fs::read_to_string(paths.base())?;
     let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
-    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let assessments =
+        AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
 
     // Publish gate: the SAME gate as render's pre-flight, re-run now.
     let verdict = crate::checks::gate::run_gate(&GateInput {
         ledger: &ledger,
-        findings: &findings.findings,
+        assessments: &assessments.assessments,
         base_wikitext: &base_wikitext,
         proposed_wikitext: &proposed_wikitext,
         linter_config: &corpus.linter,
@@ -1212,7 +1231,7 @@ pub async fn publish_core(
     // diff link (audit trail) and reset — the next edit's artifact must
     // show only ITS evidence, not stale cards from published edits
     // (operator catch: "evidence for this edit seems cached").
-    archive_findings(&paths, &outcome.diff_url)?;
+    archive_assessments(&paths, &outcome.diff_url)?;
     // The round entry records the read-back lines after the diff URL —
     // the audit trail carries what the wiki actually saved.
     let mut round_detail = published_diff;
@@ -1594,12 +1613,13 @@ fn check_cmd(slug: &str) -> Result<()> {
         RulesCorpus::load(std::path::Path::new("rules")).map_err(|e| anyhow::anyhow!("{e}"))?;
     let base_wikitext = std::fs::read_to_string(paths.base())?;
     let proposed_wikitext = std::fs::read_to_string(paths.proposed())?;
-    let findings = FindingsFile::load(&paths.findings()).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let assessments =
+        AssessmentsFile::load(&paths.assessments()).map_err(|e| anyhow::anyhow!("{e}"))?;
     let ledger = Ledger::load(&paths.ledger())?;
 
     let verdict = crate::checks::gate::run_gate(&GateInput {
         ledger: &ledger,
-        findings: &findings.findings,
+        assessments: &assessments.assessments,
         base_wikitext: &base_wikitext,
         proposed_wikitext: &proposed_wikitext,
         linter_config: &corpus.linter,
@@ -1651,11 +1671,11 @@ fn check_cmd(slug: &str) -> Result<()> {
 fn lint_cmd(path: &std::path::Path) -> Result<()> {
     let text = std::fs::read_to_string(path)?;
     let config = LinterConfig::load(std::path::Path::new("rules/linter.toml"))?;
-    let findings = linter::scan_whole_page(&text, &config);
-    if findings.is_empty() {
+    let lint_hits = linter::scan_whole_page(&text, &config);
+    if lint_hits.is_empty() {
         println!("clean");
     }
-    for f in &findings {
+    for f in &lint_hits {
         println!(
             "[{}] {} (line {}): {}",
             f.severity.label(),

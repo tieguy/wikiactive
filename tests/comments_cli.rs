@@ -31,7 +31,7 @@ fn setup_session() -> PathBuf {
         r#"{"article":"Test article","base_revid":1,"started":"2026-09-29T00:00:00Z","entry_loop":2}"#,
     )
     .unwrap();
-    std::fs::write(session.join("findings.json"), r#"{"findings":[]}"#).unwrap();
+    std::fs::write(session.join("assessments.json"), r#"{"assessments":[]}"#).unwrap();
     std::fs::write(
         session.join("ledger.json"),
         r#"{"schema_version":1,"sources":[],"quotes":[],"claims":[]}"#,

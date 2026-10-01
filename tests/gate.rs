@@ -9,15 +9,15 @@ use wikiloop::checks::gate::GateReason;
 use wikiloop::checks::gate::run_gate;
 use wikiloop::checks::linter::LinterConfig;
 use wikiloop::ledger::Ledger;
-use wikiloop::session::Finding;
+use wikiloop::session::Assessment;
 
 fn linter() -> LinterConfig {
     LinterConfig::load(std::path::Path::new("rules/linter.toml")).unwrap()
 }
 
-fn finding(evidence: Vec<String>) -> Finding {
-    Finding {
-        id: "F1".into(),
+fn finding(evidence: Vec<String>) -> Assessment {
+    Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L1:C0-L1:C10".into(),
         rendered_span_id: None,
         rules: vec!["WP:V".into()],
@@ -45,7 +45,7 @@ fn ac11_tampered_quote_blocks() {
 
     let verdict = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &[finding(vec![qid])],
+        assessments: &[finding(vec![qid])],
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
@@ -63,7 +63,7 @@ fn ac11_unknown_quote_id_blocks() {
     let ledger = ledger_with_source();
     let verdict = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &[finding(vec!["Q42".into()])],
+        assessments: &[finding(vec!["Q42".into()])],
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
@@ -81,7 +81,7 @@ fn ac11_unanchored_finding_never_reaches_review() {
     let ledger = ledger_with_source();
     let verdict = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &[finding(vec![])],
+        assessments: &[finding(vec![])],
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
@@ -90,7 +90,7 @@ fn ac11_unanchored_finding_never_reaches_review() {
     assert!(verdict.blocked);
     assert!(matches!(
         verdict.reasons.first(),
-        Some(GateReason::FindingWithoutEvidence { .. })
+        Some(GateReason::AssessmentWithoutEvidence { .. })
     ));
 }
 
@@ -105,7 +105,7 @@ fn ac11_gate_reruns_identically_before_publish_confirmation() {
 
     let at_render = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &input_findings,
+        assessments: &input_findings,
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
@@ -113,7 +113,7 @@ fn ac11_gate_reruns_identically_before_publish_confirmation() {
     });
     let before_publish = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &input_findings,
+        assessments: &input_findings,
         base_wikitext: "",
         proposed_wikitext: "text",
         linter_config: &linter(),
@@ -135,7 +135,7 @@ fn ac11_clean_gate_passes() {
         .unwrap();
     let verdict = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &[finding(vec![qid])],
+        assessments: &[finding(vec![qid])],
         base_wikitext: "base text here",
         proposed_wikitext: "A paraphrase of the fetched source material, properly reworded.",
         linter_config: &linter(),
@@ -152,7 +152,7 @@ fn claims_without_resolvable_quotes_block() {
     let run = |ledger: &Ledger| {
         run_gate(&GateInput {
             ledger,
-            findings: &[],
+            assessments: &[],
             base_wikitext: "Old text.\n",
             proposed_wikitext: "Old text. The keep was rebuilt in stone.\n",
             linter_config: &linter(),

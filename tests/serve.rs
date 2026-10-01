@@ -45,7 +45,7 @@ fn setup_session(resolve_sweep: bool) -> PathBuf {
         r#"{"article":"Test article","base_revid":500,"started":"2026-09-29T00:00:00Z","entry_loop":2}"#,
     )
     .unwrap();
-    std::fs::write(session.join("findings.json"), r#"{"findings":[]}"#).unwrap();
+    std::fs::write(session.join("assessments.json"), r#"{"assessments":[]}"#).unwrap();
     let s1 = if resolve_sweep {
         r#"{"id":"S1","url":"https://example.com/paywalled","access_date":"2026-09-29","sweep_status":"needs_operator","disposition":"dropped: paywall"}"#
     } else {
@@ -422,7 +422,7 @@ async fn declined_confirmation_never_edits() {
 
 /// The driver judgment point through the app: `POST driver/findings`
 /// calls the (mocked) model, and the validated finding lands in the
-/// session's findings.json via the same admission as `wa findings add`.
+/// session's assessments.json via the same admission as `wa findings add`.
 #[tokio::test]
 async fn driver_findings_endpoint_runs_the_model_and_admits_findings() {
     let dir = setup_session(true);
@@ -444,7 +444,7 @@ async fn driver_findings_endpoint_runs_the_model_and_admits_findings() {
         then.status(200).json_body(serde_json::json!({
             "choices": [{"finish_reason": "stop", "index": 0,
                 "message": {"role": "assistant", "content":
-                    "[{\"id\":\"F1\",\"wikitext_anchor\":\"L1:C0-L1:C19\",\"rules\":[\"WP:V\"],\"evidence\":[\"Q1\"],\"factual_note\":\"The history supports the age claim.\",\"proposed_fix\":\"Cite the age.\",\"loop\":2}]"}}]
+                    "[{\"id\":\"AS1\",\"wikitext_anchor\":\"L1:C0-L1:C19\",\"rules\":[\"WP:V\"],\"evidence\":[\"Q1\"],\"factual_note\":\"The history supports the age claim.\",\"proposed_fix\":\"Cite the age.\",\"loop\":2}]"}}]
         }));
     })
     .await;
@@ -465,10 +465,10 @@ async fn driver_findings_endpoint_runs_the_model_and_admits_findings() {
         .unwrap();
     assert_eq!(resp.status().as_u16(), 303);
 
-    let findings = std::fs::read_to_string(session.join("findings.json")).unwrap();
+    let findings = std::fs::read_to_string(session.join("assessments.json")).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&findings).unwrap();
-    let f1 = &parsed["findings"][0];
-    assert_eq!(f1["id"], "F1", "{findings}");
+    let f1 = &parsed["assessments"][0];
+    assert_eq!(f1["id"], "AS1", "{findings}");
     assert_eq!(f1["evidence"][0], "Q1", "{findings}");
 
     let _ = child.kill();

@@ -11,7 +11,7 @@
 use std::path::Path;
 
 /// Prompt file names under `prompts/`.
-pub const AUTHOR_FINDINGS: &str = "author-findings.md";
+pub const ASSESS: &str = "assess.md";
 pub const PROPOSE: &str = "propose.md";
 pub const RESOLVE: &str = "resolve.md";
 pub const REVIEW: &str = "review.md";
@@ -57,7 +57,7 @@ pub fn render(template: &str, slots: &[(&str, &str)]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{AUTHOR_FINDINGS, PROPOSE, RESOLVE, REVIEW, load, render};
+    use super::{ASSESS, PROPOSE, RESOLVE, REVIEW, load, render};
     use sha2::{Digest, Sha256};
 
     fn sha256_hex(text: &str) -> String {
@@ -78,16 +78,18 @@ mod tests {
     fn prompt_checksums_are_pinned() {
         for (name, pinned) in [
             (
-                AUTHOR_FINDINGS,
-                // rule-enforcement item 3: gained the {{guidance}} rules
-                // section (tier-1 verbatim + this loop's cards).
-                "c660c41cf0cad8c2439b4f6cb8bb2f88c8596a769bcb3b4f2ee751feb3e7f83d",
+                ASSESS,
+                // loop-mechanization Phase 1: author-findings.md renamed to
+                // assess.md with the assessment vocabulary (AS<n> ids,
+                // {{max_assessments}} slot) — the record and command are
+                // `wa assess` now.
+                "aa8491f8f659da5d7a81ca75df4f722a8366364cbc2f941dd0bb4d1499fb0f66",
             ),
             (
                 PROPOSE,
-                // rule-enforcement item 3: gained the {{guidance}} rules
-                // section.
-                "793cfc487c4909a8577140606bcb429e55e8e8acbc9776151d6d407d85da2db0",
+                // loop-mechanization Phase 1: finding→assessment wording;
+                // internal-id rule now names AS/Q.
+                "eb6d91cc44891cbd4c6fbd25e530d107837edcfa57eb8c93f3e0be15c48811b5",
             ),
             (
                 RESOLVE,

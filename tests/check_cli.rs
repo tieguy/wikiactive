@@ -33,7 +33,7 @@ fn setup_session(findings: &str, base: &str, proposed: &str) -> PathBuf {
         r#"{"article":"Test article","base_revid":1,"started":"2026-09-25T00:00:00Z","entry_loop":2}"#,
     )
     .unwrap();
-    std::fs::write(session.join("findings.json"), findings).unwrap();
+    std::fs::write(session.join("assessments.json"), findings).unwrap();
     std::fs::write(
         session.join("ledger.json"),
         r#"{"schema_version":1,"sources":[],"quotes":[],"claims":[]}"#,
@@ -55,11 +55,11 @@ fn wa(dir: &Path) -> std::process::Output {
 
 #[test]
 fn blocked_proposal_reports_disposition_groups_without_artifact() {
-    // F1 cites Q99 which is not in the ledger (NEEDS ANCHOR) and the
+    // AS1 cites Q99 which is not in the ledger (NEEDS ANCHOR) and the
     // proposal introduces an unspaced heading (HARD BLOCK) — both groups
     // in one run.
     let dir = setup_session(
-        r#"{"findings":[{"id":"F1","wikitext_anchor":"L1:C0-L1:C10","rules":["WP:V"],"evidence":["Q99"],"factual_note":"n","proposed_fix":"f","loop":2}]}"#,
+        r#"{"assessments":[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C10","rules":["WP:V"],"evidence":["Q99"],"factual_note":"n","proposed_fix":"f","loop":2}]}"#,
         "He was born in 1919.\n",
         "==Life==\nHe was born in 1919.\n",
     );
@@ -97,7 +97,7 @@ fn blocked_proposal_reports_disposition_groups_without_artifact() {
 #[test]
 fn clean_proposal_passes_without_artifact() {
     let dir = setup_session(
-        r#"{"findings":[]}"#,
+        r#"{"assessments":[]}"#,
         "The tower is old.\n",
         "The tower is older than it looks.\n",
     );
@@ -123,7 +123,7 @@ fn clean_proposal_passes_without_artifact() {
 #[test]
 fn warn_level_findings_print_after_the_gate_report_without_blocking() {
     let dir = setup_session(
-        r#"{"findings":[]}"#,
+        r#"{"assessments":[]}"#,
         "The tower is old.\n",
         "The tower is old.\nThe railroad is now the largest employer in the county.\n",
     );
@@ -153,7 +153,7 @@ fn warn_level_findings_print_after_the_gate_report_without_blocking() {
 #[test]
 fn review_since_drift_embedded_in_analyze_bundle() {
     let dir = setup_session(
-        r#"{"findings":[]}"#,
+        r#"{"assessments":[]}"#,
         "She was a railroad president.\n",
         "She was a railroad president.\n",
     );
@@ -224,7 +224,7 @@ fn write_ledger_with_sweep(dir: &Path, status: &str) {
 #[test]
 fn sweep_unresolved_blocks_check_and_dispose_unblocks() {
     let dir = setup_session(
-        r#"{"findings":[]}"#,
+        r#"{"assessments":[]}"#,
         "The tower is old.\n",
         "The tower is older than it looks.\n",
     );
@@ -276,7 +276,7 @@ fn sweep_unresolved_blocks_check_and_dispose_unblocks() {
 #[test]
 fn sweep_attach_text_unblocks() {
     let dir = setup_session(
-        r#"{"findings":[]}"#,
+        r#"{"assessments":[]}"#,
         "The tower is old.\n",
         "The tower is older than it looks.\n",
     );
@@ -324,7 +324,7 @@ fn sweep_attach_text_unblocks() {
 #[test]
 fn sweep_auto_dispositioned_print_source_passes() {
     let dir = setup_session(
-        r#"{"findings":[]}"#,
+        r#"{"assessments":[]}"#,
         "The tower is old.\n",
         "The tower is older than it looks.\n",
     );

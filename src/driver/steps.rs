@@ -5,7 +5,7 @@
 //! Contract (plan-003 B.2 / AC.6):
 //!
 //! - Model output is schema-validated exactly like `wa findings add`
-//!   (same [`Finding::validate`], same admission rules).
+//!   (same [`Assessment::validate`], same admission rules).
 //! - Malformed output (unparseable OR failing validation OR citing
 //!   unknown ledger quote ids) is retried exactly once with a corrective
 //!   message, then the step is blocked — never waved through.
@@ -21,7 +21,7 @@ use crate::driver::model::ZaiClient;
 use crate::driver::model::ZaiError;
 use crate::driver::model::strip_code_fence;
 use crate::driver::prompts;
-use crate::session::Finding;
+use crate::session::Assessment;
 
 /// Judgment-point temperature: low, deterministic drafting.
 pub const STEP_TEMPERATURE: f64 = 0.2;
@@ -37,7 +37,7 @@ pub enum StepError {
     /// citing unknown quote ids) after one retry — blocked.
     #[error("step {step}: model output malformed after retry — blocked: {problems}")]
     Malformed {
-        /// Step name (`author_findings` / `draft_proposal` / `resolve_comments`).
+        /// Step name (`assess` / `draft_proposal` / `resolve_comments`).
         step: &'static str,
         /// Everything wrong with the last attempt.
         problems: String,
@@ -50,7 +50,7 @@ pub enum StepError {
 /// The deterministic context bundle for findings authoring, assembled by
 /// the orchestrator from session state (never by the model).
 #[derive(Debug, Clone)]
-pub struct FindingsContext {
+pub struct AssessContext {
     /// Article title.
     pub article: String,
     /// Pinned base wikitext.
@@ -63,7 +63,7 @@ pub struct FindingsContext {
     /// Entry loop (1–5).
     pub entry_loop: u8,
     /// Cap on findings per run (prompt slot).
-    pub max_findings: usize,
+    pub max_assessments: usize,
     /// The rules guidance for this entry loop (`rules::guidance_for_loop`
     /// output): tier-1 verbatim + the triage-selected cards. Built BEFORE
     /// the step runs — a corpus missing a card fails the handler, not the
@@ -168,20 +168,17 @@ fn parse_and_validate<T: serde::de::DeserializeOwned>(
 
 /// Judgment point 1: author findings from the context bundle. Output is
 /// validated exactly like `wa findings add` (same
-/// [`Finding::validate`]), plus evidence ids must exist in the ledger.
+/// [`Assessment::validate`]), plus evidence ids must exist in the ledger.
 ///
 /// # Errors
 /// [`StepError::Transport`] or [`StepError::Malformed`] (after one
 /// corrective retry).
-pub async fn author_findings(
-    client: &ZaiClient,
-    ctx: &FindingsContext,
-) -> Result<Vec<Finding>, StepError> {
-    let template = prompts::load(prompts::AUTHOR_FINDINGS)?;
+pub async fn assess(client: &ZaiClient, ctx: &AssessContext) -> Result<Vec<Assessment>, StepError> {
+    let template = prompts::load(prompts::ASSESS)?;
     let system = prompts::render(
         &template,
         &[
-            ("max_findings", &ctx.max_findings.to_string()),
+            ("max_assessments", &ctx.max_assessments.to_string()),
             ("entry_loop", &ctx.entry_loop.to_string()),
             ("guidance", &ctx.guidance),
         ],
@@ -206,8 +203,8 @@ pub async fn author_findings(
         );
     }
 
-    let findings = call_json::<Vec<Finding>>(
-        "author_findings",
+    let findings = call_json::<Vec<Assessment>>(
+        "assess",
         client,
         &[ChatMessage::system(system), ChatMessage::user(user)],
         |parsed| {
@@ -228,11 +225,11 @@ pub async fn author_findings(
                     }
                 }
             }
-            if parsed.len() > ctx.max_findings {
+            if parsed.len() > ctx.max_assessments {
                 problems.push(format!(
                     "{} findings exceed the cap of {}",
                     parsed.len(),
-                    ctx.max_findings
+                    ctx.max_assessments
                 ));
             }
             if problems.is_empty() {
@@ -258,7 +255,7 @@ pub async fn author_findings(
 /// corrective retry).
 pub async fn draft_proposal(
     client: &ZaiClient,
-    finding: &Finding,
+    finding: &Assessment,
     evidence: &[String],
     base_block: &str,
     named_refs: &[String],
@@ -266,7 +263,7 @@ pub async fn draft_proposal(
 ) -> Result<Proposal, StepError> {
     let system = prompts::render(&prompts::load(prompts::PROPOSE)?, &[("guidance", guidance)]);
     let user = format!(
-        "Finding {} (loop {}): {}\nProposed fix: {}\nEvidence quotes (verbatim):\n{}\n\nBase wikitext block:\n{}\n\nNamed refs on the page: {}",
+        "Assessment {} (loop {}): {}\nProposed fix: {}\nEvidence quotes (verbatim):\n{}\n\nBase wikitext block:\n{}\n\nNamed refs on the page: {}",
         finding.id,
         finding.loop_id,
         finding.factual_note,

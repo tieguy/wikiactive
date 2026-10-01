@@ -8,15 +8,15 @@ use std::time::Duration;
 
 use httpmock::MockServer;
 use wikiloop::driver::model::ZaiClient;
+use wikiloop::driver::steps::AssessContext;
 use wikiloop::driver::steps::DriverComment;
-use wikiloop::driver::steps::FindingsContext;
 use wikiloop::driver::steps::SourceDigest;
 use wikiloop::driver::steps::StepError;
-use wikiloop::driver::steps::author_findings;
+use wikiloop::driver::steps::assess;
 use wikiloop::driver::steps::draft_proposal;
 use wikiloop::driver::steps::resolve_comments;
 use wikiloop::driver::steps::review_draft;
-use wikiloop::session::Finding;
+use wikiloop::session::Assessment;
 
 /// Wrap model `content` in the chat-completions response shape.
 fn completion(content: &str) -> serde_json::Value {
@@ -37,10 +37,10 @@ fn guidance() -> String {
     wikiloop::rules::guidance_for_loop(&corpus, 2).unwrap()
 }
 
-fn ctx() -> FindingsContext {
+fn ctx() -> AssessContext {
     // Real corpus guidance: what the serve handlers pass — tier-1
     // verbatim + this loop's cards.
-    FindingsContext {
+    AssessContext {
         article: "Sarah Kidder".into(),
         base_wikitext: "Born Sarah A. Clark in Ohio, Kidder married John Flint Kidder in 1874."
             .into(),
@@ -55,13 +55,13 @@ fn ctx() -> FindingsContext {
         }],
         quote_ids: vec!["Q1".into()],
         entry_loop: 2,
-        max_findings: 2,
+        max_assessments: 2,
         guidance: guidance(),
     }
 }
 
 const VALID_FINDINGS: &str = r#"```json
-[{"id":"F1","wikitext_anchor":"L1:C0-L1:C74","rules":["WP:V"],
+[{"id":"AS1","wikitext_anchor":"L1:C0-L1:C74","rules":["WP:V"],
   "evidence":["Q1"],"factual_note":"The obituary supports 1874.",
   "proposed_fix":"Cite the marriage year to the obituary.","loop":2}]
 ```"#;
@@ -70,13 +70,13 @@ const VALID_FINDINGS: &str = r#"```json
 /// prompt template reached the wire (the mock only matches a body that
 /// carries the filled slots and the ledger quote-id list).
 #[tokio::test]
-async fn author_findings_accepts_valid_output() {
+async fn assess_accepts_valid_output() {
     let server = MockServer::start_async().await;
     let mock = server
         .mock_async(|when, then| {
             when.method(httpmock::Method::POST)
                 .path("/chat/completions")
-                .body_includes("at most 2") // max_findings slot
+                .body_includes("at most 2") // max_assessments slot
                 .body_includes("Loop 2 discipline") // rendered template body
                 .body_includes("Cluster A") // tier-1 guidance rides the prompt
                 .body_includes("Registered quote ids (evidence must cite among these): Q1");
@@ -84,11 +84,11 @@ async fn author_findings_accepts_valid_output() {
         })
         .await;
 
-    let findings = author_findings(&client(&server), &ctx())
+    let findings = assess(&client(&server), &ctx())
         .await
         .expect("valid output");
     assert_eq!(findings.len(), 1);
-    assert_eq!(findings[0].id, "F1");
+    assert_eq!(findings[0].id, "AS1");
     assert_eq!(findings[0].evidence, vec!["Q1".to_string()]);
     assert_eq!(mock.calls(), 1);
 }
@@ -103,16 +103,16 @@ async fn malformed_output_retried_once_then_blocked() {
             when.method(httpmock::Method::POST)
                 .path("/chat/completions");
             then.status(200)
-                .json_body(completion("I think the best finding here is F1 because…"));
+                .json_body(completion("I think the best finding here is AS1 because…"));
         })
         .await;
 
-    let err = author_findings(&client(&server), &ctx())
+    let err = assess(&client(&server), &ctx())
         .await
         .expect_err("garbage stays garbage");
     match err {
         StepError::Malformed { step, problems } => {
-            assert_eq!(step, "author_findings");
+            assert_eq!(step, "assess");
             assert!(problems.contains("not valid JSON"), "{problems}");
         }
         other => panic!("expected Malformed, got {other:?}"),
@@ -161,7 +161,7 @@ async fn malformed_then_valid_recovers() {
     // racy under full-suite load).
     let c = ZaiClient::with_base(&server.url(""), "glm-5.3", "test-key")
         .with_retry_delays(vec![Duration::from_millis(750)]);
-    let task = tokio::spawn(async move { author_findings(&c, &ctx()).await });
+    let task = tokio::spawn(async move { assess(&c, &ctx()).await });
     while garbage.calls() == 0 {
         tokio::time::sleep(Duration::from_millis(2)).await;
     }
@@ -187,12 +187,12 @@ async fn fabricated_quote_id_is_blocked() {
         })
         .await;
 
-    let err = author_findings(&client(&server), &ctx())
+    let err = assess(&client(&server), &ctx())
         .await
         .expect_err("Q99 is not in the ledger");
     match err {
         StepError::Malformed { step, problems } => {
-            assert_eq!(step, "author_findings");
+            assert_eq!(step, "assess");
             assert!(problems.contains("Q99"), "{problems}");
             assert!(
                 problems.contains("not a registered ledger quote"),
@@ -219,8 +219,8 @@ async fn draft_proposal_contract() {
             ));
         })
         .await;
-    let finding = Finding {
-        id: "F1".into(),
+    let finding = Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L1:C0-L1:C74".into(),
         rendered_span_id: None,
         rules: vec!["WP:V".into()],

@@ -672,8 +672,8 @@ fn sources_section(slug: &str, ledger: &Ledger) -> String {
 /// The model-drafting step: how many findings exist, whether an edit is
 /// staged, and the two judgment-point actions.
 fn draft_section(slug: &str, dir: &std::path::Path) -> String {
-    let findings = crate::session::FindingsFile::load(&dir.join("findings.json"))
-        .map_or(0, |f| f.findings.len());
+    let findings = crate::session::AssessmentsFile::load(&dir.join("assessments.json"))
+        .map_or(0, |f| f.assessments.len());
     let base = std::fs::read_to_string(dir.join("base.wikitext")).unwrap_or_default();
     let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).unwrap_or_default();
     let staged = !proposed.trim().is_empty() && proposed != base;
@@ -1862,7 +1862,7 @@ fn rule_review_display(
 }
 
 async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
-    use crate::driver::steps::FindingsContext;
+    use crate::driver::steps::AssessContext;
     use crate::driver::steps::SourceDigest;
     let dir = session_dir(slug);
     let Ok(ledger) = Ledger::load(&dir.join("ledger.json")) else {
@@ -1882,7 +1882,7 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
         Ok(g) => g,
         Err(e) => return e,
     };
-    let ctx = FindingsContext {
+    let ctx = AssessContext {
         article: meta.article,
         base_wikitext: base,
         sources: ledger
@@ -1907,27 +1907,27 @@ async fn run_driver_findings(state: &Arc<ServeState>, slug: &str) -> String {
             .collect(),
         quote_ids: ledger.quotes.iter().map(|q| q.id.clone()).collect(),
         entry_loop: meta.entry_loop,
-        max_findings: 3,
+        max_assessments: 3,
         guidance,
     };
     let zai = match state.zai_client() {
         Ok(z) => z,
         Err(e) => return format!("driver findings: {e}"),
     };
-    match crate::driver::steps::author_findings(&zai, &ctx).await {
+    match crate::driver::steps::assess(&zai, &ctx).await {
         Ok(findings) => {
             // Same admission as `wa findings add`: validate (the step
             // already did) and append without duplicate ids.
-            let path = dir.join("findings.json");
-            let mut file = crate::session::FindingsFile::load(&path).unwrap_or_default();
+            let path = dir.join("assessments.json");
+            let mut file = crate::session::AssessmentsFile::load(&path).unwrap_or_default();
             for f in findings {
-                if file.findings.iter().any(|e| e.id == f.id) {
+                if file.assessments.iter().any(|e| e.id == f.id) {
                     continue;
                 }
-                file.findings.push(f);
+                file.assessments.push(f);
             }
             match file.save(&path) {
-                Ok(()) => format!("driver findings: {} in the session", file.findings.len()),
+                Ok(()) => format!("driver findings: {} in the session", file.assessments.len()),
                 Err(e) => format!("driver findings: save failed: {e}"),
             }
         }
@@ -1952,10 +1952,10 @@ async fn driver_propose(
 
 async fn run_driver_propose(state: &Arc<ServeState>, slug: &str) -> String {
     let dir = session_dir(slug);
-    let Ok(file) = crate::session::FindingsFile::load(&dir.join("findings.json")) else {
+    let Ok(file) = crate::session::AssessmentsFile::load(&dir.join("assessments.json")) else {
         return "driver propose: no findings".into();
     };
-    let Some(finding) = file.findings.first() else {
+    let Some(finding) = file.assessments.first() else {
         return "driver propose: no findings".into();
     };
     let Ok(base) = std::fs::read_to_string(dir.join("base.wikitext")) else {
@@ -2666,11 +2666,11 @@ fn gate_report(slug: &str) -> Option<String> {
     let corpus = crate::rules::RulesCorpus::load(std::path::Path::new("rules")).ok()?;
     let base = std::fs::read_to_string(dir.join("base.wikitext")).ok()?;
     let proposed = std::fs::read_to_string(dir.join("proposed.wikitext")).ok()?;
-    let findings = crate::session::FindingsFile::load(&dir.join("findings.json")).ok()?;
+    let findings = crate::session::AssessmentsFile::load(&dir.join("assessments.json")).ok()?;
     let ledger = Ledger::load(&dir.join("ledger.json")).ok()?;
     let verdict = run_gate(&GateInput {
         ledger: &ledger,
-        findings: &findings.findings,
+        assessments: &findings.assessments,
         base_wikitext: &base,
         proposed_wikitext: &proposed,
         linter_config: &corpus.linter,

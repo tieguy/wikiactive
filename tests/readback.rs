@@ -61,7 +61,7 @@ async fn publish_world(name: &str) -> (PathBuf, PathBuf, MockServer) {
     .unwrap();
     std::fs::write(session.join("base.wikitext"), "old text\n").unwrap();
     std::fs::write(session.join("proposed.wikitext"), "new text\n").unwrap();
-    std::fs::write(session.join("findings.json"), r#"{"findings":[]}"#).unwrap();
+    std::fs::write(session.join("assessments.json"), r#"{"assessments":[]}"#).unwrap();
     std::fs::write(
         session.join("ledger.json"),
         r#"{"schema_version":1,"sources":[],"quotes":[],"claims":[]}"#,

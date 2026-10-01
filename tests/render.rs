@@ -6,7 +6,7 @@ use wikiloop::ledger::Ledger;
 use wikiloop::render::RenderInput;
 use wikiloop::render::RevisionEntry;
 use wikiloop::render::render;
-use wikiloop::session::Finding;
+use wikiloop::session::Assessment;
 
 /// Strip the `C` prefix from an anchor column part ("C447" → "447").
 fn col_of(p: &str) -> &str {
@@ -99,7 +99,7 @@ fn ac5_golden_render_against_recorded_parsoid() {
         proposed_wikitext: &proposed_wt,
         base_html: &base_html,
         proposed_html: &proposed_html,
-        findings: &[],
+        assessments: &[],
         ledger: &ledger,
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
@@ -179,8 +179,8 @@ fn ac5_evidence_rail_quote_resolves_into_ledger() {
     let qid = ledger
         .add_quote(&sid, "sold three million copies in Japan by 1986")
         .unwrap();
-    let finding = Finding {
-        id: "F1".into(),
+    let finding = Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L3:C0-L3:C80".into(),
         rendered_span_id: None,
         rules: vec!["WP:V".into()],
@@ -203,7 +203,7 @@ fn ac5_evidence_rail_quote_resolves_into_ledger() {
         proposed_wikitext: prop_wt,
         base_html,
         proposed_html: prop_html,
-        findings: std::slice::from_ref(&finding),
+        assessments: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
@@ -227,7 +227,7 @@ fn ac5_evidence_rail_quote_resolves_into_ledger() {
     assert!(ledger.quote(qid_str).is_some(), "quote resolves");
     // The rendered_span_id was back-filled.
     assert_eq!(
-        out.updated_findings[0].rendered_span_id.as_deref(),
+        out.updated_assessments[0].rendered_span_id.as_deref(),
         Some("ev-1")
     );
 }
@@ -244,8 +244,8 @@ fn ac11_failing_evidence_blocks_render_no_artifact() {
     let _qid = ledger.add_quote(&sid, "Real source text").unwrap();
     // Tamper: the stored quote no longer re-locates.
     ledger.quotes[0].text = "Fabricated quote that is nowhere in the source".into();
-    let finding = Finding {
-        id: "F1".into(),
+    let finding = Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L1:C0-L1:C10".into(),
         rendered_span_id: None,
         rules: vec!["WP:V".into()],
@@ -262,7 +262,7 @@ fn ac11_failing_evidence_blocks_render_no_artifact() {
         proposed_wikitext: "new",
         base_html: "<html><body><p>old</p></body></html>",
         proposed_html: "<html><body><p>new</p></body></html>",
-        findings: std::slice::from_ref(&finding),
+        assessments: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
@@ -296,8 +296,8 @@ fn comment_form_targets_match_the_anchor_table_verbatim_all_three_families() {
     let qid = ledger
         .add_quote(&sid, "sold three million copies in Japan by 1986")
         .unwrap();
-    let finding = Finding {
-        id: "F1".into(),
+    let finding = Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L1:C0-L1:C80".into(),
         rendered_span_id: None,
         rules: vec!["WP:V".into()],
@@ -320,7 +320,7 @@ fn comment_form_targets_match_the_anchor_table_verbatim_all_three_families() {
         proposed_wikitext: prop_wt,
         base_html,
         proposed_html: prop_html,
-        findings: std::slice::from_ref(&finding),
+        assessments: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
@@ -423,7 +423,7 @@ fn old_side_forms_survive_link_containing_blocks() {
         proposed_wikitext: prop_wt,
         base_html,
         proposed_html: prop_html,
-        findings: &[],
+        assessments: &[],
         ledger: &Ledger::default(),
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
@@ -484,8 +484,8 @@ fn fetch_state_glyphs_and_text_statuses() {
         .unwrap();
     // Consulted, could not be fetched.
     let _s4 = ledger.register_source("https://example.com/gone", "2026-09-24", None);
-    let finding = Finding {
-        id: "F1".into(),
+    let finding = Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L1:C0-L1:C60".into(),
         rendered_span_id: None,
         rules: vec![],
@@ -502,7 +502,7 @@ fn fetch_state_glyphs_and_text_statuses() {
         proposed_wikitext: "The bridge opened to traffic in 1888.\n",
         base_html: "<html><body><p>old</p></body></html>",
         proposed_html: "<html><body><p>The bridge opened to traffic in 1888.</p></body></html>",
-        findings: std::slice::from_ref(&finding),
+        assessments: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
@@ -569,8 +569,8 @@ fn archive_line_three_branches() {
         .attach_fetched_text(&s3, "Live source text three.")
         .unwrap();
     let q3 = ledger.add_quote(&s3, "Live source text three").unwrap();
-    let finding = Finding {
-        id: "F1".into(),
+    let finding = Assessment {
+        id: "AS1".into(),
         wikitext_anchor: "L1:C0-L1:C60".into(),
         rendered_span_id: None,
         rules: vec![],
@@ -587,7 +587,7 @@ fn archive_line_three_branches() {
         proposed_wikitext: "new\n",
         base_html: "<html><body><p>old</p></body></html>",
         proposed_html: "<html><body><p>new</p></body></html>",
-        findings: std::slice::from_ref(&finding),
+        assessments: std::slice::from_ref(&finding),
         ledger: &ledger,
         linter_config: &linter(),
         paraphrase_config: &paraphrase(),
