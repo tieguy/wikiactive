@@ -1,4 +1,4 @@
-//! AC.3 (MVP-2 A.2.1) — `wa check <slug>`: standalone gate run with
+//! loopmech.AC6.3 — `wa audit <slug>`: the deterministic gate run with
 //! structured, disposition-grouped output. A gate-failing proposal exits
 //! non-zero with the NEEDS ANCHOR / HARD BLOCK report and writes NO
 //! artifact; a clean one passes without rendering.
@@ -25,7 +25,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 fn setup_session(findings: &str, base: &str, proposed: &str) -> PathBuf {
     static NEXT_ID: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!("wa-check-cli-{id}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("wa-audit-cli-{id}-{}", std::process::id()));
     let session = dir.join("sessions/test-article");
     std::fs::create_dir_all(&session).unwrap();
     std::fs::write(
@@ -48,7 +48,7 @@ fn setup_session(findings: &str, base: &str, proposed: &str) -> PathBuf {
 fn wa(dir: &Path) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_wa"))
         .current_dir(dir)
-        .args(["check", "test-article"])
+        .args(["audit", "test-article"])
         .output()
         .unwrap()
 }
@@ -86,7 +86,7 @@ fn blocked_proposal_reports_disposition_groups_without_artifact() {
     );
     assert!(
         stdout.contains("no artifact written"),
-        "check never renders: {stdout}"
+        "audit never renders: {stdout}"
     );
     assert!(
         !dir.join("sessions/test-article/review.html").exists(),
@@ -116,7 +116,7 @@ fn clean_proposal_passes_without_artifact() {
     );
 }
 
-/// Rule-enforcement item 4: `wa check` prints warn-level lint findings
+/// Rule-enforcement item 4: `wa audit` prints warn-level lint findings
 /// under a WARNINGS heading after the gate report — advisory, the gate
 /// itself still passes (established: `run_gate` keeps only error-severity
 /// findings as reasons, so warnings were invisible before).
@@ -218,7 +218,7 @@ fn write_ledger_with_sweep(dir: &Path, status: &str) {
     std::fs::write(dir.join("sessions/test-article/ledger.json"), ledger).unwrap();
 }
 
-/// A swept session with an unresolved source blocks at `wa check` with a
+/// A swept session with an unresolved source blocks at `wa audit` with a
 /// `SweepSourceUnresolved` reason naming source and status, grouped as
 /// anchor work; the operator's `wa fetch dispose` unblocks.
 #[test]
@@ -338,5 +338,64 @@ fn sweep_auto_dispositioned_print_source_passes() {
         out.status.success(),
         "auto-dispositioned print source passes: {}",
         String::from_utf8_lossy(&out.stdout)
+    );
+}
+
+// ------------------------------------------- loop-mechanization AC6.3 retirements
+
+/// The retired `wa check` and `wa review` fail with pointers at the audit
+/// surface; they never dispatch.
+#[test]
+fn retired_check_and_review_fail_with_pointers() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    for args in [
+        vec!["check", "test-article"],
+        vec!["check"],
+        vec!["review", "test-article"],
+        vec!["review"],
+    ] {
+        let out = wa_args(&dir, &args);
+        assert!(!out.status.success(), "{args:?} must fail");
+        let text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            text.contains("wa audit"),
+            "pointer to the replacement missing: {text}"
+        );
+    }
+    // The refused dispatches wrote no artifact.
+    assert!(!dir.join("sessions/test-article/review.html").exists());
+}
+
+/// `wa audit --llm <slug>` is the renamed rule-review pass (still on
+/// demand in Phase 1): with no current artifact it refuses exactly like
+/// the old `wa review` did.
+#[test]
+fn audit_llm_without_artifact_refuses_like_review_did() {
+    let dir = setup_session(
+        r#"{"assessments":[]}"#,
+        "The tower is old.\n",
+        "The tower is older than it looks.\n",
+    );
+    let out = wa_args(&dir, &["audit", "--llm", "test-article"]);
+    assert!(
+        !out.status.success(),
+        "no artifact => the diagnosis pass cannot run"
+    );
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        text.contains("no current review artifact") || text.contains("render first"),
+        "refusal names the artifact prerequisite: {text}"
     );
 }

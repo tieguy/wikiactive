@@ -108,10 +108,30 @@ pub enum Command {
         #[command(subcommand)]
         cmd: CommentsCmd,
     },
-    /// Rule review (rule-enforcement item 5): a model pass reads the
-    /// drafted text against the tier-1 rules and this loop's cards —
-    /// clause-by-clause advice, on demand, never a gate.
-    Review { slug: String },
+    /// Audit the draft: the deterministic gate (ledger wiring, linter,
+    /// paraphrase, anchors) with structured, disposition-grouped output;
+    /// writes NO artifact (render-on-pass is Phase 2). `--llm` runs the
+    /// model diagnosis pass (rule review) against the current artifact
+    /// instead — on demand, never a gate.
+    Audit {
+        slug: String,
+        #[arg(long)]
+        llm: bool,
+    },
+    /// Retired name (loop-mechanization Phase 1): the audit. Always fails
+    /// with a pointer; never dispatches.
+    #[command(hide = true)]
+    Check {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _rest: Vec<String>,
+    },
+    /// Retired name (loop-mechanization Phase 1): `wa audit --llm`.
+    /// Always fails with a pointer; never dispatches.
+    #[command(hide = true)]
+    Review {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        _rest: Vec<String>,
+    },
     /// Publish the proposed edit (gate re-run + /dev/tty confirm).
     Publish {
         slug: String,
@@ -125,10 +145,6 @@ pub enum Command {
     },
     /// Whole-page lint scan (pre-existing defects; also used by replay).
     Lint { path: PathBuf },
-    /// Standalone gate run against the session's proposed edit: structured,
-    /// disposition-grouped output; writes NO artifact (fail-fast preflight
-    /// before the render attempt).
-    Check { slug: String },
     /// Append this session's entry to the disclosure page log (idempotent;
     /// uses house-rules disclosure page).
     DisclosureLog {
@@ -381,31 +397,47 @@ pub async fn run(cli: Cli) -> Result<()> {
             CommentsCmd::Resolve { slug, id, note } => comments_resolve(&slug, &id, &note),
         },
         Command::Publish { slug, summary } => publish_cmd(&slug, &summary).await,
-        Command::Review { slug } => review_cmd(&slug).await,
-        Command::Ledger { cmd } => match cmd {
-            LedgerCmd::Register {
-                slug,
-                url,
-                title,
-                work,
-            } => ledger_register(&slug, &url, title.as_deref(), work.as_deref()),
-            LedgerCmd::Fetch { slug, source } => ledger_fetch(&slug, &source).await,
-            LedgerCmd::Archive { slug, source } => ledger_archive(&slug, &source).await,
-            LedgerCmd::Quote { slug, source, text } => ledger_quote(&slug, &source, &text),
-            LedgerCmd::Attach { slug, source, file } => ledger_attach(&slug, &source, &file),
-            LedgerCmd::Claim {
-                slug,
-                prose,
-                quotes,
-            } => ledger_claim(&slug, &prose, &quotes),
-        },
+        Command::Audit { slug, llm } => {
+            if llm {
+                rule_review_cmd(&slug).await
+            } else {
+                audit_cmd(&slug)
+            }
+        }
+        Command::Check { .. } => anyhow::bail!(
+            "`wa check` is now `wa audit <slug>` — the same deterministic gate (no artifact)"
+        ),
+        Command::Review { .. } => anyhow::bail!(
+            "`wa review` is now `wa audit --llm <slug>` — the on-demand model diagnosis pass"
+        ),
+        Command::Ledger { cmd } => ledger_dispatch(cmd).await,
         Command::Lint { path } => lint_cmd(&path),
-        Command::Check { slug } => check_cmd(&slug),
         Command::DisclosureLog {
             slug,
             entry,
             marker,
         } => disclosure_log_cmd(&slug, &entry, &marker).await,
+    }
+}
+
+/// Dispatch the ledger subcommands (source-registration operations).
+async fn ledger_dispatch(cmd: LedgerCmd) -> Result<()> {
+    match cmd {
+        LedgerCmd::Register {
+            slug,
+            url,
+            title,
+            work,
+        } => ledger_register(&slug, &url, title.as_deref(), work.as_deref()),
+        LedgerCmd::Fetch { slug, source } => ledger_fetch(&slug, &source).await,
+        LedgerCmd::Archive { slug, source } => ledger_archive(&slug, &source).await,
+        LedgerCmd::Quote { slug, source, text } => ledger_quote(&slug, &source, &text),
+        LedgerCmd::Attach { slug, source, file } => ledger_attach(&slug, &source, &file),
+        LedgerCmd::Claim {
+            slug,
+            prose,
+            quotes,
+        } => ledger_claim(&slug, &prose, &quotes),
     }
 }
 
@@ -1393,11 +1425,11 @@ pub async fn publish_core(
     })
 }
 
-/// `wa review <slug>` — the rule-review judgment point, tty path
-/// (rule-enforcement item 5): advice printed here and stored beside the
-/// session (`rule-review.json`, keyed by round) for the review page to
-/// show. Never a gate, on demand only.
-async fn review_cmd(slug: &str) -> Result<()> {
+/// `wa audit --llm <slug>` — the model diagnosis pass (rule-enforcement
+/// item 5, renamed from `wa review`): clause-cited advice printed here and
+/// stored beside the session (`rule-review.json`, keyed by round) for the
+/// review page to show. Never a gate, on demand only.
+async fn rule_review_cmd(slug: &str) -> Result<()> {
     use crate::driver::steps::ConcernVerdict;
     let (paths, meta) = load_session(slug)?;
     let corpus =
@@ -1641,12 +1673,12 @@ async fn disclosure_log_cmd(slug: &str, entry: &str, marker: &str) -> Result<()>
     Ok(())
 }
 
-/// `wa check <slug>` — standalone gate run (fail-fast preflight): the same
+/// `wa audit <slug>` — the deterministic draft-side examination: the same
 /// gate as render's mandatory pre-flight, run without any artifact attempt
 /// and without opening a session. Output is the structured, disposition-
 /// grouped report; exits non-zero when blocked so the driver can iterate
 /// cheaply before rendering.
-fn check_cmd(slug: &str) -> Result<()> {
+fn audit_cmd(slug: &str) -> Result<()> {
     use std::fmt::Write as _;
     let (paths, _meta) = load_session(slug)?;
     let corpus =
@@ -1698,10 +1730,10 @@ fn check_cmd(slug: &str) -> Result<()> {
         let mut report = crate::checks::gate::format_reasons(&verdict.reasons);
         print_warnings(&mut report);
         print!("{report}");
-        println!("\nno artifact written (wa check never renders)");
+        println!("\nno artifact written (the audit never renders)");
         anyhow::bail!("gate blocked");
     }
-    println!("gate: PASS — the proposal is renderable (no artifact written by check)");
+    println!("gate: PASS — the proposal is sound (no artifact written by audit)");
     let mut out = String::new();
     print_warnings(&mut out);
     print!("{out}");
