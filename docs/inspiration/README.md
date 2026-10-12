@@ -16,7 +16,8 @@ not as ground truth.
 
 - An LLM wrote much of the text during working sessions. An evaluation or a
   plan in these files is not necessarily the opinion of the repository owner.
-- The designs were not built as written.
+- A TypeScript implementation of some of these designs existed in the
+  workspace. That code is not in this copy, and wikiactive does not use it.
 - A statement about another project describes that project on the date of the
   document. That project may have changed after that date.
 - The files in `wikiharness/blog/` are drafts.
